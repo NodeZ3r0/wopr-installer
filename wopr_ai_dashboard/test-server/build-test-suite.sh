@@ -3,6 +3,7 @@ set -e
 root="/opt/wopr_ai_dashboard"
 mkdir -p "$root/test-server"
 cd "$root/test-server"
+# Auto-deploy test $(date)
 
 # 00-nebula-install.sh
 cat >00-nebula-install.sh <<'SH'
