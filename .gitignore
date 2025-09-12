@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.egg-info/
+*.log
+
+# Virtual environments
+venv/
+env/
+ENV/
+*.venv/
+
+# Node / Dashboards
+node_modules/
+dist/
+build/
+
+# AI models (too large for Git)
+*.pt
+*.bin
+*.safetensors
+*.onnx
+models/
+checkpoints/
+
+# Secrets and certs
+*.crt
+*.key
+secrets/
+
+# System junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
