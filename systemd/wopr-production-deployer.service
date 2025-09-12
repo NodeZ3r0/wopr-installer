@@ -1,0 +1,11 @@
+[Unit]
+Description=WOPR Production Deployer (mesh-native)
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/sleep infinity
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Nebula Mesh
+After=network-online.target
+Wants=network-online.target
+[Service]
+ExecStart=/usr/local/sbin/nebula -config /etc/nebula/config.yml
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

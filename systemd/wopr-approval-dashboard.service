@@ -1,0 +1,12 @@
+[Unit]
+Description=WOPR Approval Dashboard
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/wopr-approval-dashboard
+ExecStart=/opt/wopr-approval-dashboard/venv/bin/python /opt/wopr-approval-dashboard/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
