@@ -212,24 +212,31 @@ step_select_bundle() {
 step_enable_modules() {
     wopr_progress 5 16 "Enabling bundle modules..."
 
-    local modules
+    # Map bundle to actual module scripts
+    # Infrastructure modules are always included: postgresql, redis, authentik, caddy
+    local app_modules
     case "$WOPR_BUNDLE" in
         personal)
-            modules="file_storage documents passwords rss"
+            # Personal: Files, Passwords, RSS reader
+            app_modules="nextcloud vaultwarden freshrss"
             ;;
         creator)
-            modules="file_storage documents passwords ecommerce blogging"
+            # Creator: Personal + e-commerce + blogging
+            app_modules="nextcloud vaultwarden freshrss ghost"
             ;;
         developer)
-            modules="file_storage documents passwords ci_cd developer_git reactor_ai"
+            # Developer: Personal + Git + CI + AI assistant
+            app_modules="nextcloud vaultwarden freshrss forgejo woodpecker reactor_ai"
             ;;
         professional)
-            modules="file_storage documents passwords ecommerce blogging ci_cd developer_git reactor_ai chat video_conferencing office wiki project_management"
+            # Professional: Everything
+            app_modules="nextcloud vaultwarden freshrss ghost forgejo woodpecker reactor_ai mattermost jitsi onlyoffice bookstack"
             ;;
     esac
 
-    wopr_setting_set "enabled_modules" "$modules"
-    wopr_log "OK" "Modules enabled: $modules"
+    wopr_setting_set "app_modules" "$app_modules"
+    wopr_setting_set "infra_modules" "postgresql redis authentik"
+    wopr_log "OK" "App modules enabled: $app_modules"
 }
 
 #=================================================
@@ -293,52 +300,62 @@ step_human_confirmation() {
 }
 
 #=================================================
-# STEP 8: DEPLOY MODULES
+# STEP 8: DEPLOY INFRASTRUCTURE MODULES
 #=================================================
 
-step_deploy_modules() {
-    wopr_progress 8 16 "Deploying modules..."
+step_deploy_infrastructure() {
+    wopr_progress 8 16 "Deploying infrastructure modules..."
 
-    local modules=$(wopr_setting_get "enabled_modules")
+    # Deploy infrastructure modules in order (dependencies matter)
+    local infra_modules="postgresql redis authentik"
 
-    for module in $modules; do
-        wopr_log "INFO" "Deploying module: $module"
+    for module in $infra_modules; do
+        wopr_log "INFO" "Deploying infrastructure: $module"
         wopr_defcon_log "MODULE_DEPLOY_START" "$module"
 
-        # Each module has its own deployment script
         local module_script="${SCRIPT_DIR}/modules/${module}.sh"
         if [ -f "$module_script" ]; then
             source "$module_script"
-            wopr_deploy_${module//-/_} || wopr_die "Failed to deploy module: $module"
+            if ! wopr_deploy_${module}; then
+                wopr_die "Failed to deploy infrastructure module: $module"
+            fi
         else
-            wopr_log "WARN" "Module script not found: $module (will be installed later)"
+            wopr_die "Infrastructure module script not found: $module_script"
         fi
 
         wopr_defcon_log "MODULE_DEPLOY_COMPLETE" "$module"
     done
 
-    wopr_log "OK" "All modules deployed"
+    wopr_log "OK" "Infrastructure modules deployed"
 }
 
 #=================================================
-# STEP 9: CONFIGURE AUTHENTIK
+# STEP 9: DEPLOY APPLICATION MODULES
 #=================================================
 
-step_configure_authentik() {
-    wopr_progress 9 16 "Configuring Authentik..."
+step_deploy_applications() {
+    wopr_progress 9 16 "Deploying application modules..."
 
-    # Pull and start Authentik container
-    wopr_log "INFO" "Starting Authentik..."
+    local app_modules=$(wopr_setting_get "app_modules")
 
-    # Create Authentik directories
-    mkdir -p "${WOPR_DATA_DIR}/authentik/media"
-    mkdir -p "${WOPR_DATA_DIR}/authentik/templates"
+    for module in $app_modules; do
+        wopr_log "INFO" "Deploying application: $module"
+        wopr_defcon_log "MODULE_DEPLOY_START" "$module"
 
-    # Generate secrets
-    local ak_secret_key=$(wopr_random_string 64)
-    wopr_setting_set "authentik_secret_key" "$ak_secret_key"
+        local module_script="${SCRIPT_DIR}/modules/${module}.sh"
+        if [ -f "$module_script" ]; then
+            source "$module_script"
+            if ! wopr_deploy_${module}; then
+                wopr_log "WARN" "Failed to deploy module: $module (continuing)"
+            fi
+        else
+            wopr_log "WARN" "Module script not found: $module (will be available in future release)"
+        fi
 
-    wopr_log "OK" "Authentik configured"
+        wopr_defcon_log "MODULE_DEPLOY_COMPLETE" "$module"
+    done
+
+    wopr_log "OK" "Application modules deployed"
 }
 
 #=================================================
@@ -351,56 +368,118 @@ step_configure_caddy() {
     # Create Caddy directories
     mkdir -p "${WOPR_DATA_DIR}/caddy/snapshots"
 
-    # Configure Caddy for admin API
+    local admin_email=$(wopr_setting_get "admin_email")
+    if [ -z "$admin_email" ]; then
+        admin_email="admin@${WOPR_DOMAIN}"
+    fi
+
+    # Build comprehensive Caddyfile with all routes
     cat > /etc/caddy/Caddyfile << EOF
 {
     admin 127.0.0.1:2019
-    email admin@${WOPR_DOMAIN}
+    email ${admin_email}
 }
 
+# Main domain - redirect to dashboard
 ${WOPR_DOMAIN} {
-    respond "WOPR Sovereign Suite - Installation in progress" 200
+    redir https://dashboard.${WOPR_DOMAIN}{uri} permanent
+}
+
+# Dashboard
+dashboard.${WOPR_DOMAIN} {
+    root * /var/www/wopr-dashboard
+    file_server
+
+    # API routes proxy to dashboard API
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8090
+    }
+
+    # SPA fallback
+    try_files {path} /index.html
+}
+
+# Authentik - Identity Provider
+auth.${WOPR_DOMAIN} {
+    reverse_proxy 127.0.0.1:9000
+}
+
+# Nextcloud - Files
+files.${WOPR_DOMAIN} {
+    reverse_proxy 127.0.0.1:8080
+}
+
+# Vaultwarden - Passwords
+vault.${WOPR_DOMAIN} {
+    reverse_proxy 127.0.0.1:8081
+}
+
+# FreshRSS - RSS Reader
+rss.${WOPR_DOMAIN} {
+    reverse_proxy 127.0.0.1:8082
 }
 EOF
 
     systemctl restart caddy
-    wopr_log "OK" "Caddy configured with admin API on 127.0.0.1:2019"
+    wopr_log "OK" "Caddy configured with all routes"
 }
 
 #=================================================
-# STEP 11: CONFIGURE POSTGRESQL
+# STEP 11: DEPLOY DASHBOARD
 #=================================================
 
-step_configure_postgresql() {
-    wopr_progress 11 16 "Configuring PostgreSQL..."
+step_deploy_dashboard() {
+    wopr_progress 11 16 "Deploying dashboard..."
 
-    # Pull PostgreSQL container
-    wopr_container_pull "docker.io/library/postgres:15-alpine"
+    local dashboard_script="${SCRIPT_DIR}/modules/dashboard.sh"
+    if [ -f "$dashboard_script" ]; then
+        source "$dashboard_script"
+        wopr_deploy_dashboard
+    else
+        wopr_log "WARN" "Dashboard script not found, creating placeholder"
+        mkdir -p /var/www/wopr-dashboard
+        echo "<h1>WOPR Dashboard</h1><p>Coming soon</p>" > /var/www/wopr-dashboard/index.html
+    fi
 
-    # Generate password
-    local pg_password=$(wopr_random_string 32)
-    wopr_setting_set "postgresql_password" "$pg_password"
-
-    # Create data directory
-    mkdir -p "${WOPR_DATA_DIR}/postgresql/data"
-
-    wopr_log "OK" "PostgreSQL configured"
+    wopr_log "OK" "Dashboard deployed"
 }
 
 #=================================================
-# STEP 12: CONFIGURE REDIS
+# STEP 12: SETUP AUTHENTIK SSO
 #=================================================
 
-step_configure_redis() {
-    wopr_progress 12 16 "Configuring Redis..."
+step_setup_sso() {
+    wopr_progress 12 16 "Setting up Single Sign-On..."
 
-    # Pull Redis container
-    wopr_container_pull "docker.io/library/redis:7-alpine"
+    # Wait for Authentik to be ready
+    wopr_authentik_wait_ready
 
-    # Create data directory
-    mkdir -p "${WOPR_DATA_DIR}/redis/data"
+    # Setup WOPR groups
+    wopr_authentik_setup_wopr_groups
 
-    wopr_log "OK" "Redis configured"
+    # Register applications with Authentik for SSO
+    local app_modules=$(wopr_setting_get "app_modules")
+    local domain=$(wopr_setting_get "domain")
+
+    for module in $app_modules; do
+        case "$module" in
+            nextcloud)
+                wopr_authentik_register_app "Nextcloud" "nextcloud" "files"
+                ;;
+            vaultwarden)
+                # Vaultwarden uses its own auth, but we can add SSO later
+                wopr_log "INFO" "Vaultwarden configured with its own authentication"
+                ;;
+            freshrss)
+                wopr_authentik_register_app "FreshRSS" "freshrss" "rss"
+                ;;
+            *)
+                wopr_log "INFO" "SSO for $module will be configured when module is implemented"
+                ;;
+        esac
+    done
+
+    wopr_log "OK" "SSO configured"
 }
 
 #=================================================
@@ -463,6 +542,9 @@ step_finalize() {
     wopr_setting_set "install_complete" "true"
     wopr_setting_set "install_timestamp" "$(date -Iseconds)"
 
+    # Get admin password for display
+    local ak_admin_pass=$(wopr_setting_get "authentik_admin_password")
+
     echo ""
     echo "============================================"
     echo "  WOPR SOVEREIGN SUITE INSTALLATION COMPLETE"
@@ -472,10 +554,25 @@ step_finalize() {
     echo "  Domain:      $WOPR_DOMAIN"
     echo "  Bundle:      $WOPR_BUNDLE"
     echo ""
+    echo "  Your Applications:"
+    echo "    Dashboard:  https://dashboard.${WOPR_DOMAIN}"
+    echo "    Files:      https://files.${WOPR_DOMAIN}"
+    echo "    Passwords:  https://vault.${WOPR_DOMAIN}"
+    echo "    RSS Reader: https://rss.${WOPR_DOMAIN}"
+    echo "    SSO Admin:  https://auth.${WOPR_DOMAIN}"
+    echo ""
+    if [ -n "$ak_admin_pass" ]; then
+        echo "  Authentik Admin Credentials:"
+        echo "    Username: akadmin"
+        echo "    Password: $ak_admin_pass"
+        echo ""
+    fi
     echo "  Next steps:"
-    echo "    1. Point DNS for $WOPR_DOMAIN to this server"
-    echo "    2. Access https://$WOPR_DOMAIN to complete setup"
-    echo "    3. Check /var/log/wopr/installer.log for details"
+    echo "    1. Point DNS for *.${WOPR_DOMAIN} to this server"
+    echo "    2. Access https://dashboard.${WOPR_DOMAIN}"
+    echo "    3. Complete Authentik setup at https://auth.${WOPR_DOMAIN}"
+    echo ""
+    echo "  Logs: /var/log/wopr/installer.log"
     echo ""
     echo "============================================"
 
@@ -512,11 +609,11 @@ main() {
     step_enable_modules
     step_optional_modules
     step_human_confirmation
-    step_deploy_modules
-    step_configure_authentik
-    step_configure_caddy
-    step_configure_postgresql
-    step_configure_redis
+    step_deploy_infrastructure    # PostgreSQL, Redis, Authentik
+    step_deploy_applications      # Nextcloud, Vaultwarden, FreshRSS, etc.
+    step_configure_caddy          # Reverse proxy with all routes
+    step_deploy_dashboard         # Dashboard UI
+    step_setup_sso                # Wire apps to Authentik
     step_schedule_backups
     step_register_update_agent
     step_log_defcon
