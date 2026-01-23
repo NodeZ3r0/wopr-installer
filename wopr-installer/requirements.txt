@@ -1,0 +1,34 @@
+# WOPR Installer Dependencies
+# ==========================
+
+# Core
+python>=3.9
+
+# Provider SDKs
+hcloud>=1.30.0          # Hetzner Cloud (official SDK)
+apache-libcloud>=3.8.0  # Multi-cloud abstraction (Vultr, DO, Linode, OVH)
+
+# Billing & Payments
+stripe>=7.0.0           # Stripe billing integration
+
+# Web Framework (Dashboard API)
+fastapi>=0.109.0        # Dashboard REST API
+uvicorn>=0.27.0         # ASGI server
+pydantic>=2.5.0         # Data validation
+httpx>=0.26.0           # Async HTTP client (Authentik API)
+
+# PDF Generation
+reportlab>=4.0.0        # PDF document generation
+
+# Utilities
+paramiko>=3.0.0         # SSH for BYO provider
+requests>=2.28.0        # HTTP client
+
+# Optional: DNS automation
+cloudflare>=2.11.0      # Cloudflare DNS API
+
+# Development
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+mypy>=1.0.0
