@@ -1,19 +1,28 @@
-/* WOPR Dashboard Styles */
+/* WOPR Dashboard Styles
+ * ======================
+ * Uses semantic theme tokens for dynamic theming.
+ * Tokens are defined in lib/themes/tokens.css and
+ * dynamically updated by ThemeProvider.svelte
+ */
+
+@import './lib/themes/tokens.css';
+
+/* Legacy variable aliases for backward compatibility */
 :root {
-	--color-bg: #0a0a0a;
-	--color-surface: #1a1a1a;
-	--color-surface-hover: #252525;
-	--color-border: #333;
-	--color-text: #e0e0e0;
-	--color-text-muted: #888;
-	--color-primary: #00d4aa;
-	--color-primary-hover: #00f0c0;
-	--color-success: #22c55e;
-	--color-warning: #f59e0b;
-	--color-error: #ef4444;
-	--color-info: #3b82f6;
-	--radius: 8px;
-	--shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+	--color-bg: var(--theme-bg);
+	--color-surface: var(--theme-surface);
+	--color-surface-hover: var(--theme-surface-hover);
+	--color-border: var(--theme-border);
+	--color-text: var(--theme-text);
+	--color-text-muted: var(--theme-text-muted);
+	--color-primary: var(--theme-primary);
+	--color-primary-hover: var(--theme-primary-hover);
+	--color-success: var(--theme-success);
+	--color-warning: var(--theme-warning);
+	--color-error: var(--theme-error);
+	--color-info: var(--theme-info);
+	--radius: var(--theme-radius);
+	--shadow: var(--theme-shadow);
 }
 
 * {
@@ -24,18 +33,20 @@
 
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-	background-color: var(--color-bg);
-	color: var(--color-text);
+	background-color: var(--theme-bg);
+	color: var(--theme-text);
 	line-height: 1.6;
+	transition: background-color var(--theme-transition), color var(--theme-transition);
 }
 
 a {
-	color: var(--color-primary);
+	color: var(--theme-primary);
 	text-decoration: none;
+	transition: color var(--theme-transition);
 }
 
 a:hover {
-	color: var(--color-primary-hover);
+	color: var(--theme-primary-hover);
 }
 
 button {
@@ -51,15 +62,16 @@ button {
 
 /* Cards */
 .card {
-	background: var(--color-surface);
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius);
+	background: var(--theme-surface);
+	border: 1px solid var(--theme-border);
+	border-radius: var(--theme-radius);
 	padding: 1.5rem;
-	box-shadow: var(--shadow);
+	box-shadow: var(--theme-shadow);
+	transition: background-color var(--theme-transition), border-color var(--theme-transition);
 }
 
 .card:hover {
-	background: var(--color-surface-hover);
+	background: var(--theme-surface-hover);
 }
 
 /* Buttons */
@@ -68,29 +80,38 @@ button {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.75rem 1.5rem;
-	border-radius: var(--radius);
+	border-radius: var(--theme-radius);
 	font-weight: 500;
-	transition: all 0.2s;
+	transition: all var(--theme-transition);
 	border: none;
 }
 
 .btn-primary {
-	background: var(--color-primary);
-	color: #000;
+	background: var(--theme-primary);
+	color: var(--theme-text-on-primary);
 }
 
 .btn-primary:hover {
-	background: var(--color-primary-hover);
+	background: var(--theme-primary-hover);
 }
 
 .btn-secondary {
-	background: var(--color-surface);
-	color: var(--color-text);
-	border: 1px solid var(--color-border);
+	background: var(--theme-surface);
+	color: var(--theme-text);
+	border: 1px solid var(--theme-border);
 }
 
 .btn-secondary:hover {
-	background: var(--color-surface-hover);
+	background: var(--theme-surface-hover);
+}
+
+.btn-accent {
+	background: var(--theme-accent);
+	color: var(--theme-text-on-primary);
+}
+
+.btn-accent:hover {
+	background: var(--theme-accent-hover);
 }
 
 /* Status badges */
@@ -99,30 +120,40 @@ button {
 	align-items: center;
 	gap: 0.25rem;
 	padding: 0.25rem 0.75rem;
-	border-radius: 999px;
+	border-radius: var(--theme-radius-full);
 	font-size: 0.75rem;
 	font-weight: 600;
 	text-transform: uppercase;
 }
 
 .badge-success {
-	background: rgba(34, 197, 94, 0.2);
-	color: var(--color-success);
+	background: var(--theme-success-subtle);
+	color: var(--theme-success);
 }
 
 .badge-warning {
-	background: rgba(245, 158, 11, 0.2);
-	color: var(--color-warning);
+	background: var(--theme-warning-subtle);
+	color: var(--theme-warning);
 }
 
 .badge-error {
-	background: rgba(239, 68, 68, 0.2);
-	color: var(--color-error);
+	background: var(--theme-error-subtle);
+	color: var(--theme-error);
 }
 
 .badge-info {
-	background: rgba(59, 130, 246, 0.2);
-	color: var(--color-info);
+	background: var(--theme-info-subtle);
+	color: var(--theme-info);
+}
+
+.badge-primary {
+	background: var(--theme-primary-subtle);
+	color: var(--theme-primary);
+}
+
+.badge-accent {
+	background: var(--theme-accent-subtle);
+	color: var(--theme-accent);
 }
 
 /* Grid */
@@ -150,9 +181,63 @@ h2 { font-size: 1.5rem; }
 h3 { font-size: 1.25rem; }
 
 .text-muted {
-	color: var(--color-text-muted);
+	color: var(--theme-text-muted);
 }
 
-.text-success { color: var(--color-success); }
-.text-warning { color: var(--color-warning); }
-.text-error { color: var(--color-error); }
+.text-primary { color: var(--theme-primary); }
+.text-accent { color: var(--theme-accent); }
+.text-success { color: var(--theme-success); }
+.text-warning { color: var(--theme-warning); }
+.text-error { color: var(--theme-error); }
+
+/* Form elements */
+input, select, textarea {
+	background: var(--theme-surface);
+	border: 1px solid var(--theme-border);
+	border-radius: var(--theme-radius);
+	color: var(--theme-text);
+	padding: 0.75rem 1rem;
+	font-family: inherit;
+	font-size: 1rem;
+	transition: border-color var(--theme-transition), background-color var(--theme-transition);
+}
+
+input:focus, select:focus, textarea:focus {
+	outline: none;
+	border-color: var(--theme-primary);
+}
+
+input::placeholder, textarea::placeholder {
+	color: var(--theme-text-muted);
+}
+
+/* Toggle switch */
+.toggle {
+	position: relative;
+	width: 44px;
+	height: 24px;
+	background: var(--theme-border);
+	border-radius: var(--theme-radius-full);
+	cursor: pointer;
+	transition: background-color var(--theme-transition);
+}
+
+.toggle.active {
+	background: var(--theme-primary);
+}
+
+.toggle::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 20px;
+	height: 20px;
+	background: var(--theme-text);
+	border-radius: 50%;
+	transition: transform var(--theme-transition);
+}
+
+.toggle.active::after {
+	transform: translateX(20px);
+}
