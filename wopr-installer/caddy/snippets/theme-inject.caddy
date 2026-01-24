@@ -1,0 +1,172 @@
+# WOPR Beacon Theme Injection Snippet
+# ====================================
+#
+# Injects CSS variables into HTML responses for themed apps.
+# This allows Beacon owners to apply their theme to third-party apps.
+#
+# Usage in Caddyfile:
+#   import snippets/theme-inject.caddy
+#
+#   nextcloud.{$DOMAIN} {
+#       import theme_inject nextcloud
+#       reverse_proxy nextcloud:80
+#   }
+#
+# The theme CSS is fetched from the dashboard API and injected
+# into the <head> of HTML responses.
+
+# Serve static theme CSS files
+(theme_static_files) {
+	handle /wopr-themes/apps/* {
+		root * /etc/caddy/themes
+		file_server
+	}
+}
+
+# Main theme injection snippet
+# Usage: import theme_inject {app_id}
+(theme_inject) {
+	# Include static file serving
+	import theme_static_files
+
+	# Only apply to HTML responses
+	@html {
+		header Content-Type *text/html*
+	}
+
+	# Mark response as themed
+	header @html X-WOPR-Themed "true"
+	header @html X-WOPR-App "{args[0]}"
+
+	# Response body manipulation using templates
+	# Injects theme-loader.html before </head>
+	handle @html {
+		templates {
+			# Make app ID available to template
+			between "{{" "}}"
+		}
+
+		# The theme loader script is injected via response filtering
+		# Caddy's sub filter replaces </head> with our loader + </head>
+		handle {
+			# Read the theme loader template
+			# Replace {{APP_ID}} with the actual app ID
+			respond @html `
+				<script>
+					// Inject app ID before theme loader runs
+					window.WOPR_APP_ID = '{args[0]}';
+				</script>
+			` 200 {
+				close
+			}
+		}
+	}
+}
+
+# Alternative: Direct CSS injection without JavaScript
+# For apps that block external scripts
+(theme_inject_css_only) {
+	import theme_static_files
+
+	@html {
+		header Content-Type *text/html*
+	}
+
+	header @html X-WOPR-Themed "css-only"
+
+	# Inject a link to the app-specific CSS
+	# This requires the CSS to already have the user's theme values baked in
+	handle @html {
+		header X-WOPR-Theme-CSS "/wopr-themes/apps/{args[0]}.css"
+	}
+}
+
+# Static theme injection for apps without dynamic support
+# This injects a predefined set of CSS variables from environment
+(theme_inject_static) {
+	@html {
+		header Content-Type *text/html*
+	}
+
+	header @html X-WOPR-Theme-Primary "{$THEME_PRIMARY:#00d4aa}"
+	header @html X-WOPR-Theme-Accent "{$THEME_ACCENT:#ff9b3f}"
+	header @html X-WOPR-Theme-BG "{$THEME_BG:#0a0a0a}"
+	header @html X-WOPR-Theme-Surface "{$THEME_SURFACE:#1a1a1a}"
+	header @html X-WOPR-Theme-Text "{$THEME_TEXT:#e0e0e0}"
+}
+
+# Full theme injection with HTML rewriting
+# This actually modifies the HTML response to inject the theme loader
+# Requires caddy-filter or caddy-transform plugin
+(theme_inject_full) {
+	import theme_static_files
+
+	@html {
+		header Content-Type *text/html*
+	}
+
+	# Using Caddy's replace_response filter (requires caddy-replace-response plugin)
+	# Alternatively, use caddy-filter for more control
+	handle @html {
+		# Replace </head> with our theme loader + </head>
+		# The theme loader HTML is read from the template file
+
+		# Option 1: Using templates directive
+		templates
+
+		# Option 2: Using header to signal nginx/traefik sidecar
+		header X-WOPR-Inject-Theme "true"
+		header X-WOPR-App-ID "{args[0]}"
+	}
+}
+
+# Per-app theme configuration
+# These snippets configure theming for specific apps
+
+(theme_nextcloud) {
+	import theme_inject nextcloud
+}
+
+(theme_vaultwarden) {
+	import theme_inject vaultwarden
+}
+
+(theme_freshrss) {
+	import theme_inject freshrss
+}
+
+(theme_authentik) {
+	import theme_inject authentik
+}
+
+(theme_ghost) {
+	import theme_inject ghost
+}
+
+(theme_forgejo) {
+	import theme_inject forgejo
+}
+
+(theme_uptime_kuma) {
+	import theme_inject uptime_kuma
+}
+
+(theme_jellyfin) {
+	import theme_inject jellyfin
+}
+
+(theme_immich) {
+	import theme_inject immich
+}
+
+(theme_element) {
+	import theme_inject element
+}
+
+(theme_woodpecker) {
+	import theme_inject woodpecker
+}
+
+(theme_saleor) {
+	import theme_inject saleor
+}

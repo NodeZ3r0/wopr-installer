@@ -73,3 +73,40 @@ export async function updateSettings(settings) {
 		body: JSON.stringify(settings)
 	});
 }
+
+// Theme API
+export async function getTheme() {
+	return fetchAPI('/themes');
+}
+
+export async function updateTheme(themeConfig) {
+	return fetchAPI('/themes', {
+		method: 'PATCH',
+		body: JSON.stringify(themeConfig)
+	});
+}
+
+export async function getThemePresets() {
+	return fetchAPI('/themes/presets');
+}
+
+export async function updateAppTheme(appId, themeOverride) {
+	return fetchAPI(`/themes/apps/${appId}`, {
+		method: 'PATCH',
+		body: JSON.stringify(themeOverride)
+	});
+}
+
+export async function removeAppTheme(appId) {
+	return fetchAPI(`/themes/apps/${appId}`, {
+		method: 'DELETE'
+	});
+}
+
+export async function getThemeCSS() {
+	return fetchAPI('/themes/css');
+}
+
+export async function getThemeJSON() {
+	return fetchAPI('/themes/json');
+}

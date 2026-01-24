@@ -1,30 +1,97 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, getContext } from 'svelte';
 	import { loading, error } from '$lib/stores.js';
 	import { notify } from '$lib/stores.js';
-	import { getInstanceStatus } from '$lib/api.js';
+	import { getInstanceStatus, getModules, updateTheme } from '$lib/api.js';
+	import ThemePresetCard from '$lib/components/ThemePresetCard.svelte';
+	import ColorPicker from '$lib/components/ColorPicker.svelte';
+	import AppThemeToggle from '$lib/components/AppThemeToggle.svelte';
+	import { getPresetList } from '$lib/themes/presets.js';
+
+	// Get theme context from ThemeProvider
+	const theme = getContext('theme');
 
 	let instance = null;
+	let modules = [];
 	let customDomain = '';
 	let adminEmail = '';
 	let backupEnabled = true;
 	let backupFrequency = 'daily';
 	let saving = false;
+	let savingTheme = false;
+
+	// Theme state
+	let showCustomColors = false;
+	let customPrimary = '#00d4aa';
+	let customAccent = '#ff9b3f';
+
+	// Get preset list
+	const themePresets = getPresetList();
+
+	// Native apps that are always themed
+	const nativeApps = ['defcon', 'brainjoos', 'rag'];
 
 	onMount(async () => {
 		$loading = true;
 		try {
-			instance = await getInstanceStatus();
+			const [instanceData, modulesData] = await Promise.all([
+				getInstanceStatus(),
+				getModules().catch(() => ({ modules: [] }))
+			]);
+
+			instance = instanceData;
+			modules = modulesData.modules || [];
 			customDomain = instance.custom_domain || '';
 			adminEmail = instance.admin_email || '';
 			backupEnabled = instance.backup_enabled !== false;
 			backupFrequency = instance.backup_frequency || 'daily';
+
+			// Initialize custom colors from theme context
+			if ($theme?.config?.customColors) {
+				customPrimary = $theme.config.customColors['--theme-primary'] || '#00d4aa';
+				customAccent = $theme.config.customColors['--theme-accent'] || '#ff9b3f';
+			}
 		} catch (e) {
 			$error = e.message;
 		} finally {
 			$loading = false;
 		}
 	});
+
+	function handlePresetSelect(presetId) {
+		theme?.setPreset(presetId);
+		showCustomColors = false;
+	}
+
+	function handleCustomColor(variable, value) {
+		theme?.setCustomColor(variable, value);
+		if (variable === '--theme-primary') customPrimary = value;
+		if (variable === '--theme-accent') customAccent = value;
+	}
+
+	function handleAppThemeToggle(appId, enabled) {
+		theme?.toggleAppTheming(appId, enabled);
+	}
+
+	async function saveTheme() {
+		savingTheme = true;
+		try {
+			await theme?.save();
+			notify('Theme saved successfully', 'success');
+		} catch (e) {
+			notify('Failed to save theme: ' + e.message, 'error');
+		} finally {
+			savingTheme = false;
+		}
+	}
+
+	function resetTheme() {
+		theme?.setPreset('reactor');
+		theme?.clearCustomColors();
+		showCustomColors = false;
+		customPrimary = '#00d4aa';
+		customAccent = '#ff9b3f';
+	}
 
 	async function saveSettings() {
 		saving = true;
@@ -61,6 +128,10 @@
 	async function downloadBackup() {
 		window.location.href = '/api/backup/download';
 	}
+
+	// Reactive: current theme config
+	$: currentPreset = $theme?.config?.preset || 'reactor';
+	$: themedApps = $theme?.config?.themedApps || nativeApps;
 </script>
 
 <svelte:head>
@@ -81,6 +152,97 @@
 			<p>{$error}</p>
 		</div>
 	{:else}
+		<!-- Theme Settings -->
+		<section class="theme-section">
+			<h2>Theme</h2>
+			<p class="text-muted">Personalize your dashboard appearance</p>
+
+			<div class="card">
+				<div class="theme-presets">
+					<label class="section-label">Choose a Preset</label>
+					<div class="preset-grid">
+						{#each themePresets as preset}
+							<ThemePresetCard
+								{preset}
+								selected={currentPreset === preset.id}
+								onClick={handlePresetSelect}
+							/>
+						{/each}
+					</div>
+				</div>
+
+				<div class="custom-colors-section">
+					<button
+						class="btn btn-secondary btn-small"
+						on:click={() => showCustomColors = !showCustomColors}
+					>
+						{showCustomColors ? 'Hide' : 'Show'} Custom Colors
+					</button>
+
+					{#if showCustomColors}
+						<div class="custom-colors-panel">
+							<ColorPicker
+								label="Primary Color"
+								value={customPrimary}
+								onChange={(v) => handleCustomColor('--theme-primary', v)}
+							/>
+							<ColorPicker
+								label="Accent Color"
+								value={customAccent}
+								onChange={(v) => handleCustomColor('--theme-accent', v)}
+							/>
+						</div>
+					{/if}
+				</div>
+
+				<div class="theme-actions">
+					<button
+						class="btn btn-primary"
+						on:click={saveTheme}
+						disabled={savingTheme}
+					>
+						{savingTheme ? 'Saving...' : 'Save Theme'}
+					</button>
+					<button class="btn btn-secondary" on:click={resetTheme}>
+						Reset to Default
+					</button>
+				</div>
+			</div>
+		</section>
+
+		<!-- Per-App Theming -->
+		<section>
+			<h2>App Theming</h2>
+			<p class="text-muted">Choose which apps receive your theme colors</p>
+
+			<div class="card">
+				<div class="app-list">
+					{#each nativeApps as appId}
+						<AppThemeToggle
+							app={{ id: appId, name: appId.charAt(0).toUpperCase() + appId.slice(1) }}
+							enabled={true}
+							isNative={true}
+							onToggle={handleAppThemeToggle}
+						/>
+					{/each}
+
+					{#each modules.filter(m => !nativeApps.includes(m.id) && m.status === 'installed') as module}
+						<AppThemeToggle
+							app={{ id: module.id, name: module.name }}
+							enabled={themedApps.includes(module.id)}
+							isNative={false}
+							onToggle={handleAppThemeToggle}
+						/>
+					{/each}
+				</div>
+
+				<p class="help-text">
+					WOPR-native apps are always themed. Third-party apps may have varying
+					levels of theme support.
+				</p>
+			</div>
+		</section>
+
 		<!-- Instance Info -->
 		<section>
 			<h2>Instance Information</h2>
@@ -299,6 +461,57 @@
 		margin-bottom: 1rem;
 	}
 
+	/* Theme Section Styles */
+	.theme-section {
+		padding-bottom: 2rem;
+		border-bottom: 1px solid var(--theme-border);
+	}
+
+	.section-label {
+		display: block;
+		font-weight: 500;
+		margin-bottom: 0.75rem;
+		color: var(--theme-text-muted);
+	}
+
+	.preset-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 1rem;
+	}
+
+	.custom-colors-section {
+		padding-top: 1rem;
+		border-top: 1px solid var(--theme-border-subtle);
+	}
+
+	.custom-colors-panel {
+		display: flex;
+		gap: 2rem;
+		margin-top: 1rem;
+		padding: 1rem;
+		background: var(--theme-surface-hover);
+		border-radius: var(--theme-radius);
+	}
+
+	.btn-small {
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+	}
+
+	.theme-actions {
+		display: flex;
+		gap: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--theme-border-subtle);
+	}
+
+	.app-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Existing Styles */
 	.info-card {
 		padding: 1.5rem;
 	}

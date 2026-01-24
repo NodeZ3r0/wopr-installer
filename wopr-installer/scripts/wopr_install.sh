@@ -457,21 +457,30 @@ step_setup_sso() {
     # Setup WOPR groups
     wopr_authentik_setup_wopr_groups
 
-    # Register applications with Authentik for SSO
+    # Create initial WOPR user account
+    wopr_authentik_setup_initial_user
+
+    # Register applications with Authentik for SSO and configure native OIDC
     local app_modules=$(wopr_setting_get "app_modules")
     local domain=$(wopr_setting_get "domain")
 
     for module in $app_modules; do
         case "$module" in
             nextcloud)
+                # Register with Authentik
                 wopr_authentik_register_app "Nextcloud" "nextcloud" "files"
+                # Configure Nextcloud's native OIDC integration
+                wopr_log "INFO" "Configuring Nextcloud OIDC..."
+                wopr_nextcloud_configure_sso || wopr_log "WARN" "Nextcloud OIDC config deferred (can be done manually)"
                 ;;
             vaultwarden)
-                # Vaultwarden uses its own auth, but we can add SSO later
-                wopr_log "INFO" "Vaultwarden configured with its own authentication"
+                # Vaultwarden uses its own auth - SSO available via OpenID Connect
+                wopr_log "INFO" "Vaultwarden uses its own authentication (SSO optional)"
                 ;;
             freshrss)
+                # Register with Authentik - uses forward auth
                 wopr_authentik_register_app "FreshRSS" "freshrss" "rss"
+                wopr_log "INFO" "FreshRSS configured with Authentik forward auth"
                 ;;
             *)
                 wopr_log "INFO" "SSO for $module will be configured when module is implemented"
@@ -479,7 +488,7 @@ step_setup_sso() {
         esac
     done
 
-    wopr_log "OK" "SSO configured"
+    wopr_log "OK" "SSO configured with initial user account"
 }
 
 #=================================================
@@ -542,8 +551,10 @@ step_finalize() {
     wopr_setting_set "install_complete" "true"
     wopr_setting_set "install_timestamp" "$(date -Iseconds)"
 
-    # Get admin password for display
-    local ak_admin_pass=$(wopr_setting_get "authentik_admin_password")
+    # Get credentials for display
+    local ak_bootstrap_pass=$(wopr_setting_get "authentik_bootstrap_password")
+    local wopr_username=$(wopr_setting_get "wopr_username")
+    local wopr_user_pass=$(wopr_setting_get "user_${wopr_username}_password")
 
     echo ""
     echo "============================================"
@@ -561,12 +572,24 @@ step_finalize() {
     echo "    RSS Reader: https://rss.${WOPR_DOMAIN}"
     echo "    SSO Admin:  https://auth.${WOPR_DOMAIN}"
     echo ""
-    if [ -n "$ak_admin_pass" ]; then
-        echo "  Authentik Admin Credentials:"
-        echo "    Username: akadmin"
-        echo "    Password: $ak_admin_pass"
+    echo "  ============================================"
+    echo "  YOUR LOGIN CREDENTIALS (SAVE THESE!)"
+    echo "  ============================================"
+    echo ""
+    if [ -n "$wopr_username" ] && [ -n "$wopr_user_pass" ]; then
+        echo "  WOPR User Account (use for all apps):"
+        echo "    Username: $wopr_username"
+        echo "    Password: $wopr_user_pass"
         echo ""
     fi
+    if [ -n "$ak_bootstrap_pass" ]; then
+        echo "  Authentik Admin (for SSO configuration):"
+        echo "    Username: akadmin"
+        echo "    Password: $ak_bootstrap_pass"
+        echo ""
+    fi
+    echo "  ============================================"
+    echo ""
     echo "  Next steps:"
     echo "    1. Point DNS for *.${WOPR_DOMAIN} to this server"
     echo "    2. Access https://dashboard.${WOPR_DOMAIN}"

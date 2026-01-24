@@ -1,0 +1,383 @@
+/**
+ * WOPR Theme Override: Element
+ * ============================
+ *
+ * Maps WOPR theme variables to Element's CSS.
+ * Element uses extensive CSS custom properties.
+ *
+ * Compatibility: FULL
+ * Tested with: Element Web 1.11+
+ */
+
+/* ========================================
+   ROOT OVERRIDES - COMPOUND DESIGN TOKENS
+   ======================================== */
+
+:root,
+.cpd-theme-dark {
+	/* Primary colors */
+	--cpd-color-text-action-accent: var(--theme-primary) !important;
+	--cpd-color-icon-accent-primary: var(--theme-primary) !important;
+	--cpd-color-bg-action-primary-rest: var(--theme-primary) !important;
+	--cpd-color-bg-action-primary-hovered: var(--theme-primary-hover) !important;
+
+	/* Background colors */
+	--cpd-color-bg-canvas-default: var(--theme-bg) !important;
+	--cpd-color-bg-subtle-primary: var(--theme-surface) !important;
+	--cpd-color-bg-subtle-secondary: var(--theme-elevated) !important;
+
+	/* Text colors */
+	--cpd-color-text-primary: var(--theme-text) !important;
+	--cpd-color-text-secondary: var(--theme-text-muted) !important;
+
+	/* Border colors */
+	--cpd-color-border-interactive-primary: var(--theme-border) !important;
+	--cpd-color-border-interactive-hovered: var(--theme-primary) !important;
+}
+
+/* ========================================
+   LEGACY ELEMENT VARIABLES
+   ======================================== */
+
+:root {
+	/* Accent/Primary */
+	--accent: var(--theme-primary) !important;
+	--accent-color: var(--theme-primary) !important;
+
+	/* Backgrounds */
+	--background: var(--theme-bg) !important;
+	--primary-content: var(--theme-surface) !important;
+	--secondary-content: var(--theme-elevated) !important;
+
+	/* Text */
+	--primary-color: var(--theme-text) !important;
+	--secondary-color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.mx_MatrixChat {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   LEFT PANEL (ROOM LIST)
+   ======================================== */
+
+.mx_LeftPanel {
+	background-color: var(--theme-surface) !important;
+}
+
+.mx_LeftPanel_filterContainer {
+	background-color: var(--theme-surface) !important;
+}
+
+/* Room tiles */
+.mx_RoomTile {
+	color: var(--theme-text) !important;
+}
+
+.mx_RoomTile:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.mx_RoomTile_selected,
+.mx_RoomTile[aria-selected="true"] {
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+.mx_RoomTile_title {
+	color: var(--theme-text) !important;
+}
+
+.mx_RoomTile_subtitle {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Unread badge */
+.mx_NotificationBadge {
+	background-color: var(--theme-primary) !important;
+}
+
+.mx_NotificationBadge_highlighted {
+	background-color: var(--theme-error) !important;
+}
+
+/* ========================================
+   ROOM HEADER
+   ======================================== */
+
+.mx_RoomHeader {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.mx_RoomHeader_name {
+	color: var(--theme-text) !important;
+}
+
+.mx_RoomHeader_topic {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   MESSAGE TIMELINE
+   ======================================== */
+
+.mx_RoomView_timeline {
+	background-color: var(--theme-bg) !important;
+}
+
+.mx_EventTile {
+	color: var(--theme-text) !important;
+}
+
+.mx_EventTile:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.mx_EventTile_content {
+	color: var(--theme-text) !important;
+}
+
+.mx_DisambiguatedProfile {
+	color: var(--theme-primary) !important;
+}
+
+.mx_MessageTimestamp {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Message bubbles (if enabled) */
+.mx_EventTile_bubble {
+	background-color: var(--theme-surface) !important;
+}
+
+.mx_EventTile_bubble.mx_EventTile_isOwn {
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+/* ========================================
+   MESSAGE COMPOSER
+   ======================================== */
+
+.mx_MessageComposer {
+	background-color: var(--theme-surface) !important;
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+.mx_MessageComposer_input {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.mx_MessageComposer_input:focus-within {
+	border-color: var(--theme-primary) !important;
+}
+
+.mx_MessageComposer_button {
+	color: var(--theme-text-muted) !important;
+}
+
+.mx_MessageComposer_button:hover {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   RIGHT PANEL
+   ======================================== */
+
+.mx_RightPanel {
+	background-color: var(--theme-surface) !important;
+	border-left: 1px solid var(--theme-border) !important;
+}
+
+.mx_RightPanel_header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+/* Member list */
+.mx_MemberList {
+	background-color: var(--theme-surface) !important;
+}
+
+.mx_EntityTile {
+	color: var(--theme-text) !important;
+}
+
+.mx_EntityTile:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.mx_AccessibleButton_kind_primary {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.mx_AccessibleButton_kind_primary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.mx_AccessibleButton_kind_secondary {
+	background-color: transparent !important;
+	border: 1px solid var(--theme-primary) !important;
+	color: var(--theme-primary) !important;
+}
+
+.mx_AccessibleButton_kind_link {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   DIALOGS / MODALS
+   ======================================== */
+
+.mx_Dialog {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.mx_Dialog_header {
+	color: var(--theme-text) !important;
+}
+
+.mx_Dialog_content {
+	color: var(--theme-text) !important;
+}
+
+.mx_Dialog_background {
+	background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.mx_Field input,
+.mx_Field textarea,
+.mx_Field select {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.mx_Field input:focus,
+.mx_Field textarea:focus,
+.mx_Field select:focus {
+	border-color: var(--theme-primary) !important;
+}
+
+.mx_Field label {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Toggle switches */
+.mx_ToggleSwitch_on {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   CONTEXT MENUS
+   ======================================== */
+
+.mx_ContextualMenu {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.mx_ContextualMenu_item {
+	color: var(--theme-text) !important;
+}
+
+.mx_ContextualMenu_item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   SETTINGS
+   ======================================== */
+
+.mx_TabbedView_tabPanel {
+	background-color: var(--theme-bg) !important;
+}
+
+.mx_TabbedView_tabLabel {
+	color: var(--theme-text) !important;
+}
+
+.mx_TabbedView_tabLabel_active {
+	color: var(--theme-primary) !important;
+	border-bottom-color: var(--theme-primary) !important;
+}
+
+.mx_SettingsTab {
+	color: var(--theme-text) !important;
+}
+
+.mx_SettingsTab_subheading {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   REACTIONS
+   ======================================== */
+
+.mx_ReactionsRow_button {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.mx_ReactionsRow_button_selected {
+	border-color: var(--theme-primary) !important;
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+/* ========================================
+   SPACES
+   ======================================== */
+
+.mx_SpacePanel {
+	background-color: var(--theme-bg) !important;
+}
+
+.mx_SpaceButton:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.mx_SpaceButton_active {
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

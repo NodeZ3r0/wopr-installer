@@ -1,0 +1,367 @@
+/**
+ * WOPR Theme Override: FreshRSS
+ * =============================
+ *
+ * Maps WOPR theme variables to FreshRSS CSS.
+ * FreshRSS has good CSS variable support.
+ *
+ * Compatibility: FULL
+ * Tested with: FreshRSS 1.23+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* FreshRSS CSS Variables */
+	--frss-main-color: var(--theme-primary) !important;
+	--frss-background: var(--theme-bg) !important;
+	--frss-sidebar-bg: var(--theme-surface) !important;
+	--frss-card-bg: var(--theme-surface) !important;
+	--frss-text-color: var(--theme-text) !important;
+	--frss-secondary-text: var(--theme-text-muted) !important;
+	--frss-border-color: var(--theme-border) !important;
+	--frss-hover-bg: var(--theme-surface-hover) !important;
+	--frss-active-bg: var(--theme-primary-subtle) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body,
+html {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   HEADER / TOP NAV
+   ======================================== */
+
+.header,
+#header,
+.nav-head {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.nav-head a,
+.header a {
+	color: var(--theme-text) !important;
+}
+
+.nav-head a:hover,
+.header a:hover {
+	color: var(--theme-primary) !important;
+}
+
+/* Logo/Brand */
+.nav-head .logo,
+.header .logo {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SIDEBAR / ASIDE
+   ======================================== */
+
+.aside,
+#aside,
+#sidebar,
+.sidebar {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+/* Category/Feed list */
+.aside ul,
+.aside li,
+.tree li {
+	color: var(--theme-text) !important;
+}
+
+.aside li a,
+.tree li a {
+	color: var(--theme-text) !important;
+}
+
+.aside li a:hover,
+.tree li a:hover {
+	background-color: var(--theme-surface-hover) !important;
+	color: var(--theme-primary) !important;
+}
+
+.aside li.active > a,
+.tree li.active > a,
+.aside li.selected > a {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+	font-weight: 600;
+}
+
+/* Unread count badges */
+.aside .badge,
+.tree .badge,
+.feed .unread {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+/* Folder icons */
+.tree .folder::before,
+.category-icon {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   CONTENT AREA
+   ======================================== */
+
+#stream,
+.stream,
+.content,
+#content {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   ARTICLE LIST
+   ======================================== */
+
+.flux,
+.item,
+article {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.flux:hover,
+.item:hover,
+article:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.flux.active,
+.item.active,
+article.active {
+	background-color: var(--theme-primary-subtle) !important;
+	border-left: 3px solid var(--theme-primary) !important;
+}
+
+/* Article title */
+.flux .title,
+.item .title,
+article .title,
+.item-title {
+	color: var(--theme-text) !important;
+}
+
+.flux .title a,
+.item .title a {
+	color: var(--theme-text) !important;
+}
+
+.flux .title a:hover,
+.item .title a:hover {
+	color: var(--theme-primary) !important;
+}
+
+/* Read articles */
+.flux.read .title,
+.item.read .title {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Article meta (date, author, feed) */
+.flux .date,
+.flux .author,
+.flux .website,
+.item .meta {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   ARTICLE CONTENT
+   ======================================== */
+
+.flux_content,
+.item-content,
+.content-inner,
+.entry-content {
+	color: var(--theme-text) !important;
+}
+
+.flux_content a,
+.item-content a {
+	color: var(--theme-primary) !important;
+}
+
+.flux_content a:hover,
+.item-content a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* Blockquotes */
+.flux_content blockquote,
+.item-content blockquote {
+	border-left: 3px solid var(--theme-primary) !important;
+	background-color: var(--theme-surface) !important;
+}
+
+/* Code blocks */
+.flux_content pre,
+.flux_content code,
+.item-content pre,
+.item-content code {
+	background-color: var(--theme-elevated) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.btn,
+button,
+input[type="submit"] {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.btn:hover,
+button:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.btn-primary,
+.btn.primary {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-primary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+/* Action buttons (star, mark read, etc.) */
+.flux_header .item.share,
+.flux_header .item.read,
+.flux_header .item.bookmark,
+.actions a {
+	color: var(--theme-text-muted) !important;
+}
+
+.flux_header .item:hover,
+.actions a:hover {
+	color: var(--theme-primary) !important;
+}
+
+.flux_header .item.active,
+.item.starred {
+	color: var(--theme-accent) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 2px var(--theme-primary-subtle) !important;
+}
+
+label {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   MODALS & DIALOGS
+   ======================================== */
+
+.modal,
+.dialog,
+.popup {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.modal-header,
+.dialog-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   NOTIFICATIONS / ALERTS
+   ======================================== */
+
+.notification,
+.alert {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.notification.success,
+.alert-success {
+	border-left: 3px solid var(--theme-success) !important;
+}
+
+.notification.warning,
+.alert-warning {
+	border-left: 3px solid var(--theme-warning) !important;
+}
+
+.notification.error,
+.alert-error {
+	border-left: 3px solid var(--theme-error) !important;
+}
+
+/* ========================================
+   LOADING / SPINNER
+   ======================================== */
+
+.loading,
+.spinner {
+	border-color: var(--theme-border) !important;
+	border-top-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

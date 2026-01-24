@@ -1,0 +1,384 @@
+/**
+ * WOPR Theme Override: Saleor Dashboard
+ * ======================================
+ *
+ * Maps WOPR theme variables to Saleor's Material UI-based dashboard.
+ * Saleor uses MUI (Material UI) which has its own theming.
+ *
+ * Compatibility: PARTIAL
+ * Tested with: Saleor Dashboard 3.x
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Saleor uses MUI which doesn't have great CSS var support */
+	/* We override specific classes instead */
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+#root,
+.MuiBox-root {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   APP BAR / HEADER
+   ======================================== */
+
+.MuiAppBar-root {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.MuiAppBar-root .MuiTypography-root {
+	color: var(--theme-text) !important;
+}
+
+.MuiAppBar-root .MuiIconButton-root {
+	color: var(--theme-text) !important;
+}
+
+.MuiAppBar-root .MuiIconButton-root:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   SIDEBAR / DRAWER
+   ======================================== */
+
+.MuiDrawer-paper {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+.MuiDrawer-paper .MuiListItem-root {
+	color: var(--theme-text) !important;
+}
+
+.MuiDrawer-paper .MuiListItem-root:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.MuiDrawer-paper .MuiListItem-root.Mui-selected {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+.MuiDrawer-paper .MuiListItemIcon-root {
+	color: inherit !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.MuiButton-containedPrimary {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.MuiButton-containedPrimary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.MuiButton-outlinedPrimary {
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-primary) !important;
+}
+
+.MuiButton-outlinedPrimary:hover {
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+.MuiButton-textPrimary {
+	color: var(--theme-primary) !important;
+}
+
+.MuiButton-contained {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.MuiButton-outlined {
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+/* FAB */
+.MuiFab-primary {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.MuiCard-root,
+.MuiPaper-root {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.MuiCardHeader-root {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.MuiCardHeader-title {
+	color: var(--theme-text) !important;
+}
+
+.MuiCardHeader-subheader {
+	color: var(--theme-text-muted) !important;
+}
+
+.MuiCardContent-root {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.MuiTextField-root .MuiInputBase-root {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+	border-color: var(--theme-border) !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+	border-color: var(--theme-text-muted) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+	border-color: var(--theme-primary) !important;
+}
+
+.MuiInputLabel-root {
+	color: var(--theme-text-muted) !important;
+}
+
+.MuiInputLabel-root.Mui-focused {
+	color: var(--theme-primary) !important;
+}
+
+.MuiFormHelperText-root {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Select */
+.MuiSelect-select {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* Checkbox & Radio */
+.MuiCheckbox-colorPrimary.Mui-checked {
+	color: var(--theme-primary) !important;
+}
+
+.MuiRadio-colorPrimary.Mui-checked {
+	color: var(--theme-primary) !important;
+}
+
+/* Switch */
+.MuiSwitch-colorPrimary.Mui-checked {
+	color: var(--theme-primary) !important;
+}
+
+.MuiSwitch-colorPrimary.Mui-checked + .MuiSwitch-track {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.MuiTable-root {
+	background-color: var(--theme-surface) !important;
+}
+
+.MuiTableHead-root {
+	background-color: var(--theme-elevated) !important;
+}
+
+.MuiTableCell-head {
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.MuiTableCell-body {
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.MuiTableRow-root:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   DIALOGS / MODALS
+   ======================================== */
+
+.MuiDialog-paper {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.MuiDialogTitle-root {
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.MuiDialogContent-root {
+	color: var(--theme-text) !important;
+}
+
+.MuiDialogActions-root {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+
+.MuiTab-root {
+	color: var(--theme-text-muted) !important;
+}
+
+.MuiTab-root.Mui-selected {
+	color: var(--theme-primary) !important;
+}
+
+.MuiTabs-indicator {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   CHIPS
+   ======================================== */
+
+.MuiChip-root {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.MuiChip-colorPrimary {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   ALERTS / SNACKBARS
+   ======================================== */
+
+.MuiAlert-standardSuccess {
+	background-color: var(--theme-success-subtle) !important;
+	color: var(--theme-success) !important;
+}
+
+.MuiAlert-standardError {
+	background-color: var(--theme-error-subtle) !important;
+	color: var(--theme-error) !important;
+}
+
+.MuiAlert-standardWarning {
+	background-color: var(--theme-warning-subtle) !important;
+	color: var(--theme-warning) !important;
+}
+
+.MuiAlert-standardInfo {
+	background-color: var(--theme-info-subtle) !important;
+	color: var(--theme-info) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a,
+.MuiLink-root {
+	color: var(--theme-primary) !important;
+}
+
+a:hover,
+.MuiLink-root:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+.MuiTypography-root {
+	color: var(--theme-text) !important;
+}
+
+.MuiTypography-colorTextSecondary {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BREADCRUMBS
+   ======================================== */
+
+.MuiBreadcrumbs-root {
+	color: var(--theme-text-muted) !important;
+}
+
+.MuiBreadcrumbs-root a {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   LOADING
+   ======================================== */
+
+.MuiCircularProgress-colorPrimary {
+	color: var(--theme-primary) !important;
+}
+
+.MuiLinearProgress-colorPrimary {
+	background-color: var(--theme-surface) !important;
+}
+
+.MuiLinearProgress-barColorPrimary {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

@@ -39,6 +39,20 @@ from .authentik_integration import (
     user_can_access_feature,
     BUNDLE_GROUPS,
 )
+from .models.themes import (
+    ThemeConfig,
+    ThemeUpdateRequest,
+    AppThemeUpdateRequest,
+    ThemeConfigResponse,
+    ThemePresetResponse,
+    ThemeCSSResponse,
+    THEME_PRESETS,
+    NATIVE_THEMED_APPS,
+    DEFAULT_PRESET,
+    get_all_presets,
+    validate_preset,
+    is_native_app,
+)
 
 
 # ============================================
@@ -279,7 +293,7 @@ def create_dashboard_app(
     app = FastAPI(
         title="WOPR Dashboard API",
         description="API for managing your Sovereign Suite",
-        version="1.5",
+        version="1.6",
     )
 
     # CORS for frontend
@@ -292,6 +306,14 @@ def create_dashboard_app(
     )
 
     service = DashboardService(billing, trial_manager, authentik)
+
+    # ----------------------------------------
+    # INTENT RESOLVER ROUTES
+    # ----------------------------------------
+    # Import and include the intent resolver router
+    # These handle /go/* endpoints for intent-based navigation
+    from .resolvers.api import router as resolver_router
+    app.include_router(resolver_router, tags=["intents"])
 
     # ----------------------------------------
     # AUTH DEPENDENCY
@@ -464,6 +486,290 @@ def create_dashboard_app(
             "customer_id": customer_id,
             "active_trials": trials,
             # TODO: Add subscription details, invoices, etc.
+        }
+
+    # ----------------------------------------
+    # THEME ENDPOINTS
+    # ----------------------------------------
+
+    # In-memory theme storage (TODO: Replace with PostgreSQL)
+    _user_themes: Dict[str, Dict] = {}
+
+    def _get_user_theme(user_id: str) -> Dict:
+        """Get user's theme config or create default."""
+        if user_id not in _user_themes:
+            _user_themes[user_id] = {
+                "preset": DEFAULT_PRESET,
+                "custom_colors": {},
+                "app_overrides": {},
+                "themed_apps": NATIVE_THEMED_APPS.copy(),
+            }
+        return _user_themes[user_id]
+
+    @app.get("/api/v1/themes", response_model=ThemeConfigResponse)
+    async def get_theme_config(
+        user: Dict = Depends(get_current_user),
+    ):
+        """Get user's theme configuration."""
+        theme = _get_user_theme(user["user_id"])
+        preset_info = THEME_PRESETS.get(theme["preset"], THEME_PRESETS[DEFAULT_PRESET])
+
+        return {
+            "preset": theme["preset"],
+            "preset_name": preset_info["name"],
+            "custom_colors": theme["custom_colors"],
+            "app_overrides": theme["app_overrides"],
+            "themed_apps": theme["themed_apps"],
+            "available_presets": get_all_presets(),
+        }
+
+    @app.patch("/api/v1/themes")
+    async def update_theme_config(
+        request: ThemeUpdateRequest,
+        user: Dict = Depends(get_current_user),
+    ):
+        """Update user's global theme settings."""
+        theme = _get_user_theme(user["user_id"])
+
+        # Validate and update preset
+        if request.preset is not None:
+            if not validate_preset(request.preset):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid preset: {request.preset}. Valid presets: {list(THEME_PRESETS.keys())}",
+                )
+            theme["preset"] = request.preset
+
+        # Update custom colors
+        if request.custom_colors is not None:
+            theme["custom_colors"] = request.custom_colors
+
+        # Update themed apps (ensure native apps are always included)
+        if request.themed_apps is not None:
+            themed = set(request.themed_apps)
+            themed.update(NATIVE_THEMED_APPS)  # Always include native apps
+            theme["themed_apps"] = list(themed)
+
+        return {
+            "success": True,
+            "preset": theme["preset"],
+            "custom_colors": theme["custom_colors"],
+            "themed_apps": theme["themed_apps"],
+        }
+
+    @app.get("/api/v1/themes/presets")
+    async def list_theme_presets():
+        """List all available theme presets."""
+        return {
+            "presets": get_all_presets(),
+            "default": DEFAULT_PRESET,
+        }
+
+    @app.patch("/api/v1/themes/apps/{app_id}")
+    async def update_app_theme(
+        app_id: str,
+        request: AppThemeUpdateRequest,
+        user: Dict = Depends(get_current_user),
+    ):
+        """Set theme override for a specific app."""
+        theme = _get_user_theme(user["user_id"])
+
+        # Validate preset if provided
+        if request.preset is not None and request.preset != "inherit":
+            if not validate_preset(request.preset):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid preset: {request.preset}",
+                )
+
+        # Update or remove app override
+        if request.preset == "inherit" or (request.preset is None and request.custom_colors is None):
+            # Remove override - app inherits global theme
+            theme["app_overrides"].pop(app_id, None)
+        else:
+            # Set override
+            theme["app_overrides"][app_id] = {
+                "preset": request.preset,
+                "custom_colors": request.custom_colors or {},
+            }
+
+        # Update themed_apps list if enabled flag provided
+        if request.enabled is not None:
+            themed = set(theme["themed_apps"])
+            if request.enabled:
+                themed.add(app_id)
+            elif not is_native_app(app_id):
+                themed.discard(app_id)
+            theme["themed_apps"] = list(themed)
+
+        return {
+            "success": True,
+            "app_id": app_id,
+            "override": theme["app_overrides"].get(app_id),
+            "themed": app_id in theme["themed_apps"],
+        }
+
+    @app.delete("/api/v1/themes/apps/{app_id}")
+    async def remove_app_theme_override(
+        app_id: str,
+        user: Dict = Depends(get_current_user),
+    ):
+        """Remove theme override for an app (inherit global theme)."""
+        theme = _get_user_theme(user["user_id"])
+
+        # Remove override
+        removed = theme["app_overrides"].pop(app_id, None)
+
+        return {
+            "success": True,
+            "app_id": app_id,
+            "removed": removed is not None,
+        }
+
+    @app.get("/api/v1/themes/css", response_model=ThemeCSSResponse)
+    async def get_theme_css(
+        user: Dict = Depends(get_current_user),
+    ):
+        """Get theme as raw CSS for injection into apps."""
+        theme = _get_user_theme(user["user_id"])
+        preset = THEME_PRESETS.get(theme["preset"], THEME_PRESETS[DEFAULT_PRESET])
+
+        # Build CSS from preset colors
+        css_vars = []
+        preview = preset.get("preview", {})
+
+        # Map preview colors to CSS variables
+        css_vars.append(f"--theme-primary: {preview.get('primary', '#00d4aa')};")
+        css_vars.append(f"--theme-accent: {preview.get('accent', '#ff9b3f')};")
+        css_vars.append(f"--theme-bg: {preview.get('bg', '#0a0a0a')};")
+
+        # Add custom color overrides
+        for var, value in theme["custom_colors"].items():
+            css_vars.append(f"{var}: {value};")
+
+        css = f":root {{\n  {chr(10).join('  ' + v for v in css_vars)}\n}}"
+
+        return {
+            "css": css,
+            "preset": theme["preset"],
+            "custom_colors": theme["custom_colors"],
+        }
+
+    @app.get("/api/v1/themes/json")
+    async def get_theme_json(
+        user: Dict = Depends(get_current_user),
+    ):
+        """Get theme as JSON for programmatic use."""
+        theme = _get_user_theme(user["user_id"])
+        preset = THEME_PRESETS.get(theme["preset"], THEME_PRESETS[DEFAULT_PRESET])
+
+        return {
+            "preset": theme["preset"],
+            "preview": preset.get("preview", {}),
+            "custom_colors": theme["custom_colors"],
+        }
+
+    @app.get("/api/v1/themes/apps/{app_id}/css")
+    async def get_app_theme_css(
+        app_id: str,
+        user: Dict = Depends(get_current_user),
+    ):
+        """
+        Get complete CSS for theming a specific app.
+
+        Returns:
+        - Base theme CSS variables
+        - App-specific override CSS (if available)
+
+        This endpoint is called by the theme-loader.js injected into apps.
+        """
+        from pathlib import Path
+
+        theme = _get_user_theme(user["user_id"])
+
+        # Check if app has theming enabled
+        if app_id not in theme["themed_apps"]:
+            return {"css": "", "themed": False, "reason": "App theming disabled"}
+
+        # Get the theme preset (use app override if exists, else global)
+        app_override = theme["app_overrides"].get(app_id, {})
+        preset_id = app_override.get("preset") or theme["preset"]
+        preset = THEME_PRESETS.get(preset_id, THEME_PRESETS[DEFAULT_PRESET])
+
+        # Build base CSS variables
+        css_parts = []
+        preview = preset.get("preview", {})
+
+        base_vars = f""":root {{
+  --theme-primary: {preview.get('primary', '#00d4aa')};
+  --theme-primary-hover: {preview.get('primary_hover', '#00f0c0')};
+  --theme-primary-subtle: {preview.get('primary', '#00d4aa')}20;
+  --theme-accent: {preview.get('accent', '#ff9b3f')};
+  --theme-accent-hover: {preview.get('accent_hover', '#ffb366')};
+  --theme-bg: {preview.get('bg', '#0a0a0a')};
+  --theme-surface: {preview.get('surface', '#1a1a1a')};
+  --theme-surface-hover: {preview.get('surface_hover', '#252525')};
+  --theme-elevated: {preview.get('elevated', '#2a2a2a')};
+  --theme-border: {preview.get('border', '#333333')};
+  --theme-border-subtle: {preview.get('border_subtle', '#2a2a2a')};
+  --theme-text: {preview.get('text', '#e0e0e0')};
+  --theme-text-muted: {preview.get('text_muted', '#888888')};
+  --theme-text-on-primary: {preview.get('text_on_primary', '#000000')};
+  --theme-success: #22c55e;
+  --theme-success-subtle: #22c55e20;
+  --theme-warning: #f59e0b;
+  --theme-warning-subtle: #f59e0b20;
+  --theme-error: #ef4444;
+  --theme-error-subtle: #ef444420;
+  --theme-info: #3b82f6;
+  --theme-info-subtle: #3b82f620;
+}}"""
+        css_parts.append(base_vars)
+
+        # Apply custom color overrides
+        custom_colors = {**theme["custom_colors"], **app_override.get("custom_colors", {})}
+        if custom_colors:
+            custom_css = ":root {\n"
+            for var, value in custom_colors.items():
+                custom_css += f"  {var}: {value};\n"
+            custom_css += "}"
+            css_parts.append(custom_css)
+
+        # Load app-specific override CSS if available
+        # CSS files are stored in dashboard/src/lib/themes/apps/
+        app_css_map = {
+            # Personal bundle
+            "nextcloud": "nextcloud.css",
+            "vaultwarden": "vaultwarden.css",
+            "freshrss": "freshrss.css",
+            "authentik": "authentik.css",
+            # Creator bundle
+            "ghost": "ghost.css",
+            "saleor": "saleor.css",
+            # Developer bundle
+            "forgejo": "forgejo.css",
+            "uptime_kuma": "uptime-kuma.css",
+            "woodpecker": "woodpecker.css",
+            "code_server": "code-server.css",
+            # Professional bundle
+            "element": "element.css",
+            # Media apps
+            "immich": "immich.css",
+            "jellyfin": "jellyfin.css",
+        }
+
+        if app_id in app_css_map:
+            css_file = app_css_map[app_id]
+            # In production, these would be served from a configured path
+            # For now, we'll indicate the file that should be loaded
+            css_parts.append(f"/* App override: {css_file} */")
+
+        return {
+            "css": "\n\n".join(css_parts),
+            "themed": True,
+            "app_id": app_id,
+            "preset": preset_id,
+            "override_file": app_css_map.get(app_id),
         }
 
     return app

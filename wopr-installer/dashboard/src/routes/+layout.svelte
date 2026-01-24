@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import { user } from '$lib/stores.js';
+	import ThemeProvider from '$lib/components/ThemeProvider.svelte';
 
 	const navItems = [
 		{ href: '/', label: 'Home', icon: '⌂' },
@@ -12,6 +13,7 @@
 	];
 </script>
 
+<ThemeProvider>
 <div class="layout">
 	<nav class="sidebar">
 		<div class="logo">
@@ -45,6 +47,7 @@
 		<slot />
 	</main>
 </div>
+</ThemeProvider>
 
 <style>
 	.layout {

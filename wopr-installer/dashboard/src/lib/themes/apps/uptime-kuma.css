@@ -1,0 +1,395 @@
+/**
+ * WOPR Theme Override: Uptime Kuma
+ * =================================
+ *
+ * Maps WOPR theme variables to Uptime Kuma's CSS.
+ * Uptime Kuma has excellent CSS variable support.
+ *
+ * Compatibility: FULL
+ * Tested with: Uptime Kuma 1.23+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Uptime Kuma CSS Variables */
+	--primary: var(--theme-primary) !important;
+	--secondary: var(--theme-text-muted) !important;
+	--success: var(--theme-success) !important;
+	--danger: var(--theme-error) !important;
+	--warning: var(--theme-warning) !important;
+	--info: var(--theme-info) !important;
+
+	/* Background */
+	--bg-color: var(--theme-bg) !important;
+	--bg-secondary: var(--theme-surface) !important;
+	--bg-tertiary: var(--theme-elevated) !important;
+
+	/* Text */
+	--text-color: var(--theme-text) !important;
+	--text-muted: var(--theme-text-muted) !important;
+
+	/* Border */
+	--border-color: var(--theme-border) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   NAVBAR
+   ======================================== */
+
+.navbar,
+nav.navbar {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.navbar-brand {
+	color: var(--theme-primary) !important;
+}
+
+.nav-link {
+	color: var(--theme-text) !important;
+}
+
+.nav-link:hover {
+	color: var(--theme-primary) !important;
+}
+
+.nav-link.router-link-active {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+
+.sidebar,
+.monitor-list {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+.monitor-list .item {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.monitor-list .item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.monitor-list .item.active {
+	background-color: var(--theme-primary-subtle) !important;
+	border-left: 3px solid var(--theme-primary) !important;
+}
+
+.monitor-list .item .title {
+	color: var(--theme-text) !important;
+}
+
+/* Status indicators */
+.monitor-list .item .status-up {
+	color: var(--theme-success) !important;
+}
+
+.monitor-list .item .status-down {
+	color: var(--theme-error) !important;
+}
+
+.monitor-list .item .status-pending {
+	color: var(--theme-warning) !important;
+}
+
+/* ========================================
+   MAIN CONTENT
+   ======================================== */
+
+.content,
+main {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   MONITOR DETAIL
+   ======================================== */
+
+.monitor-info {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.monitor-info h1 {
+	color: var(--theme-text) !important;
+}
+
+/* Heartbeat bar */
+.hp-bar-big {
+	background-color: var(--theme-surface) !important;
+}
+
+.hp-bar-big .beat.up {
+	background-color: var(--theme-success) !important;
+}
+
+.hp-bar-big .beat.down {
+	background-color: var(--theme-error) !important;
+}
+
+.hp-bar-big .beat.pending {
+	background-color: var(--theme-warning) !important;
+}
+
+/* ========================================
+   STATS CARDS
+   ======================================== */
+
+.stat-card,
+.stats .card {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.stat-card .title {
+	color: var(--theme-text-muted) !important;
+}
+
+.stat-card .value {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.btn {
+	border: 1px solid var(--theme-border) !important;
+}
+
+.btn-primary {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-primary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.btn-outline-primary {
+	color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+.btn-outline-primary:hover {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.btn-success {
+	background-color: var(--theme-success) !important;
+}
+
+.btn-danger {
+	background-color: var(--theme-error) !important;
+}
+
+.btn-warning {
+	background-color: var(--theme-warning) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.card {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.card-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.card-body {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.form-control,
+input,
+select,
+textarea {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 0.2rem var(--theme-primary-subtle) !important;
+}
+
+.form-label,
+label {
+	color: var(--theme-text) !important;
+}
+
+/* Switch */
+.form-switch .form-check-input:checked {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   MODALS
+   ======================================== */
+
+.modal-content {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.modal-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.modal-title {
+	color: var(--theme-text) !important;
+}
+
+.modal-body {
+	color: var(--theme-text) !important;
+}
+
+.modal-footer {
+	background-color: var(--theme-elevated) !important;
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+.btn-close {
+	filter: invert(1);
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.table {
+	color: var(--theme-text) !important;
+}
+
+.table thead th {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.table td {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.table-hover tbody tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   ALERTS
+   ======================================== */
+
+.alert-success {
+	background-color: var(--theme-success-subtle) !important;
+	border-color: var(--theme-success) !important;
+	color: var(--theme-success) !important;
+}
+
+.alert-danger {
+	background-color: var(--theme-error-subtle) !important;
+	border-color: var(--theme-error) !important;
+	color: var(--theme-error) !important;
+}
+
+.alert-warning {
+	background-color: var(--theme-warning-subtle) !important;
+	border-color: var(--theme-warning) !important;
+}
+
+.alert-info {
+	background-color: var(--theme-info-subtle) !important;
+	border-color: var(--theme-info) !important;
+	color: var(--theme-info) !important;
+}
+
+/* ========================================
+   STATUS PAGE
+   ======================================== */
+
+.status-page {
+	background-color: var(--theme-bg) !important;
+}
+
+.status-page .group {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.status-page .group-title {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

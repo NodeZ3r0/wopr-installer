@@ -1,0 +1,371 @@
+/**
+ * WOPR Theme Override: Vaultwarden
+ * =================================
+ *
+ * Maps WOPR theme variables to Vaultwarden's web vault.
+ * Vaultwarden uses Bootstrap-based styling.
+ *
+ * Compatibility: PARTIAL
+ * Tested with: Vaultwarden 1.30+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Bootstrap primary color override */
+	--bs-primary: var(--theme-primary) !important;
+	--bs-primary-rgb: var(--theme-primary) !important;
+	--bs-link-color: var(--theme-primary) !important;
+	--bs-link-hover-color: var(--theme-primary-hover) !important;
+
+	/* Body colors */
+	--bs-body-bg: var(--theme-bg) !important;
+	--bs-body-color: var(--theme-text) !important;
+
+	/* Card colors */
+	--bs-card-bg: var(--theme-surface) !important;
+	--bs-card-border-color: var(--theme-border) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.container,
+.container-fluid {
+	background-color: transparent !important;
+}
+
+/* ========================================
+   NAVBAR
+   ======================================== */
+
+.navbar,
+.navbar-dark,
+.bg-primary {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.navbar-brand {
+	color: var(--theme-primary) !important;
+}
+
+.navbar-nav .nav-link {
+	color: var(--theme-text) !important;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus {
+	color: var(--theme-primary) !important;
+}
+
+.navbar-nav .nav-link.active {
+	color: var(--theme-primary) !important;
+	font-weight: 600;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.btn-primary {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+	background-color: var(--theme-primary-hover) !important;
+	border-color: var(--theme-primary-hover) !important;
+}
+
+.btn-outline-primary {
+	color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+.btn-outline-primary:hover {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.btn-secondary:hover,
+.btn-outline-secondary:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.btn-success {
+	background-color: var(--theme-success) !important;
+	border-color: var(--theme-success) !important;
+}
+
+.btn-warning {
+	background-color: var(--theme-warning) !important;
+	border-color: var(--theme-warning) !important;
+}
+
+.btn-danger {
+	background-color: var(--theme-error) !important;
+	border-color: var(--theme-error) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.card {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+}
+
+.card-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.card-body {
+	color: var(--theme-text) !important;
+}
+
+.card-footer {
+	background-color: var(--theme-elevated) !important;
+	border-top-color: var(--theme-border) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.form-control,
+.form-select {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 0.25rem var(--theme-primary-subtle) !important;
+}
+
+.form-control::placeholder {
+	color: var(--theme-text-muted) !important;
+}
+
+.form-label {
+	color: var(--theme-text) !important;
+}
+
+.form-text {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Checkbox/Switch */
+.form-check-input:checked {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.table {
+	color: var(--theme-text) !important;
+}
+
+.table > :not(caption) > * > * {
+	background-color: transparent !important;
+	border-bottom-color: var(--theme-border) !important;
+}
+
+.table-hover tbody tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+	background-color: var(--theme-surface) !important;
+}
+
+/* ========================================
+   VAULT LIST
+   ======================================== */
+
+.vault-items,
+.vault-list {
+	background-color: var(--theme-bg) !important;
+}
+
+.vault-item,
+.list-group-item {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.vault-item:hover,
+.list-group-item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.vault-item.active,
+.list-group-item.active {
+	background-color: var(--theme-primary-subtle) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   MODALS
+   ======================================== */
+
+.modal-content {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+}
+
+.modal-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom-color: var(--theme-border) !important;
+}
+
+.modal-header .modal-title {
+	color: var(--theme-text) !important;
+}
+
+.modal-header .btn-close {
+	filter: invert(1);
+}
+
+.modal-body {
+	color: var(--theme-text) !important;
+}
+
+.modal-footer {
+	background-color: var(--theme-elevated) !important;
+	border-top-color: var(--theme-border) !important;
+}
+
+/* ========================================
+   ALERTS
+   ======================================== */
+
+.alert-primary {
+	background-color: var(--theme-primary-subtle) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-primary) !important;
+}
+
+.alert-success {
+	background-color: var(--theme-success-subtle) !important;
+	border-color: var(--theme-success) !important;
+	color: var(--theme-success) !important;
+}
+
+.alert-warning {
+	background-color: var(--theme-warning-subtle) !important;
+	border-color: var(--theme-warning) !important;
+}
+
+.alert-danger {
+	background-color: var(--theme-error-subtle) !important;
+	border-color: var(--theme-error) !important;
+	color: var(--theme-error) !important;
+}
+
+/* ========================================
+   DROPDOWNS
+   ======================================== */
+
+.dropdown-menu {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+}
+
+.dropdown-item {
+	color: var(--theme-text) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+	background-color: var(--theme-surface-hover) !important;
+	color: var(--theme-text) !important;
+}
+
+.dropdown-item.active {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+/* ========================================
+   BADGES
+   ======================================== */
+
+.badge.bg-primary {
+	background-color: var(--theme-primary) !important;
+}
+
+.badge.bg-secondary {
+	background-color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   ICONS (Font Awesome)
+   ======================================== */
+
+.text-primary,
+.text-primary > i {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

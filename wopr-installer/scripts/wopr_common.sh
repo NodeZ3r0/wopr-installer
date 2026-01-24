@@ -679,6 +679,93 @@ wopr_authentik_setup_wopr_groups() {
     wopr_log "OK" "WOPR groups created in Authentik"
 }
 
+wopr_authentik_create_user() {
+    # Create a user in Authentik
+    # Usage: wopr_authentik_create_user <username> <email> <name> [password]
+    local username="$1"
+    local email="$2"
+    local name="$3"
+    local password="${4:-$(wopr_random_string 24)}"
+
+    local user_data=$(cat <<EOF
+{
+    "username": "${username}",
+    "name": "${name}",
+    "email": "${email}",
+    "is_active": true,
+    "groups": []
+}
+EOF
+)
+
+    local response=$(wopr_authentik_api POST "/core/users/" "$user_data")
+    local user_pk=$(echo "$response" | jq -r '.pk // empty')
+
+    if [ -n "$user_pk" ]; then
+        wopr_log "OK" "Authentik user created: ${username} (pk=${user_pk})"
+
+        # Set the user's password
+        local password_data=$(cat <<EOF
+{
+    "password": "${password}"
+}
+EOF
+)
+        wopr_authentik_api POST "/core/users/${user_pk}/set_password/" "$password_data"
+
+        # Store password for display
+        wopr_setting_set "user_${username}_password" "$password"
+        echo "$user_pk"
+    else
+        local error=$(echo "$response" | jq -r '.username[0] // .detail // "Unknown error"')
+        if echo "$error" | grep -qi "already exists"; then
+            wopr_log "INFO" "User already exists: ${username}"
+            # Get existing user pk
+            local existing=$(wopr_authentik_api GET "/core/users/?username=${username}")
+            echo "$existing" | jq -r '.results[0].pk // empty'
+        else
+            wopr_log "ERROR" "Failed to create user: ${username} - ${error}"
+            return 1
+        fi
+    fi
+}
+
+wopr_authentik_setup_initial_user() {
+    # Create the initial owner/admin user for the WOPR instance
+    local admin_email=$(wopr_setting_get "admin_email")
+    local domain=$(wopr_setting_get "domain")
+    local bundle=$(wopr_setting_get "bundle")
+
+    if [ -z "$admin_email" ]; then
+        admin_email="admin@${domain}"
+    fi
+
+    # Extract username from email
+    local username="${admin_email%%@*}"
+    local name="${username^}"  # Capitalize first letter
+
+    wopr_log "INFO" "Creating initial WOPR user: ${username}"
+
+    local user_pk=$(wopr_authentik_create_user "$username" "$admin_email" "$name WOPR Admin")
+
+    if [ -n "$user_pk" ]; then
+        # Add to appropriate bundle group
+        wopr_authentik_add_user_to_group "$user_pk" "wopr-${bundle}"
+
+        # Add to app access groups based on bundle
+        wopr_authentik_add_user_to_group "$user_pk" "nextcloud-users"
+        wopr_authentik_add_user_to_group "$user_pk" "vaultwarden-users"
+        wopr_authentik_add_user_to_group "$user_pk" "freshrss-users"
+
+        wopr_setting_set "wopr_user_pk" "$user_pk"
+        wopr_setting_set "wopr_username" "$username"
+
+        local password=$(wopr_setting_get "user_${username}_password")
+        wopr_log "OK" "Initial WOPR user created"
+        wopr_log "INFO" "Login: ${username} / ${password}"
+    fi
+}
+
 #=================================================
 # BACKUP / SNAPSHOT
 #=================================================

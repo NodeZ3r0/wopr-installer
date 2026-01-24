@@ -1,0 +1,346 @@
+/**
+ * WOPR Theme Override: Jellyfin
+ * =============================
+ *
+ * Maps WOPR theme variables to Jellyfin's CSS.
+ * Jellyfin has good CSS variable support.
+ *
+ * Compatibility: FULL
+ * Tested with: Jellyfin 10.8+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Jellyfin CSS Variables */
+	--theme-primary-color: var(--theme-primary) !important;
+	--accent: var(--theme-primary) !important;
+
+	/* Background */
+	--background: var(--theme-bg) !important;
+	--drawer-background: var(--theme-surface) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body,
+.backdropContainer,
+.backgroundContainer {
+	background-color: var(--theme-bg) !important;
+}
+
+.skinBody {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   HEADER / TOP BAR
+   ======================================== */
+
+.skinHeader,
+.headerTop {
+	background-color: var(--theme-surface) !important;
+}
+
+.headerButton {
+	color: var(--theme-text) !important;
+}
+
+.headerButton:hover {
+	color: var(--theme-primary) !important;
+}
+
+.headerTabs .emby-tab-button {
+	color: var(--theme-text-muted) !important;
+}
+
+.headerTabs .emby-tab-button.emby-tab-button-active,
+.headerTabs .emby-tab-button:hover {
+	color: var(--theme-primary) !important;
+}
+
+.headerTabs .emby-tab-button-active::after {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SIDEBAR / DRAWER
+   ======================================== */
+
+.mainDrawer,
+.mainDrawer-scrollContainer {
+	background-color: var(--theme-surface) !important;
+}
+
+.navMenuOption {
+	color: var(--theme-text) !important;
+}
+
+.navMenuOption:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.navMenuOption-selected {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+.sidebarHeader {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.raised,
+.emby-button.raised {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.raised:hover,
+.emby-button.raised:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.emby-button.block {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.emby-button.block:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.fab {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.card,
+.cardBox {
+	background-color: var(--theme-surface) !important;
+}
+
+.cardOverlayContainer {
+	background: linear-gradient(transparent, var(--theme-bg)) !important;
+}
+
+.cardText,
+.cardTextCentered {
+	color: var(--theme-text) !important;
+}
+
+.secondaryText {
+	color: var(--theme-text-muted) !important;
+}
+
+.cardIndicators {
+	background-color: var(--theme-primary) !important;
+}
+
+/* Progress bars on cards */
+.cardProgress-value {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   DIALOGS / MODALS
+   ======================================== */
+
+.dialog,
+.formDialog {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.formDialogHeader {
+	background-color: var(--theme-elevated) !important;
+	color: var(--theme-text) !important;
+}
+
+.formDialogContent {
+	background-color: var(--theme-surface) !important;
+}
+
+.formDialogFooter {
+	background-color: var(--theme-elevated) !important;
+}
+
+.dialogText {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.emby-input,
+.emby-textarea,
+.emby-select {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.emby-input:focus,
+.emby-textarea:focus,
+.emby-select:focus {
+	border-color: var(--theme-primary) !important;
+}
+
+.inputLabel,
+.fieldDescription {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Checkboxes and toggles */
+.emby-checkbox:checked + span::before {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+.emby-toggle-label-on {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   LISTS
+   ======================================== */
+
+.listItem {
+	background-color: transparent !important;
+}
+
+.listItem:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.listItem-border {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.listItemBody {
+	color: var(--theme-text) !important;
+}
+
+.secondary {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   MEDIA DETAIL PAGES
+   ======================================== */
+
+.detailPageWrapperContainer {
+	background-color: var(--theme-bg) !important;
+}
+
+.detailPageContent {
+	background-color: var(--theme-bg) !important;
+}
+
+.itemDetailPage h1,
+.itemDetailPage h2,
+.itemDetailPage h3 {
+	color: var(--theme-text) !important;
+}
+
+.detailLogo {
+	color: var(--theme-text) !important;
+}
+
+.mediaInfoItem {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   PLAYER
+   ======================================== */
+
+.videoOsdBottom {
+	background: linear-gradient(transparent, rgba(0, 0, 0, 0.7)) !important;
+}
+
+.osdProgressBar {
+	background-color: var(--theme-primary) !important;
+}
+
+.osdTimeText {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+
+.emby-tab-button {
+	color: var(--theme-text-muted) !important;
+}
+
+.emby-tab-button.emby-tab-button-active,
+.emby-tab-button:hover {
+	color: var(--theme-primary) !important;
+}
+
+.emby-tab-button-active::after {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   DASHBOARD / ADMIN
+   ======================================== */
+
+.dashboardSection {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.dashboardSectionHeader {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   LOADING / PROGRESS
+   ======================================== */
+
+.mdl-spinner__layer-1,
+.mdl-spinner__layer-2,
+.mdl-spinner__layer-3,
+.mdl-spinner__layer-4 {
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}
