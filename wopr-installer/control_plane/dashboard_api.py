@@ -34,6 +34,15 @@ except ImportError:
 from .modules.registry import ModuleRegistry, BUNDLES, MODULES
 from .modules.trials import TrialManager, TRIAL_OFFERINGS, TrialStatus
 from .billing import WOPRBilling, PRICING_PLANS, SubscriptionTier
+from .stripe_catalog import (
+    BUNDLE_PRICING,
+    BUNDLE_INFO,
+    TIER_INFO,
+    get_price_id,
+    get_price_cents,
+    is_valid_bundle,
+    is_valid_tier,
+)
 from .authentik_integration import (
     AuthentikClient,
     user_can_access_feature,
@@ -93,6 +102,24 @@ if FASTAPI_AVAILABLE:
 
     class UpgradeRequest(BaseModel):
         new_bundle: str
+
+    class OnboardCheckoutRequest(BaseModel):
+        bundle: str
+        tier: str
+        period: str  # 'monthly' or 'yearly'
+        email: str
+        name: str
+        beacon_name: str
+        provider: str
+        additional_users: List[Dict[str, str]] = []
+
+    class OnboardCheckoutResponse(BaseModel):
+        checkout_url: str
+        session_id: str
+
+    class OnboardSuccessResponse(BaseModel):
+        order: Dict[str, Any]
+        job_id: str
 
     class InstanceStatus(BaseModel):
         instance_id: str
@@ -489,6 +516,321 @@ def create_dashboard_app(
         }
 
     # ----------------------------------------
+    # ONBOARDING ENDPOINTS (PUBLIC)
+    # ----------------------------------------
+
+    @app.post("/api/v1/onboard/validate-beacon")
+    async def validate_beacon_name(request: Request):
+        """
+        Check if a beacon name is available.
+        Public endpoint - no auth required.
+        """
+        data = await request.json()
+        name = data.get("name", "").lower().strip()
+
+        # Validate format
+        import re
+        if not re.match(r'^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$', name):
+            return {
+                "available": False,
+                "reason": "invalid_format",
+                "message": "Name must be 3-32 characters, lowercase letters, numbers, and hyphens only",
+            }
+
+        # Reserved names
+        reserved = [
+            "www", "api", "admin", "mail", "smtp", "ftp", "ssh",
+            "test", "demo", "staging", "dev", "prod", "app",
+            "dashboard", "auth", "login", "signup", "register",
+            "billing", "support", "help", "status", "docs",
+        ]
+        if name in reserved:
+            return {
+                "available": False,
+                "reason": "reserved",
+                "message": "This name is reserved",
+            }
+
+        # TODO: Check database for existing beacons
+        # For now, assume available
+        return {
+            "available": True,
+            "name": name,
+            "domain": f"{name}.wopr.systems",
+        }
+
+    @app.post("/api/v1/onboard/create-checkout")
+    async def create_onboard_checkout(request: OnboardCheckoutRequest):
+        """
+        Create a Stripe checkout session for new customer onboarding.
+        Public endpoint - no auth required.
+        """
+        import json
+
+        # Validate bundle and tier
+        if not is_valid_bundle(request.bundle):
+            raise HTTPException(status_code=400, detail=f"Invalid bundle: {request.bundle}")
+        if not is_valid_tier(request.tier):
+            raise HTTPException(status_code=400, detail=f"Invalid tier: {request.tier}")
+
+        # Get price
+        price_cents = get_price_cents(request.bundle, request.tier)
+        if price_cents == 0:
+            raise HTTPException(status_code=400, detail="Custom pricing required for this tier")
+
+        # Get Stripe price ID
+        price_id = get_price_id(request.bundle, request.tier, request.period)
+        if not price_id:
+            # If products haven't been created in Stripe yet, we can still proceed
+            # by creating a price on the fly or using a placeholder
+            raise HTTPException(
+                status_code=400,
+                detail="Products not yet configured. Please run stripe-setup.ps1 first."
+            )
+
+        # Prepare metadata for webhook
+        metadata = {
+            "bundle": request.bundle,
+            "tier": request.tier,
+            "beacon_name": request.beacon_name,
+            "provider": request.provider,
+            "customer_name": request.name,
+            "additional_users": json.dumps(request.additional_users) if request.additional_users else "",
+        }
+
+        # Create Stripe checkout session
+        session = billing.create_checkout_session(
+            email=request.email,
+            bundle=request.bundle,
+            tier=request.tier,
+            provider_id=request.provider,
+            region="auto",
+            datacenter_id="auto",
+            beacon_name=request.beacon_name,
+            additional_users=request.additional_users,
+        )
+
+        return {
+            "checkout_url": session["checkout_url"],
+            "session_id": session["session_id"],
+        }
+
+    @app.get("/api/v1/onboard/success")
+    async def handle_onboard_success(session_id: str):
+        """
+        Handle successful checkout redirect from Stripe.
+        Verifies the session and initiates provisioning.
+        """
+        import json
+
+        try:
+            # Verify the checkout session with Stripe
+            import stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+
+            if session.payment_status != "paid":
+                raise HTTPException(status_code=400, detail="Payment not completed")
+
+            # Extract metadata
+            metadata = session.metadata or {}
+            bundle = metadata.get("bundle", "unknown")
+            tier = metadata.get("tier", "t1")
+            beacon_name = metadata.get("beacon_name", "")
+            provider = metadata.get("provider", "hetzner")
+            customer_name = metadata.get("customer_name", "")
+            additional_users_json = metadata.get("additional_users", "")
+
+            additional_users = []
+            if additional_users_json:
+                try:
+                    additional_users = json.loads(additional_users_json)
+                except:
+                    pass
+
+            # Get bundle info for display
+            bundle_info = BUNDLE_INFO.get(bundle, {})
+            tier_info = TIER_INFO.get(tier, {})
+
+            # Calculate amount paid
+            amount_paid = session.amount_total / 100 if session.amount_total else 0
+            currency = session.currency.upper() if session.currency else "USD"
+
+            # TODO: Create provisioning job
+            # For now, generate a placeholder job ID
+            import uuid
+            job_id = str(uuid.uuid4())
+
+            # TODO: Store order in database
+            # TODO: Queue provisioning task
+
+            return {
+                "order": {
+                    "session_id": session_id,
+                    "bundle": bundle,
+                    "bundle_name": bundle_info.get("name", bundle),
+                    "tier": tier,
+                    "tier_name": tier_info.get("name", tier),
+                    "beacon_name": beacon_name,
+                    "email": session.customer_email,
+                    "name": customer_name,
+                    "amount": f"${amount_paid:.2f} {currency}",
+                    "provider": provider,
+                    "additional_users": additional_users,
+                },
+                "job_id": job_id,
+            }
+
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/onboard/bundles")
+    async def get_onboard_bundles():
+        """
+        Get all available bundles for the onboarding wizard.
+        Public endpoint - no auth required.
+        """
+        bundles = []
+
+        for bundle_id, info in BUNDLE_INFO.items():
+            pricing = BUNDLE_PRICING.get(bundle_id, {})
+            bundles.append({
+                "id": bundle_id,
+                "name": info.get("name", bundle_id),
+                "description": info.get("description", ""),
+                "type": info.get("type", "unknown"),
+                "pricing": {
+                    "t1": pricing.get("t1", 0),
+                    "t2": pricing.get("t2", 0),
+                    "t3": pricing.get("t3", 0),
+                },
+            })
+
+        return {
+            "bundles": bundles,
+            "tiers": TIER_INFO,
+        }
+
+    # ----------------------------------------
+    # PROVISIONING ENDPOINTS
+    # ----------------------------------------
+
+    # In-memory job storage (TODO: Replace with Redis/PostgreSQL)
+    _provisioning_jobs: Dict[str, Dict] = {}
+
+    @app.get("/api/v1/provisioning/{job_id}")
+    async def get_provisioning_status(job_id: str):
+        """Get current status of a provisioning job."""
+        job = _provisioning_jobs.get(job_id)
+
+        if not job:
+            # For demo purposes, create a fake job if it doesn't exist
+            job = {
+                "job_id": job_id,
+                "status": "in_progress",
+                "step": 0,
+                "progress": 0,
+                "beacon_name": "demo",
+                "created_at": datetime.now().isoformat(),
+            }
+            _provisioning_jobs[job_id] = job
+
+        return job
+
+    @app.get("/api/v1/provisioning/{job_id}/stream")
+    async def stream_provisioning_status(job_id: str):
+        """
+        Server-Sent Events endpoint for real-time provisioning updates.
+        Streams progress updates as the beacon is being set up.
+        """
+        from fastapi.responses import StreamingResponse
+        import asyncio
+        import json
+
+        async def event_generator():
+            """Generate SSE events for provisioning progress."""
+            # For demo/development, simulate provisioning steps
+            steps = [
+                {"step": 0, "progress": 5, "status": "in_progress"},   # Payment received
+                {"step": 1, "progress": 15, "status": "in_progress"},  # Creating server
+                {"step": 1, "progress": 30, "status": "in_progress"},
+                {"step": 2, "progress": 40, "status": "in_progress"},  # Configuring DNS
+                {"step": 2, "progress": 50, "status": "in_progress"},
+                {"step": 3, "progress": 60, "status": "in_progress"},  # Installing WOPR
+                {"step": 3, "progress": 70, "status": "in_progress"},
+                {"step": 3, "progress": 80, "status": "in_progress"},
+                {"step": 4, "progress": 90, "status": "in_progress"},  # Final config
+                {"step": 5, "progress": 100, "status": "complete",     # Ready!
+                 "beacon_url": "https://demo.wopr.systems",
+                 "dashboard_url": "https://demo.wopr.systems/dashboard"},
+            ]
+
+            # Check if we have a real job
+            job = _provisioning_jobs.get(job_id)
+
+            if job and job.get("status") == "complete":
+                # Job already complete, send final state
+                data = {
+                    "step": 5,
+                    "progress": 100,
+                    "status": "complete",
+                    "beacon_url": f"https://{job.get('beacon_name', 'demo')}.wopr.systems",
+                    "dashboard_url": f"https://{job.get('beacon_name', 'demo')}.wopr.systems/dashboard",
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+                return
+
+            # Simulate progress (in production, this would poll actual job status)
+            for update in steps:
+                yield f"data: {json.dumps(update)}\n\n"
+
+                # Update stored job state
+                if job_id in _provisioning_jobs:
+                    _provisioning_jobs[job_id].update(update)
+
+                # Wait between updates (simulating real provisioning time)
+                if update["status"] != "complete":
+                    await asyncio.sleep(3)  # 3 seconds between updates
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # Disable nginx buffering
+            },
+        )
+
+    @app.post("/api/v1/provisioning/{job_id}/start")
+    async def start_provisioning(job_id: str, request: Request):
+        """
+        Start provisioning a new beacon.
+        Called internally after successful payment.
+        """
+        data = await request.json()
+
+        # Create job record
+        job = {
+            "job_id": job_id,
+            "status": "pending",
+            "step": 0,
+            "progress": 0,
+            "beacon_name": data.get("beacon_name", ""),
+            "bundle": data.get("bundle", ""),
+            "tier": data.get("tier", ""),
+            "provider": data.get("provider", "hetzner"),
+            "customer_email": data.get("email", ""),
+            "created_at": datetime.now().isoformat(),
+        }
+
+        _provisioning_jobs[job_id] = job
+
+        # TODO: Queue actual provisioning task (Celery, etc.)
+        # For now, the stream endpoint simulates progress
+
+        return {"job_id": job_id, "status": "started"}
+
+    # ----------------------------------------
     # THEME ENDPOINTS
     # ----------------------------------------
 
@@ -771,6 +1113,390 @@ def create_dashboard_app(
             "preset": preset_id,
             "override_file": app_css_map.get(app_id),
         }
+
+    # ============================================
+    # SUBSCRIPTION MANAGEMENT (CUSTOMER PORTAL)
+    # ============================================
+
+    @app.get("/api/v1/subscription")
+    async def get_subscription(user: dict = Depends(get_current_user)):
+        """
+        Get current subscription details for the user.
+
+        Returns subscription status, current plan, billing info, and usage.
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+
+        # TODO: Fetch from database
+        # For now, return mock data structure
+        subscription = {
+            "status": "active",  # active, trial, past_due, cancelled, pending
+            "bundle": "starter",
+            "bundle_name": "Starter Suite",
+            "tier": "t1",
+            "tier_name": "Tier 1 (50GB)",
+            "billing_cycle": "monthly",
+            "current_period_start": "2026-01-01T00:00:00Z",
+            "current_period_end": "2026-02-01T00:00:00Z",
+            "cancel_at_period_end": False,
+            "trial_end": None,
+            "amount": 1599,  # cents
+            "currency": "usd",
+            "payment_method": {
+                "type": "card",
+                "brand": "visa",
+                "last4": "4242",
+                "exp_month": 12,
+                "exp_year": 2028,
+            },
+            "usage": {
+                "storage_used_gb": 12.5,
+                "storage_limit_gb": 50,
+                "storage_percent": 25,
+                "users_count": 1,
+                "users_limit": 1,
+            },
+            "features": {
+                "can_upgrade": True,
+                "can_downgrade": True,
+                "can_cancel": True,
+                "can_add_users": False,
+            },
+        }
+
+        return subscription
+
+    @app.get("/api/v1/subscription/plans")
+    async def get_available_plans(user: dict = Depends(get_current_user)):
+        """
+        Get all available plans for upgrade/downgrade.
+
+        Returns plans with pricing, features comparison.
+        """
+        current_bundle = user.get("bundle", "starter")
+        current_tier = user.get("tier", "t1")
+
+        plans = []
+
+        # Add all bundles with their tiers
+        for bundle_id, bundle_info in BUNDLE_INFO.items():
+            for tier_id, tier_info in TIER_INFO.items():
+                price_cents = get_price_cents(bundle_id, tier_id, "monthly")
+                yearly_cents = get_price_cents(bundle_id, tier_id, "yearly")
+
+                is_current = (bundle_id == current_bundle and tier_id == current_tier)
+
+                # Determine if this is an upgrade or downgrade
+                current_price = get_price_cents(current_bundle, current_tier, "monthly")
+                change_type = "current" if is_current else (
+                    "upgrade" if price_cents > current_price else "downgrade"
+                )
+
+                plans.append({
+                    "bundle": bundle_id,
+                    "bundle_name": bundle_info.get("name", bundle_id.title()),
+                    "tier": tier_id,
+                    "tier_name": tier_info.get("name", tier_id.upper()),
+                    "storage_gb": tier_info.get("storage_gb", 50),
+                    "monthly_price": price_cents,
+                    "yearly_price": yearly_cents,
+                    "yearly_savings": (price_cents * 12) - yearly_cents,
+                    "is_current": is_current,
+                    "change_type": change_type,
+                    "features": bundle_info.get("features", []),
+                    "apps": bundle_info.get("apps", []),
+                })
+
+        return {"plans": plans, "current_bundle": current_bundle, "current_tier": current_tier}
+
+    @app.post("/api/v1/subscription/upgrade")
+    async def upgrade_subscription(
+        request: Request,
+        user: dict = Depends(get_current_user),
+    ):
+        """
+        Upgrade or change subscription plan.
+
+        Creates a Stripe checkout session for plan change.
+        """
+        data = await request.json()
+        new_bundle = data.get("bundle")
+        new_tier = data.get("tier")
+        billing_cycle = data.get("billing_cycle", "monthly")
+
+        if not new_bundle or not new_tier:
+            raise HTTPException(status_code=400, detail="Bundle and tier required")
+
+        if not is_valid_bundle(new_bundle) or not is_valid_tier(new_tier):
+            raise HTTPException(status_code=400, detail="Invalid bundle or tier")
+
+        customer_id = user.get("customer_id") or user["user_id"]
+        email = user.get("email", "")
+        beacon_name = user.get("beacon_name", "beacon")
+
+        # Get price ID for new plan
+        price_id = get_price_id(new_bundle, new_tier, billing_cycle)
+        if not price_id:
+            raise HTTPException(status_code=400, detail="Price not found for selected plan")
+
+        try:
+            import stripe
+
+            # Create checkout session for subscription update
+            checkout_session = stripe.checkout.Session.create(
+                customer_email=email,
+                mode="subscription",
+                line_items=[{"price": price_id, "quantity": 1}],
+                success_url=f"https://{beacon_name}.wopr.systems/billing?upgrade=success",
+                cancel_url=f"https://{beacon_name}.wopr.systems/billing?upgrade=cancelled",
+                metadata={
+                    "customer_id": customer_id,
+                    "beacon_name": beacon_name,
+                    "bundle": new_bundle,
+                    "tier": new_tier,
+                    "action": "upgrade",
+                },
+                subscription_data={
+                    "metadata": {
+                        "bundle": new_bundle,
+                        "tier": new_tier,
+                        "beacon_name": beacon_name,
+                    }
+                },
+            )
+
+            return {
+                "checkout_url": checkout_session.url,
+                "session_id": checkout_session.id,
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create checkout: {str(e)}")
+
+    @app.post("/api/v1/subscription/cancel")
+    async def cancel_subscription(
+        request: Request,
+        user: dict = Depends(get_current_user),
+    ):
+        """
+        Cancel subscription at end of current period.
+
+        Does not immediately cancel - subscription remains active until period end.
+        """
+        data = await request.json()
+        reason = data.get("reason", "")
+        feedback = data.get("feedback", "")
+
+        customer_id = user.get("customer_id") or user["user_id"]
+
+        try:
+            import stripe
+
+            # TODO: Get Stripe subscription ID from database
+            subscription_id = user.get("stripe_subscription_id")
+
+            if subscription_id:
+                # Cancel at period end (not immediate)
+                stripe.Subscription.modify(
+                    subscription_id,
+                    cancel_at_period_end=True,
+                    metadata={
+                        "cancel_reason": reason,
+                        "cancel_feedback": feedback,
+                    }
+                )
+
+            # TODO: Store cancellation reason in database
+            # TODO: Send cancellation email
+
+            return {
+                "success": True,
+                "message": "Subscription will be cancelled at the end of the current billing period",
+                "cancel_at_period_end": True,
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to cancel subscription: {str(e)}")
+
+    @app.post("/api/v1/subscription/reactivate")
+    async def reactivate_subscription(user: dict = Depends(get_current_user)):
+        """
+        Reactivate a subscription that was set to cancel at period end.
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+
+        try:
+            import stripe
+
+            subscription_id = user.get("stripe_subscription_id")
+
+            if subscription_id:
+                stripe.Subscription.modify(
+                    subscription_id,
+                    cancel_at_period_end=False,
+                )
+
+            return {
+                "success": True,
+                "message": "Subscription reactivated successfully",
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to reactivate: {str(e)}")
+
+    @app.get("/api/v1/subscription/invoices")
+    async def get_invoices(
+        limit: int = 10,
+        user: dict = Depends(get_current_user),
+    ):
+        """
+        Get invoice history for the customer.
+
+        Returns list of past invoices with download links.
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+
+        try:
+            import stripe
+
+            stripe_customer_id = user.get("stripe_customer_id")
+
+            if not stripe_customer_id:
+                return {"invoices": []}
+
+            invoices = stripe.Invoice.list(
+                customer=stripe_customer_id,
+                limit=limit,
+            )
+
+            return {
+                "invoices": [
+                    {
+                        "id": inv.id,
+                        "number": inv.number,
+                        "date": inv.created,
+                        "amount": inv.amount_paid,
+                        "currency": inv.currency,
+                        "status": inv.status,
+                        "pdf_url": inv.invoice_pdf,
+                        "hosted_url": inv.hosted_invoice_url,
+                        "description": f"{inv.lines.data[0].description}" if inv.lines.data else "Subscription",
+                    }
+                    for inv in invoices.data
+                ]
+            }
+
+        except Exception as e:
+            # Return empty list on error (user might not have Stripe customer yet)
+            return {"invoices": []}
+
+    @app.post("/api/v1/subscription/portal")
+    async def create_portal_session(user: dict = Depends(get_current_user)):
+        """
+        Create a Stripe Customer Portal session.
+
+        The portal allows customers to:
+        - Update payment methods
+        - View invoices
+        - Manage subscription
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+        beacon_name = user.get("beacon_name", "beacon")
+
+        try:
+            import stripe
+
+            stripe_customer_id = user.get("stripe_customer_id")
+
+            if not stripe_customer_id:
+                raise HTTPException(status_code=400, detail="No billing account found")
+
+            portal_session = stripe.billing_portal.Session.create(
+                customer=stripe_customer_id,
+                return_url=f"https://{beacon_name}.wopr.systems/billing",
+            )
+
+            return {
+                "portal_url": portal_session.url,
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create portal session: {str(e)}")
+
+    @app.post("/api/v1/subscription/update-payment")
+    async def update_payment_method(user: dict = Depends(get_current_user)):
+        """
+        Create a Stripe session specifically for updating payment method.
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+        beacon_name = user.get("beacon_name", "beacon")
+
+        try:
+            import stripe
+
+            stripe_customer_id = user.get("stripe_customer_id")
+
+            if not stripe_customer_id:
+                raise HTTPException(status_code=400, detail="No billing account found")
+
+            # Create setup session for payment method update
+            setup_session = stripe.checkout.Session.create(
+                customer=stripe_customer_id,
+                mode="setup",
+                payment_method_types=["card"],
+                success_url=f"https://{beacon_name}.wopr.systems/billing?payment_updated=success",
+                cancel_url=f"https://{beacon_name}.wopr.systems/billing",
+            )
+
+            return {
+                "session_url": setup_session.url,
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
+
+    @app.get("/api/v1/subscription/usage")
+    async def get_usage_stats(user: dict = Depends(get_current_user)):
+        """
+        Get detailed usage statistics for the subscription.
+        """
+        customer_id = user.get("customer_id") or user["user_id"]
+        beacon_name = user.get("beacon_name", "beacon")
+
+        # TODO: Fetch actual usage from monitoring/database
+        # This would integrate with the beacon's metrics
+        usage = {
+            "storage": {
+                "used_bytes": 13421772800,  # 12.5 GB
+                "limit_bytes": 53687091200,  # 50 GB
+                "used_gb": 12.5,
+                "limit_gb": 50,
+                "percent": 25,
+            },
+            "bandwidth": {
+                "used_bytes": 107374182400,  # 100 GB
+                "period_start": "2026-01-01T00:00:00Z",
+                "period_end": "2026-02-01T00:00:00Z",
+            },
+            "users": {
+                "count": 1,
+                "limit": 1,
+                "list": [
+                    {
+                        "email": user.get("email"),
+                        "role": "admin",
+                        "created_at": "2026-01-01T00:00:00Z",
+                    }
+                ],
+            },
+            "apps": {
+                "enabled": ["nextcloud", "vaultwarden", "freshrss"],
+                "available": ["wallabag", "stirling-pdf"],
+            },
+            "last_updated": datetime.now().isoformat(),
+        }
+
+        return usage
 
     return app
 

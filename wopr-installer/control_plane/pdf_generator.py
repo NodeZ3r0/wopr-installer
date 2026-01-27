@@ -584,3 +584,349 @@ Generated: {datetime.now().strftime('%B %d, %Y')}
 Thank you for choosing digital sovereignty!
 ================================================================================
 """
+
+
+# ============================================
+# NEW: Welcome Card Generator for Onboarding
+# ============================================
+
+def generate_welcome_pdf_for_email(
+    name: str,
+    email: str,
+    beacon_name: str,
+    bundle_name: str,
+    tier_name: str,
+    temp_password: str,
+    apps: list,
+) -> bytes:
+    """
+    Generate a welcome card PDF for email attachment.
+
+    This is designed to be attached to the welcome email and provides
+    a printable quick-reference card with credentials and app URLs.
+
+    Args:
+        name: Customer name
+        email: Customer email
+        beacon_name: Beacon subdomain
+        bundle_name: Bundle display name
+        tier_name: Tier display name
+        temp_password: Temporary password
+        apps: List of app dicts with name, icon, subdomain
+
+    Returns:
+        PDF as bytes
+    """
+    import io
+
+    if not REPORTLAB_AVAILABLE:
+        # Return a simple text-based fallback
+        text = generate_welcome_text_fallback(
+            name, email, beacon_name, bundle_name, tier_name, temp_password, apps
+        )
+        return text.encode('utf-8')
+
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    )
+
+    # Brand colors
+    WOPR_GREEN = colors.HexColor("#00ff41")
+    WOPR_DARK = colors.HexColor("#0a0a0a")
+    WOPR_SURFACE = colors.HexColor("#1a1a1a")
+    WOPR_BORDER = colors.HexColor("#333333")
+    WOPR_TEXT = colors.HexColor("#333333")  # Dark for print
+    WOPR_TEXT_MUTED = colors.HexColor("#666666")
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.75*inch,
+        leftMargin=0.75*inch,
+        topMargin=0.75*inch,
+        bottomMargin=0.75*inch,
+    )
+
+    styles = getSampleStyleSheet()
+
+    # Custom styles for welcome card
+    title_style = ParagraphStyle(
+        name='WelcomeTitle',
+        parent=styles['Heading1'],
+        fontSize=28,
+        textColor=WOPR_GREEN,
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+    )
+
+    subtitle_style = ParagraphStyle(
+        name='WelcomeSubtitle',
+        parent=styles['Normal'],
+        fontSize=14,
+        textColor=WOPR_TEXT_MUTED,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+    )
+
+    section_style = ParagraphStyle(
+        name='WelcomeSection',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=WOPR_GREEN,
+        spaceBefore=20,
+        spaceAfter=10,
+        fontName='Helvetica-Bold',
+    )
+
+    body_style = ParagraphStyle(
+        name='WelcomeBody',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=WOPR_TEXT,
+        spaceAfter=8,
+        leading=16,
+    )
+
+    label_style = ParagraphStyle(
+        name='WelcomeLabel',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=WOPR_TEXT_MUTED,
+        spaceAfter=2,
+    )
+
+    url_style = ParagraphStyle(
+        name='WelcomeURL',
+        parent=styles['Normal'],
+        fontSize=14,
+        textColor=WOPR_GREEN,
+        fontName='Helvetica-Bold',
+        spaceAfter=8,
+        alignment=TA_CENTER,
+    )
+
+    story = []
+
+    # Header
+    story.append(Paragraph("WOPR", title_style))
+    story.append(Paragraph("Your Personal Cloud Quick Reference", subtitle_style))
+    story.append(Spacer(1, 20))
+
+    # Welcome message
+    story.append(Paragraph(f"Welcome, {name}!", section_style))
+    story.append(Paragraph(
+        "Keep this card somewhere safe. It contains your login credentials "
+        "and quick access information for your WOPR Beacon.",
+        body_style
+    ))
+    story.append(Spacer(1, 20))
+
+    # Beacon URL Box
+    story.append(HRFlowable(width="100%", thickness=2, color=WOPR_GREEN, spaceBefore=10, spaceAfter=10))
+    story.append(Paragraph("Your Beacon URL", label_style))
+    story.append(Paragraph(f"https://{beacon_name}.wopr.systems", url_style))
+    story.append(HRFlowable(width="100%", thickness=2, color=WOPR_GREEN, spaceBefore=10, spaceAfter=10))
+    story.append(Spacer(1, 20))
+
+    # Account Details
+    story.append(Paragraph("Account Details", section_style))
+
+    account_data = [
+        ["Bundle:", bundle_name],
+        ["Tier:", tier_name],
+        ["Email:", email],
+    ]
+
+    account_table = Table(account_data, colWidths=[1.5*inch, 4.5*inch])
+    account_table.setStyle(TableStyle([
+        ('TEXTCOLOR', (0, 0), (0, -1), WOPR_TEXT_MUTED),
+        ('TEXTCOLOR', (1, 0), (1, -1), WOPR_TEXT),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+    ]))
+    story.append(account_table)
+    story.append(Spacer(1, 20))
+
+    # Credentials Box
+    story.append(Paragraph("Login Credentials", section_style))
+    story.append(Paragraph(
+        "Use these credentials to sign in to all your apps:",
+        body_style
+    ))
+    story.append(Spacer(1, 10))
+
+    cred_data = [
+        ["Email:", email],
+        ["Temporary Password:", temp_password],
+    ]
+
+    cred_table = Table(cred_data, colWidths=[2*inch, 4*inch])
+    cred_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f5f5f5")),
+        ('TEXTCOLOR', (0, 0), (0, -1), WOPR_TEXT_MUTED),
+        ('TEXTCOLOR', (1, 0), (1, -1), WOPR_GREEN),
+        ('FONTNAME', (1, 0), (1, -1), 'Courier'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('BOX', (0, 0), (-1, -1), 1, WOPR_BORDER),
+        ('LINEBELOW', (0, 0), (-1, -2), 1, WOPR_BORDER),
+    ]))
+    story.append(cred_table)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph(
+        "<font color='#dc2626'>Important: Please change your password after your first login.</font>",
+        body_style
+    ))
+    story.append(Spacer(1, 20))
+
+    # Apps Section
+    story.append(Paragraph("Your Apps", section_style))
+
+    if apps:
+        app_rows = []
+        for i in range(0, len(apps), 2):
+            row = []
+            for j in range(2):
+                if i + j < len(apps):
+                    app = apps[i + j]
+                    app_text = f"{app.get('icon', '')} {app['name']}\n{app.get('subdomain', '')}.{beacon_name}.wopr.systems"
+                    row.append(app_text)
+                else:
+                    row.append("")
+            app_rows.append(row)
+
+        app_table = Table(app_rows, colWidths=[3*inch, 3*inch])
+        app_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f5f5f5")),
+            ('TEXTCOLOR', (0, 0), (-1, -1), WOPR_TEXT),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ('BOX', (0, 0), (-1, -1), 1, WOPR_BORDER),
+            ('INNERGRID', (0, 0), (-1, -1), 1, WOPR_BORDER),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(app_table)
+
+    story.append(Spacer(1, 30))
+
+    # Getting Started Checklist
+    story.append(Paragraph("Getting Started", section_style))
+
+    checklist = [
+        "1. Log in to your dashboard at your Beacon URL",
+        "2. Change your temporary password immediately",
+        "3. Enable two-factor authentication (2FA)",
+        "4. Download mobile apps for Nextcloud, Vaultwarden, etc.",
+        "5. Explore your apps and enjoy your personal cloud!",
+    ]
+
+    for item in checklist:
+        story.append(Paragraph(f"<font color='#00ff41'>&#10003;</font> {item}", body_style))
+
+    story.append(Spacer(1, 30))
+
+    # Support
+    story.append(HRFlowable(width="100%", thickness=1, color=WOPR_BORDER, spaceBefore=10, spaceAfter=10))
+    story.append(Paragraph("Need Help?", section_style))
+    story.append(Paragraph("Documentation: https://docs.wopr.systems", body_style))
+    story.append(Paragraph("Support: support@wopr.systems", body_style))
+    story.append(Spacer(1, 20))
+
+    # Footer
+    story.append(Paragraph(
+        f"Generated on {datetime.now().strftime('%B %d, %Y')}",
+        label_style
+    ))
+    story.append(Paragraph(
+        "WOPR Systems - Your Personal Cloud Infrastructure",
+        label_style
+    ))
+
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generate_welcome_text_fallback(
+    name: str,
+    email: str,
+    beacon_name: str,
+    bundle_name: str,
+    tier_name: str,
+    temp_password: str,
+    apps: list,
+) -> str:
+    """Generate plain text welcome card as fallback."""
+    apps_text = "\n".join([
+        f"  - {app.get('name')}: {app.get('subdomain')}.{beacon_name}.wopr.systems"
+        for app in apps
+    ]) if apps else "  No apps configured"
+
+    return f"""
+================================================================================
+                              WOPR
+                    Your Personal Cloud Quick Reference
+================================================================================
+
+Welcome, {name}!
+
+Keep this card somewhere safe. It contains your login credentials
+and quick access information for your WOPR Beacon.
+
+--------------------------------------------------------------------------------
+                            YOUR BEACON URL
+                   https://{beacon_name}.wopr.systems
+--------------------------------------------------------------------------------
+
+ACCOUNT DETAILS
+---------------
+Bundle:     {bundle_name}
+Tier:       {tier_name}
+Email:      {email}
+
+LOGIN CREDENTIALS
+-----------------
+Email:              {email}
+Temporary Password: {temp_password}
+
+*** IMPORTANT: Please change your password after your first login. ***
+
+YOUR APPS
+---------
+{apps_text}
+
+GETTING STARTED
+---------------
+[X] 1. Log in to your dashboard at your Beacon URL
+[ ] 2. Change your temporary password immediately
+[ ] 3. Enable two-factor authentication (2FA)
+[ ] 4. Download mobile apps for Nextcloud, Vaultwarden, etc.
+[ ] 5. Explore your apps and enjoy your personal cloud!
+
+NEED HELP?
+----------
+Documentation: https://docs.wopr.systems
+Support:       support@wopr.systems
+
+================================================================================
+Generated on {datetime.now().strftime('%B %d, %Y')}
+WOPR Systems - Your Personal Cloud Infrastructure
+================================================================================
+"""

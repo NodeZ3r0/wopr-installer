@@ -1,0 +1,223 @@
+{
+  "mode": "test",
+  "sovereign": {
+    "starter": {
+      "product_id": "prod_TrXLdg7vmPSUQO",
+      "name": "Starter Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoH4FDuNGSa0TEEp3CG3Pb",
+        "tier_2": "price_1StoH5FDuNGSa0TEZroZv3YM",
+        "tier_3": "price_1StoH6FDuNGSa0TE2w5lvUyi"
+      }
+    },
+    "creator": {
+      "product_id": "prod_TrXLUKLpfak7Rv",
+      "name": "Creator Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoH7FDuNGSa0TEl8hrGppO",
+        "tier_2": "price_1StoH7FDuNGSa0TEpdAQ4yYx",
+        "tier_3": "price_1StoH8FDuNGSa0TEdmYYEcQs"
+      }
+    },
+    "developer": {
+      "product_id": "prod_TrXLAtTY6TYmM1",
+      "name": "Developer Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoH9FDuNGSa0TEXL9xKLaX",
+        "tier_2": "price_1StoHAFDuNGSa0TEPlZb1TAX",
+        "tier_3": "price_1StoHAFDuNGSa0TEDNrae0ko"
+      }
+    },
+    "professional": {
+      "product_id": "prod_TrXLPXpp3x4y17",
+      "name": "Professional Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoHBFDuNGSa0TEaxRK3XWy",
+        "tier_2": "price_1StoHCFDuNGSa0TEFgrSMnmp",
+        "tier_3": "price_1StoHCFDuNGSa0TEFkZP1s0E"
+      }
+    },
+    "family": {
+      "product_id": "prod_TrXLMaMcM6fVUV",
+      "name": "Family Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoHEFDuNGSa0TEKJwSMmRP",
+        "tier_2": "price_1StoHEFDuNGSa0TEs1rteZbv",
+        "tier_3": "price_1StoHFFDuNGSa0TEbdvTIr5y"
+      }
+    },
+    "smallbusiness": {
+      "product_id": "prod_TrXLSmZ1y3Q9c7",
+      "name": "Small Business Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoHGFDuNGSa0TE2ObCHwPk",
+        "tier_2": "price_1StoHGFDuNGSa0TEA2Zkhi21",
+        "tier_3": "price_1StoHHFDuNGSa0TEij3I5kCy"
+      }
+    },
+    "enterprise": {
+      "product_id": "prod_TrXLO5uiA20no0",
+      "name": "Enterprise Sovereign Suite",
+      "prices": {
+        "tier_1": "price_1StoHIFDuNGSa0TEq8BXY2sT",
+        "tier_2": "price_1StoHIFDuNGSa0TEeYDnIlMZ",
+        "tier_3": "price_1StoHJFDuNGSa0TEmxuiSK6O"
+      }
+    }
+  },
+  "micro": {
+    "personal_productivity": {
+      "product_id": "prod_TrXMlFCjPR5b4m",
+      "name": "Personal Productivity",
+      "prices": {
+        "tier_1": "price_1StoHiFDuNGSa0TEOpeetofE",
+        "tier_2": "price_1StoHiFDuNGSa0TEmEU9p8GR",
+        "tier_3": "price_1StoHjFDuNGSa0TEbkifSE0E"
+      }
+    },
+    "meeting_room": {
+      "product_id": "prod_TrXMqkIYlV9T3m",
+      "name": "Meeting Room",
+      "prices": {
+        "tier_1": "price_1StoHkFDuNGSa0TEF2JTqJR3",
+        "tier_2": "price_1StoHkFDuNGSa0TE7pIaHP1h",
+        "tier_3": "price_1StoHlFDuNGSa0TEokj4pnm1"
+      }
+    },
+    "privacy_pack": {
+      "product_id": "prod_TrXMG2Wlb2LSZp",
+      "name": "Privacy Pack",
+      "prices": {
+        "tier_1": "price_1StoHmFDuNGSa0TEejAw3u63",
+        "tier_2": "price_1StoHnFDuNGSa0TEf6cYqCK4",
+        "tier_3": "price_1StoHnFDuNGSa0TEVfMy06a5"
+      }
+    },
+    "writer_studio": {
+      "product_id": "prod_TrXMpOMgwBqPPX",
+      "name": "Writers Studio",
+      "prices": {
+        "tier_1": "price_1StoHoFDuNGSa0TE1pY8sLJb",
+        "tier_2": "price_1StoHpFDuNGSa0TEaiHBWtDN",
+        "tier_3": "price_1StoHqFDuNGSa0TE6YeBb9nf"
+      }
+    },
+    "artist_storefront": {
+      "product_id": "prod_TrXMMA5DMqFnbx",
+      "name": "Artist Storefront",
+      "prices": {
+        "tier_1": "price_1StoHrFDuNGSa0TEeg8amPky",
+        "tier_2": "price_1StoHrFDuNGSa0TEn6WAXHrM",
+        "tier_3": "price_1StoHsFDuNGSa0TEvWtpomMp"
+      }
+    },
+    "podcaster": {
+      "product_id": "prod_TrXMogFaj0Aj7c",
+      "name": "Podcaster Pack",
+      "prices": {
+        "tier_1": "price_1StoHtFDuNGSa0TEB339gnu3",
+        "tier_2": "price_1StoHtFDuNGSa0TEuyGdUIQG",
+        "tier_3": "price_1StoHuFDuNGSa0TEP65TBTxF"
+      }
+    },
+    "freelancer": {
+      "product_id": "prod_TrXMYDKE9ZbuII",
+      "name": "Freelancer Essentials",
+      "prices": {
+        "tier_1": "price_1StoHvFDuNGSa0TEVk8pE7Ze",
+        "tier_2": "price_1StoHwFDuNGSa0TERuwbe4Gv",
+        "tier_3": "price_1StoHwFDuNGSa0TEUeATUEeO"
+      }
+    },
+    "musician": {
+      "product_id": "prod_TrXM8d7QLNT2U3",
+      "name": "Musician Bundle",
+      "prices": {
+        "tier_1": "price_1StoHxFDuNGSa0TEj2ATKcJ7",
+        "tier_2": "price_1StoHyFDuNGSa0TEWHTfXemQ",
+        "tier_3": "price_1StoHyFDuNGSa0TE7d1SciXz"
+      }
+    },
+    "family_hub": {
+      "product_id": "prod_TrXM77kP5yaWtT",
+      "name": "Family Hub",
+      "prices": {
+        "tier_1": "price_1StoI0FDuNGSa0TEs5n1K3dU",
+        "tier_2": "price_1StoI0FDuNGSa0TElxJErrOi",
+        "tier_3": "price_1StoI1FDuNGSa0TEjhDRpSag"
+      }
+    },
+    "photographer": {
+      "product_id": "prod_TrXMV9lqirh4sc",
+      "name": "Photographer Pro",
+      "prices": {
+        "tier_1": "price_1StoI2FDuNGSa0TE7z8Xk26K",
+        "tier_2": "price_1StoI2FDuNGSa0TEb4Fr6dHL",
+        "tier_3": "price_1StoI3FDuNGSa0TEGdtA4u2z"
+      }
+    },
+    "bookkeeper": {
+      "product_id": "prod_TrXM6YRiyaSlon",
+      "name": "Bookkeeper Bundle",
+      "prices": {
+        "tier_1": "price_1StoI4FDuNGSa0TEpryEQ5UW",
+        "tier_2": "price_1StoI5FDuNGSa0TEjl9CFiTd",
+        "tier_3": "price_1StoI5FDuNGSa0TEIc9MNFDX"
+      }
+    },
+    "video_creator": {
+      "product_id": "prod_TrXMFiYTFAhQge",
+      "name": "Video Creator",
+      "prices": {
+        "tier_1": "price_1StoI6FDuNGSa0TE0P3Iov3r",
+        "tier_2": "price_1StoI7FDuNGSa0TEs5pEnwQX",
+        "tier_3": "price_1StoI7FDuNGSa0TEX7nP6dFg"
+      }
+    },
+    "contractor": {
+      "product_id": "prod_TrXMTmjHgzZUTk",
+      "name": "Contractor Pro",
+      "prices": {
+        "tier_1": "price_1StoI9FDuNGSa0TEB0rsGWLA",
+        "tier_2": "price_1StoI9FDuNGSa0TEmc3fhjFJ",
+        "tier_3": "price_1StoIAFDuNGSa0TEt5opvCqr"
+      }
+    },
+    "realtor": {
+      "product_id": "prod_TrXM8BxKLh5OBb",
+      "name": "Real Estate Agent",
+      "prices": {
+        "tier_1": "price_1StoIBFDuNGSa0TEgX2F5Qhj",
+        "tier_2": "price_1StoIBFDuNGSa0TExpm4i1rg",
+        "tier_3": "price_1StoICFDuNGSa0TERQkzIQ70"
+      }
+    },
+    "educator": {
+      "product_id": "prod_TrXMlzlv5XNP00",
+      "name": "Educator Suite",
+      "prices": {
+        "tier_1": "price_1StoIDFDuNGSa0TElA6301Pa",
+        "tier_2": "price_1StoIEFDuNGSa0TExa2blkuU",
+        "tier_3": "price_1StoIEFDuNGSa0TEFKGMsAzz"
+      }
+    },
+    "therapist": {
+      "product_id": "prod_TrXMl3OykwC5qF",
+      "name": "Therapist/Coach",
+      "prices": {
+        "tier_1": "price_1StoIFFDuNGSa0TEZWo9LL8T",
+        "tier_2": "price_1StoIGFDuNGSa0TE0RhfygpX",
+        "tier_3": "price_1StoIGFDuNGSa0TEVoWHruq3"
+      }
+    },
+    "legal": {
+      "product_id": "prod_TrXNudDYiXiqd0",
+      "name": "Legal Lite",
+      "prices": {
+        "tier_1": "price_1StoIIFDuNGSa0TEeThAL5QN",
+        "tier_2": "price_1StoIIFDuNGSa0TE5TkCaGuu",
+        "tier_3": "price_1StoIJFDuNGSa0TEHvjS0bIR"
+      }
+    }
+  }
+}
