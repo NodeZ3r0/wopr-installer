@@ -27,7 +27,7 @@ import stripe
 # Import orchestrator components
 from control_plane.orchestrator import WOPROrchestrator, ProvisioningState, ProvisioningJob
 from control_plane.providers.registry import ProviderRegistry
-from control_plane.bundles.stripe_checkout import StripeCheckout
+# Note: StripeCheckout has complex import chain, not needed here
 
 # Configuration from environment
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
