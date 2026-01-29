@@ -1,0 +1,72 @@
+name: WOPR Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wopr
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: wopr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://wopr:testpass@localhost:5432/wopr_test
+      STRIPE_SECRET_KEY: sk_test_fake
+      STRIPE_WEBHOOK_SECRET: whsec_test_fake
+      PYTHONPATH: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short --cov=control_plane --cov-report=term-missing
+
+      - name: Type check
+        run: |
+          pip install mypy
+          mypy control_plane/config.py control_plane/database.py --ignore-missing-imports || true
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run black check
+        run: |
+          pip install black
+          black --check --diff control_plane/ main.py || true

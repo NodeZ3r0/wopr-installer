@@ -20,12 +20,21 @@ httpx>=0.26.0           # Async HTTP client (Authentik API)
 # PDF Generation
 reportlab>=4.0.0        # PDF document generation
 
+# Database
+asyncpg>=0.29.0         # Async PostgreSQL driver
+
+# Email
+jinja2>=3.1.0           # Email template rendering
+
 # Utilities
 paramiko>=3.0.0         # SSH for BYO provider
 requests>=2.28.0        # HTTP client
 
-# Optional: DNS automation
+# DNS automation
 cloudflare>=2.11.0      # Cloudflare DNS API
+
+# Security
+slowapi>=0.1.0          # Rate limiting for FastAPI
 
 # Development
 pytest>=7.0.0
