@@ -681,6 +681,237 @@ async def list_providers():
     }
 
 
+# ============================================
+# ONBOARDING ENDPOINTS (public, no auth)
+# ============================================
+
+from control_plane.stripe_catalog import (
+    BUNDLE_INFO,
+    BUNDLE_PRICING,
+    TIER_INFO,
+    get_price_id,
+    get_price_cents,
+    is_valid_bundle,
+    is_valid_tier,
+)
+from control_plane.billing import WOPRBilling
+
+
+class OnboardCheckoutRequest(BaseModel):
+    bundle: str
+    tier: str
+    period: str  # 'monthly' or 'yearly'
+    email: str
+    name: str
+    beacon_name: str
+    region: str = "auto"
+    additional_users: List[Dict[str, str]] = []
+
+
+_billing_service = None
+
+
+def get_billing():
+    """Get or create the billing service."""
+    global _billing_service
+    if _billing_service is None and config.stripe.secret_key:
+        _billing_service = WOPRBilling(
+            stripe_secret_key=config.stripe.secret_key,
+            stripe_webhook_secret=config.stripe.webhook_secret,
+            success_url=f"https://orc.{config.wopr_domain}/onboard/success",
+            cancel_url=f"https://orc.{config.wopr_domain}/onboard",
+        )
+    return _billing_service
+
+
+@app.post("/api/v1/onboard/validate-beacon")
+async def validate_beacon_name(request: Request):
+    """Check if a beacon name is available."""
+    data = await request.json()
+    name = data.get("name", "").lower().strip()
+
+    if not re.match(r'^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$', name):
+        return {
+            "available": False,
+            "reason": "invalid_format",
+            "message": "Name must be 3-32 characters, lowercase letters, numbers, and hyphens only",
+        }
+
+    reserved = [
+        "www", "api", "admin", "mail", "smtp", "ftp", "ssh",
+        "test", "demo", "staging", "dev", "prod", "app",
+        "dashboard", "auth", "login", "signup", "register",
+        "billing", "support", "help", "status", "docs",
+        "orc", "install", "vault", "git", "mstdn", "social",
+        "matrix", "forum", "shop", "drive", "joshua",
+    ]
+    if name in reserved:
+        return {
+            "available": False,
+            "reason": "reserved",
+            "message": "This name is reserved",
+        }
+
+    # Check database for existing beacons
+    if db_pool:
+        try:
+            async with db_pool.acquire() as conn:
+                existing = await conn.fetchval(
+                    "SELECT COUNT(*) FROM beacons WHERE subdomain = $1", name
+                )
+                if existing > 0:
+                    return {
+                        "available": False,
+                        "reason": "taken",
+                        "message": "This name is already in use",
+                    }
+        except Exception:
+            pass
+
+    return {
+        "available": True,
+        "name": name,
+        "domain": f"{name}.{config.wopr_domain}",
+    }
+
+
+@app.post("/api/v1/onboard/create-checkout")
+async def create_onboard_checkout(request: OnboardCheckoutRequest):
+    """Create a Stripe checkout session for new customer onboarding."""
+    billing = get_billing()
+    if not billing:
+        raise HTTPException(status_code=500, detail="Billing not configured")
+
+    if not is_valid_bundle(request.bundle):
+        raise HTTPException(status_code=400, detail=f"Invalid bundle: {request.bundle}")
+    if not is_valid_tier(request.tier):
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {request.tier}")
+
+    price_cents = get_price_cents(request.bundle, request.tier)
+    if price_cents == 0:
+        raise HTTPException(status_code=400, detail="Custom pricing required for this tier")
+
+    price_id = get_price_id(request.bundle, request.tier, request.period)
+    if not price_id:
+        raise HTTPException(status_code=400, detail="Price not configured for this bundle/tier")
+
+    # Map region to provider+datacenter
+    region = request.region or "auto"
+    region_to_datacenter = {
+        "us-east": {"hetzner": "ash", "digitalocean": "nyc1", "linode": "us-east", "ovh": "US-EAST-VA-1", "upcloud": "us-chi1"},
+        "eu-west": {"hetzner": "fsn1", "digitalocean": "fra1", "linode": "eu-west", "ovh": "GRA11", "upcloud": "de-fra1"},
+    }
+    if region == "auto":
+        region = "us-east"
+
+    # Auto-select provider via weighted round-robin
+    orchestrator = get_orchestrator()
+    provider_id = "hetzner"
+    try:
+        if orchestrator:
+            provider_id = await orchestrator.select_provider(bundle=request.bundle)
+    except Exception:
+        pass
+
+    datacenter_id = region_to_datacenter.get(region, {}).get(provider_id, "ash")
+
+    session = billing.create_checkout_session(
+        email=request.email,
+        name=request.name,
+        bundle=request.bundle,
+        tier=request.tier,
+        provider_id=provider_id,
+        region=region,
+        datacenter_id=datacenter_id,
+        beacon_name=request.beacon_name,
+        additional_users=request.additional_users,
+    )
+
+    return {
+        "checkout_url": session["checkout_url"],
+        "session_id": session["session_id"],
+    }
+
+
+@app.get("/api/v1/onboard/bundles")
+async def get_onboard_bundles():
+    """Get all available bundles for the onboarding wizard."""
+    bundles = []
+    for bundle_id, info in BUNDLE_INFO.items():
+        pricing = BUNDLE_PRICING.get(bundle_id, {})
+        bundles.append({
+            "id": bundle_id,
+            "name": info.get("name", bundle_id),
+            "description": info.get("description", ""),
+            "type": info.get("type", "unknown"),
+            "pricing": {
+                "t1": pricing.get("t1", 0),
+                "t2": pricing.get("t2", 0),
+                "t3": pricing.get("t3", 0),
+            },
+        })
+    return {"bundles": bundles, "tiers": TIER_INFO}
+
+
+@app.get("/api/v1/onboard/success")
+async def handle_onboard_success(session_id: str):
+    """Handle successful checkout redirect from Stripe."""
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+
+        if session.payment_status != "paid":
+            raise HTTPException(status_code=400, detail="Payment not completed")
+
+        metadata = session.metadata or {}
+        bundle = metadata.get("wopr_bundle", metadata.get("bundle", "unknown"))
+        tier = metadata.get("wopr_tier", metadata.get("tier", "t1"))
+        beacon_name = metadata.get("wopr_beacon_name", metadata.get("beacon_name", ""))
+        provider = metadata.get("wopr_provider", metadata.get("provider", "hetzner"))
+        customer_name = metadata.get("wopr_customer_name", metadata.get("customer_name", ""))
+
+        bundle_info = BUNDLE_INFO.get(bundle, {})
+        tier_info = TIER_INFO.get(tier, {})
+
+        amount_paid = session.amount_total / 100 if session.amount_total else 0
+        currency = session.currency.upper() if session.currency else "USD"
+
+        # Look up provisioning job from the webhook (it should already exist)
+        job_id = None
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT job_id FROM provisioning_jobs WHERE customer_email = $1 ORDER BY created_at DESC LIMIT 1",
+                        session.customer_email,
+                    )
+                    if row:
+                        job_id = row["job_id"]
+            except Exception:
+                pass
+
+        if not job_id:
+            import uuid
+            job_id = str(uuid.uuid4())
+
+        return {
+            "order": {
+                "session_id": session_id,
+                "bundle": bundle,
+                "bundle_name": bundle_info.get("name", bundle),
+                "tier": tier,
+                "tier_name": tier_info.get("name", tier),
+                "beacon_name": beacon_name,
+                "email": session.customer_email,
+                "name": customer_name,
+                "amount": f"${amount_paid:.2f} {currency}",
+            },
+            "job_id": job_id,
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
