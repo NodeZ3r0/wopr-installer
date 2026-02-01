@@ -675,12 +675,67 @@ class WOPROrchestrator:
     # CLOUD-INIT GENERATION
     # =========================================
 
+    def _get_modules_for_bundle(self, bundle: str) -> List[str]:
+        """Get the full module list for a bundle from manifests.py."""
+        try:
+            from control_plane.bundles.manifests import (
+                SOVEREIGN_BUNDLES, MICRO_BUNDLES,
+                CORE_INFRASTRUCTURE,
+            )
+            from control_plane.bundles.tiers import SovereignSuiteID, MicroBundleID
+
+            # Try sovereign suites first
+            for sid in SovereignSuiteID:
+                if sid.value == bundle:
+                    manifest = SOVEREIGN_BUNDLES[sid]
+                    return manifest.get_all_modules()
+
+            # Try micro bundles
+            for mid in MicroBundleID:
+                if mid.value == bundle:
+                    manifest = MICRO_BUNDLES[mid]
+                    return manifest.get_all_modules()
+
+            # Fallback: core infra + nextcloud + vaultwarden
+            logger.warning(f"Unknown bundle '{bundle}', using minimal module set")
+            return CORE_INFRASTRUCTURE + ["nextcloud", "vaultwarden"]
+        except Exception as e:
+            logger.error(f"Failed to load manifests for bundle '{bundle}': {e}")
+            return ["authentik", "caddy", "postgresql", "redis", "nextcloud", "vaultwarden"]
+
     def _generate_cloud_init(self, job: ProvisioningJob) -> str:
         """Generate cloud-init user data for WOPR installation."""
+        import json as _json
+
+        # Resolve the full module list from manifests
+        all_modules = self._get_modules_for_bundle(job.bundle)
+        core_modules = ["authentik", "caddy", "postgresql", "redis"]
+        app_modules = [m for m in all_modules if m not in core_modules]
+
+        # Build the bootstrap config with embedded module list
+        bootstrap_config = _json.dumps({
+            "job_id": job.job_id,
+            "customer_id": job.customer_id,
+            "bundle": job.bundle,
+            "storage_tier": job.storage_tier,
+            "domain": f"{job.wopr_subdomain}.{self.WOPR_DOMAIN}",
+            "custom_domain": job.custom_domain or "",
+            "provisioned_at": datetime.now().isoformat(),
+            "orchestrator_url": f"https://orc.{self.WOPR_DOMAIN}",
+            "core_modules": core_modules,
+            "app_modules": app_modules,
+        }, indent=2)
+
+        # Escape for YAML literal block (indent each line by 6 spaces)
+        bootstrap_yaml = "\n".join(
+            f"      {line}" for line in bootstrap_config.split("\n")
+        )
+
         return f"""#cloud-config
 # WOPR Sovereign Suite Installer
 # Generated: {datetime.now().isoformat()}
 # Job ID: {job.job_id}
+# Bundle: {job.bundle} ({len(app_modules)} app modules)
 
 package_update: true
 package_upgrade: true
@@ -699,15 +754,7 @@ write_files:
   - path: /etc/wopr/bootstrap.json
     permissions: '0600'
     content: |
-      {{
-        "job_id": "{job.job_id}",
-        "customer_id": "{job.customer_id}",
-        "bundle": "{job.bundle}",
-        "storage_tier": {job.storage_tier},
-        "domain": "{job.wopr_subdomain}.{self.WOPR_DOMAIN}",
-        "custom_domain": "{job.custom_domain or ''}",
-        "provisioned_at": "{datetime.now().isoformat()}"
-      }}
+{bootstrap_yaml}
 
   - path: /opt/wopr/install.sh
     permissions: '0755'
@@ -721,7 +768,6 @@ write_files:
 
       # Download and run installer
       curl -fsSL https://install.wopr.systems/v1/bootstrap.sh | bash -s -- \\
-        --bundle {job.bundle} \\
         --domain {job.wopr_subdomain}.{self.WOPR_DOMAIN} \\
         --non-interactive \\
         --confirm-all

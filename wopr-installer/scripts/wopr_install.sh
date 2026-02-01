@@ -1,15 +1,22 @@
 #!/bin/bash
 #=================================================
-# WOPR SOVEREIGN SUITE INSTALLER
-# Version: 1.5
-# Purpose: Main installation orchestrator
+# WOPR INSTALLER
+# Version: 2.0
+# Purpose: Manifest-driven installation orchestrator
 # License: AGPL-3.0
+#
+# This installer reads module lists from /etc/wopr/bootstrap.json
+# (written by the orchestrator during cloud-init).
+# It does NOT hardcode bundle-to-module mappings.
 #=================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/wopr_common.sh"
+source "${SCRIPT_DIR}/modules/registry.sh"
+
+BOOTSTRAP_FILE="/etc/wopr/bootstrap.json"
 
 #=================================================
 # PARSE ARGUMENTS
@@ -17,40 +24,30 @@ source "${SCRIPT_DIR}/wopr_common.sh"
 
 usage() {
     cat << EOF
-WOPR Sovereign Suite Installer v1.5
+WOPR Installer v2.0
 
 Usage: $0 [OPTIONS]
 
 Options:
-    --bundle <name>       Bundle to install (personal|creator|developer|professional)
-    --domain <domain>     Primary domain for the instance
-    --customer-id <id>    Customer ID (for managed deployments)
-    --instance-id <id>    Instance ID (auto-generated if not provided)
+    --domain <domain>     Primary domain (read from bootstrap.json if omitted)
     --non-interactive     Skip confirmation prompts (requires --confirm-all)
-    --confirm-all         Auto-confirm all prompts (dangerous)
+    --confirm-all         Auto-confirm all prompts (for cloud-init)
     --help                Show this help message
 
-Examples:
-    $0 --bundle personal --domain mycloud.example.com
-    $0 --bundle developer --domain dev.example.com --non-interactive --confirm-all
+The installer reads core_modules and app_modules from /etc/wopr/bootstrap.json
+which is written by the orchestrator during provisioning.
 
 EOF
     exit 0
 }
 
-WOPR_BUNDLE=""
 WOPR_DOMAIN=""
-WOPR_CUSTOMER_ID=""
-WOPR_INSTANCE_ID_ARG=""
 WOPR_NON_INTERACTIVE=false
 WOPR_CONFIRM_ALL=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --bundle)       WOPR_BUNDLE="$2"; shift 2 ;;
         --domain)       WOPR_DOMAIN="$2"; shift 2 ;;
-        --customer-id)  WOPR_CUSTOMER_ID="$2"; shift 2 ;;
-        --instance-id)  WOPR_INSTANCE_ID_ARG="$2"; shift 2 ;;
         --non-interactive) WOPR_NON_INTERACTIVE=true; shift ;;
         --confirm-all)  WOPR_CONFIRM_ALL=true; shift ;;
         --help)         usage ;;
@@ -59,54 +56,93 @@ while [[ $# -gt 0 ]]; do
 done
 
 #=================================================
-# VALIDATION
+# BOOTSTRAP.JSON READER
 #=================================================
 
-validate_inputs() {
-    if [ -z "$WOPR_BUNDLE" ]; then
-        if [ "$WOPR_NON_INTERACTIVE" = true ]; then
-            wopr_die "Bundle must be specified in non-interactive mode"
+bootstrap_get() {
+    local key="$1"
+    jq -r "$key // empty" "$BOOTSTRAP_FILE"
+}
+
+bootstrap_get_array() {
+    local key="$1"
+    jq -r "$key[]? // empty" "$BOOTSTRAP_FILE"
+}
+
+validate_bootstrap() {
+    if [ ! -f "$BOOTSTRAP_FILE" ]; then
+        wopr_die "Bootstrap file not found: $BOOTSTRAP_FILE"
+    fi
+
+    # Validate required fields
+    local bundle=$(bootstrap_get '.bundle')
+    local domain=$(bootstrap_get '.domain')
+
+    if [ -z "$bundle" ]; then
+        wopr_die "bootstrap.json missing 'bundle' field"
+    fi
+    if [ -z "$domain" ]; then
+        if [ -z "$WOPR_DOMAIN" ]; then
+            wopr_die "No domain found in bootstrap.json or --domain flag"
         fi
-        echo "Available bundles:"
-        echo "  1) personal     - Personal cloud (Nextcloud, Vaultwarden, RSS)"
-        echo "  2) creator      - Personal + e-commerce + blogging"
-        echo "  3) developer    - Personal + Git + CI + Reactor AI"
-        echo "  4) professional - Full suite with chat, video, office"
-        echo ""
-        read -p "Select bundle [1-4]: " bundle_choice
-        case $bundle_choice in
-            1) WOPR_BUNDLE="personal" ;;
-            2) WOPR_BUNDLE="creator" ;;
-            3) WOPR_BUNDLE="developer" ;;
-            4) WOPR_BUNDLE="professional" ;;
-            *) wopr_die "Invalid bundle selection" ;;
-        esac
+    else
+        WOPR_DOMAIN="$domain"
     fi
 
-    case "$WOPR_BUNDLE" in
-        personal|creator|developer|professional) ;;
-        *) wopr_die "Invalid bundle: $WOPR_BUNDLE" ;;
-    esac
+    # Read module arrays
+    WOPR_CORE_MODULES=()
+    while IFS= read -r mod; do
+        [ -n "$mod" ] && WOPR_CORE_MODULES+=("$mod")
+    done < <(bootstrap_get_array '.core_modules')
 
-    if [ -z "$WOPR_DOMAIN" ]; then
-        if [ "$WOPR_NON_INTERACTIVE" = true ]; then
-            wopr_die "Domain must be specified in non-interactive mode"
-        fi
-        read -p "Enter primary domain (e.g., mycloud.example.com): " WOPR_DOMAIN
+    WOPR_APP_MODULES=()
+    while IFS= read -r mod; do
+        [ -n "$mod" ] && WOPR_APP_MODULES+=("$mod")
+    done < <(bootstrap_get_array '.app_modules')
+
+    WOPR_BUNDLE=$(bootstrap_get '.bundle')
+    WOPR_STORAGE_TIER=$(bootstrap_get '.storage_tier')
+    WOPR_JOB_ID=$(bootstrap_get '.job_id')
+    WOPR_CUSTOMER_ID=$(bootstrap_get '.customer_id')
+    WOPR_ORCHESTRATOR_URL=$(bootstrap_get '.orchestrator_url')
+
+    if [ ${#WOPR_CORE_MODULES[@]} -eq 0 ]; then
+        wopr_log "WARN" "No core_modules in bootstrap.json, using defaults"
+        WOPR_CORE_MODULES=("authentik" "caddy" "postgresql" "redis")
     fi
 
-    if [ -z "$WOPR_DOMAIN" ]; then
-        wopr_die "Domain is required"
+    if [ ${#WOPR_APP_MODULES[@]} -eq 0 ]; then
+        wopr_die "No app_modules in bootstrap.json — cannot determine what to install"
     fi
+
+    local total_modules=$(( ${#WOPR_CORE_MODULES[@]} + ${#WOPR_APP_MODULES[@]} ))
 
     wopr_setting_set "bundle" "$WOPR_BUNDLE"
     wopr_setting_set "domain" "$WOPR_DOMAIN"
+    wopr_setting_set "storage_tier" "$WOPR_STORAGE_TIER"
+    wopr_setting_set "job_id" "$WOPR_JOB_ID"
+    wopr_setting_set "customer_id" "$WOPR_CUSTOMER_ID"
+    wopr_setting_set "orchestrator_url" "$WOPR_ORCHESTRATOR_URL"
 
-    if [ -n "$WOPR_CUSTOMER_ID" ]; then
-        wopr_setting_set "customer_id" "$WOPR_CUSTOMER_ID"
+    wopr_log "OK" "Bootstrap validated: bundle=$WOPR_BUNDLE, domain=$WOPR_DOMAIN"
+    wopr_log "INFO" "Core modules (${#WOPR_CORE_MODULES[@]}): ${WOPR_CORE_MODULES[*]}"
+    wopr_log "INFO" "App modules (${#WOPR_APP_MODULES[@]}): ${WOPR_APP_MODULES[*]}"
+}
+
+#=================================================
+# ORCHESTRATOR CALLBACK
+#=================================================
+
+report_status() {
+    local status="$1"
+    local message="${2:-}"
+
+    if [ -n "$WOPR_ORCHESTRATOR_URL" ] && [ -n "$WOPR_JOB_ID" ]; then
+        curl -sf -X POST "${WOPR_ORCHESTRATOR_URL}/api/v1/provision/${WOPR_JOB_ID}/status" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\": \"$status\", \"message\": \"$message\"}" \
+            2>/dev/null || true
     fi
-
-    wopr_log "OK" "Configuration validated: bundle=$WOPR_BUNDLE, domain=$WOPR_DOMAIN"
 }
 
 #=================================================
@@ -114,7 +150,7 @@ validate_inputs() {
 #=================================================
 
 step_detect_resources() {
-    wopr_progress 1 16 "Detecting system resources..."
+    wopr_progress 1 "$TOTAL_STEPS" "Detecting system resources..."
 
     wopr_detect_resources
 
@@ -127,41 +163,12 @@ step_detect_resources() {
 }
 
 #=================================================
-# STEP 2: VALIDATE RESOURCES FOR BUNDLE
-#=================================================
-
-step_validate_resources() {
-    wopr_progress 2 16 "Validating resources for bundle: $WOPR_BUNDLE"
-
-    local tier
-    case "$WOPR_BUNDLE" in
-        personal)     tier="low" ;;
-        creator)      tier="medium" ;;
-        developer)    tier="medium" ;;
-        professional) tier="high" ;;
-    esac
-
-    if ! wopr_validate_resources "$tier"; then
-        echo ""
-        echo "Your system does not meet the minimum requirements for the $WOPR_BUNDLE bundle."
-        echo ""
-        if [ "$WOPR_NON_INTERACTIVE" = true ]; then
-            wopr_die "Resource validation failed"
-        fi
-        read -p "Continue anyway? (not recommended) [y/N]: " continue_anyway
-        if [ "$continue_anyway" != "y" ] && [ "$continue_anyway" != "Y" ]; then
-            wopr_die "Installation cancelled due to insufficient resources"
-        fi
-        wopr_log "WARN" "User chose to continue with insufficient resources"
-    fi
-}
-
-#=================================================
-# STEP 3: INSTALL CORE STACK
+# STEP 2: INSTALL CORE STACK (apt packages)
 #=================================================
 
 step_install_core_stack() {
-    wopr_progress 3 16 "Installing core stack..."
+    wopr_progress 2 "$TOTAL_STEPS" "Installing core stack..."
+    report_status "installing" "Installing system packages"
 
     # Update package manager
     wopr_log "INFO" "Updating package manager..."
@@ -197,97 +204,27 @@ step_install_core_stack() {
 }
 
 #=================================================
-# STEP 4: SELECT BUNDLE (already done in validation)
-#=================================================
-
-step_select_bundle() {
-    wopr_progress 4 16 "Bundle selected: $WOPR_BUNDLE"
-    wopr_defcon_log "BUNDLE_SELECTED" "$WOPR_BUNDLE"
-}
-
-#=================================================
-# STEP 5: ENABLE BUNDLE MODULES
-#=================================================
-
-step_enable_modules() {
-    wopr_progress 5 16 "Enabling bundle modules..."
-
-    # Map bundle to actual module scripts
-    # Infrastructure modules are always included: postgresql, redis, authentik, caddy
-    local app_modules
-    case "$WOPR_BUNDLE" in
-        personal)
-            # Personal: Files, Passwords, RSS reader
-            app_modules="nextcloud vaultwarden freshrss"
-            ;;
-        creator)
-            # Creator: Personal + e-commerce + blogging
-            app_modules="nextcloud vaultwarden freshrss ghost"
-            ;;
-        developer)
-            # Developer: Personal + Git + CI + AI assistant
-            app_modules="nextcloud vaultwarden freshrss forgejo woodpecker reactor_ai"
-            ;;
-        professional)
-            # Professional: Everything
-            app_modules="nextcloud vaultwarden freshrss ghost forgejo woodpecker reactor_ai mattermost jitsi onlyoffice bookstack"
-            ;;
-    esac
-
-    wopr_setting_set "app_modules" "$app_modules"
-    wopr_setting_set "infra_modules" "postgresql redis authentik"
-    wopr_log "OK" "App modules enabled: $app_modules"
-}
-
-#=================================================
-# STEP 6: PROMPT FOR OPTIONAL MODULES
-#=================================================
-
-step_optional_modules() {
-    wopr_progress 6 16 "Checking optional modules..."
-
-    if [ "$WOPR_NON_INTERACTIVE" = true ]; then
-        wopr_log "INFO" "Skipping optional modules in non-interactive mode"
-        return
-    fi
-
-    echo ""
-    echo "Optional modules available (requires additional resources):"
-    echo "  - analytics (Plausible)"
-    echo "  - time_tracking (Kimai)"
-    echo "  - crm (EspoCRM)"
-    echo ""
-    read -p "Enable any optional modules? [y/N]: " enable_optional
-
-    if [ "$enable_optional" = "y" ] || [ "$enable_optional" = "Y" ]; then
-        wopr_log "INFO" "User requested optional modules - not yet implemented"
-        echo "Optional module selection will be implemented in a future version."
-    fi
-}
-
-#=================================================
-# STEP 7: REQUIRE HUMAN CONFIRMATION
+# STEP 3: HUMAN CONFIRMATION (skipped in cloud-init)
 #=================================================
 
 step_human_confirmation() {
-    wopr_progress 7 16 "Requesting confirmation..."
+    wopr_progress 3 "$TOTAL_STEPS" "Requesting confirmation..."
+
+    local total_modules=$(( ${#WOPR_CORE_MODULES[@]} + ${#WOPR_APP_MODULES[@]} ))
 
     echo ""
     echo "============================================"
-    echo "  WOPR SOVEREIGN SUITE INSTALLATION"
+    echo "  WOPR INSTALLATION"
     echo "============================================"
     echo ""
-    echo "  Bundle:   $WOPR_BUNDLE"
-    echo "  Domain:   $WOPR_DOMAIN"
-    echo "  Instance: $(wopr_instance_id)"
+    echo "  Bundle:      $WOPR_BUNDLE"
+    echo "  Domain:      $WOPR_DOMAIN"
+    echo "  Tier:        $WOPR_STORAGE_TIER"
+    echo "  Instance:    $(wopr_instance_id)"
+    echo "  Modules:     $total_modules total"
     echo ""
-    echo "  This will install and configure:"
-    echo "    - Podman (container runtime)"
-    echo "    - Caddy (reverse proxy)"
-    echo "    - Authentik (SSO)"
-    echo "    - PostgreSQL (database)"
-    echo "    - Redis (cache)"
-    echo "    - Bundle-specific applications"
+    echo "  Infrastructure: ${WOPR_CORE_MODULES[*]}"
+    echo "  Applications:  ${WOPR_APP_MODULES[*]}"
     echo ""
     echo "============================================"
 
@@ -300,27 +237,38 @@ step_human_confirmation() {
 }
 
 #=================================================
-# STEP 8: DEPLOY INFRASTRUCTURE MODULES
+# STEP 4: DEPLOY INFRASTRUCTURE MODULES
 #=================================================
 
 step_deploy_infrastructure() {
-    wopr_progress 8 16 "Deploying infrastructure modules..."
+    wopr_progress 4 "$TOTAL_STEPS" "Deploying infrastructure modules..."
+    report_status "deploying_infra" "Deploying infrastructure"
 
-    # Deploy infrastructure modules in order (dependencies matter)
-    local infra_modules="postgresql redis authentik"
+    local infra_count=${#WOPR_CORE_MODULES[@]}
+    local infra_idx=0
 
-    for module in $infra_modules; do
-        wopr_log "INFO" "Deploying infrastructure: $module"
+    for module in "${WOPR_CORE_MODULES[@]}"; do
+        infra_idx=$((infra_idx + 1))
+        wopr_log "INFO" "Deploying infrastructure ($infra_idx/$infra_count): $module"
         wopr_defcon_log "MODULE_DEPLOY_START" "$module"
 
         local module_script="${SCRIPT_DIR}/modules/${module}.sh"
+        local module_script_alt="${SCRIPT_DIR}/modules/${module//-/_}.sh"
+
         if [ -f "$module_script" ]; then
             source "$module_script"
-            if ! wopr_deploy_${module}; then
+            local func_name="wopr_deploy_${module//-/_}"
+            if ! "$func_name"; then
+                wopr_die "Failed to deploy infrastructure module: $module"
+            fi
+        elif [ -f "$module_script_alt" ]; then
+            source "$module_script_alt"
+            local func_name="wopr_deploy_${module//-/_}"
+            if ! "$func_name"; then
                 wopr_die "Failed to deploy infrastructure module: $module"
             fi
         else
-            wopr_die "Infrastructure module script not found: $module_script"
+            wopr_die "Infrastructure module script not found: $module"
         fi
 
         wopr_defcon_log "MODULE_DEPLOY_COMPLETE" "$module"
@@ -330,42 +278,70 @@ step_deploy_infrastructure() {
 }
 
 #=================================================
-# STEP 9: DEPLOY APPLICATION MODULES
+# STEP 5: DEPLOY APPLICATION MODULES
 #=================================================
 
 step_deploy_applications() {
-    wopr_progress 9 16 "Deploying application modules..."
+    wopr_progress 5 "$TOTAL_STEPS" "Deploying application modules..."
+    report_status "deploying_apps" "Deploying applications"
 
-    local app_modules=$(wopr_setting_get "app_modules")
+    local app_count=${#WOPR_APP_MODULES[@]}
+    local app_idx=0
+    local failed_modules=()
 
-    for module in $app_modules; do
-        wopr_log "INFO" "Deploying application: $module"
+    for module in "${WOPR_APP_MODULES[@]}"; do
+        app_idx=$((app_idx + 1))
+        wopr_log "INFO" "Deploying application ($app_idx/$app_count): $module"
         wopr_defcon_log "MODULE_DEPLOY_START" "$module"
+        report_status "deploying_apps" "Deploying $module ($app_idx/$app_count)"
 
         local module_script="${SCRIPT_DIR}/modules/${module}.sh"
+        local module_script_alt="${SCRIPT_DIR}/modules/${module//-/_}.sh"
+
         if [ -f "$module_script" ]; then
+            # Custom deploy script exists
             source "$module_script"
-            if ! wopr_deploy_${module}; then
+            local func_name="wopr_deploy_${module//-/_}"
+            if ! "$func_name"; then
                 wopr_log "WARN" "Failed to deploy module: $module (continuing)"
+                failed_modules+=("$module")
+            fi
+        elif [ -f "$module_script_alt" ]; then
+            source "$module_script_alt"
+            local func_name="wopr_deploy_${module//-/_}"
+            if ! "$func_name"; then
+                wopr_log "WARN" "Failed to deploy module: $module (continuing)"
+                failed_modules+=("$module")
             fi
         else
-            wopr_log "WARN" "Module script not found: $module (will be available in future release)"
+            # Use generic deployment from registry
+            if wopr_deploy_from_registry "$module"; then
+                wopr_log "OK" "Deployed $module via registry"
+            else
+                wopr_log "WARN" "Failed to deploy module: $module (no script, registry deploy failed)"
+                failed_modules+=("$module")
+            fi
         fi
 
         wopr_defcon_log "MODULE_DEPLOY_COMPLETE" "$module"
     done
 
-    wopr_log "OK" "Application modules deployed"
+    if [ ${#failed_modules[@]} -gt 0 ]; then
+        wopr_log "WARN" "Some modules failed to deploy: ${failed_modules[*]}"
+        wopr_setting_set "failed_modules" "${failed_modules[*]}"
+    fi
+
+    wopr_log "OK" "Application modules deployed ($((app_count - ${#failed_modules[@]}))/$app_count successful)"
 }
 
 #=================================================
-# STEP 10: CONFIGURE CADDY
+# STEP 6: CONFIGURE CADDY
 #=================================================
 
 step_configure_caddy() {
-    wopr_progress 10 16 "Configuring Caddy..."
+    wopr_progress 6 "$TOTAL_STEPS" "Configuring Caddy..."
+    report_status "configuring" "Configuring reverse proxy"
 
-    # Create Caddy directories
     mkdir -p "${WOPR_DATA_DIR}/caddy/snapshots"
 
     local admin_email=$(wopr_setting_get "admin_email")
@@ -373,7 +349,7 @@ step_configure_caddy() {
         admin_email="admin@${WOPR_DOMAIN}"
     fi
 
-    # Build comprehensive Caddyfile with all routes
+    # Build Caddyfile header
     cat > /etc/caddy/Caddyfile << EOF
 {
     admin 127.0.0.1:2019
@@ -390,12 +366,10 @@ dashboard.${WOPR_DOMAIN} {
     root * /var/www/wopr-dashboard
     file_server
 
-    # API routes proxy to dashboard API
     handle /api/* {
         reverse_proxy 127.0.0.1:8090
     }
 
-    # SPA fallback
     try_files {path} /index.html
 }
 
@@ -403,33 +377,37 @@ dashboard.${WOPR_DOMAIN} {
 auth.${WOPR_DOMAIN} {
     reverse_proxy 127.0.0.1:9000
 }
+EOF
 
-# Nextcloud - Files
-files.${WOPR_DOMAIN} {
-    reverse_proxy 127.0.0.1:8080
-}
+    # Add routes for each deployed app module from registry
+    for module in "${WOPR_APP_MODULES[@]}"; do
+        local subdomain=$(registry_get_subdomain "$module")
+        local port=$(registry_get_port "$module")
 
-# Vaultwarden - Passwords
-vault.${WOPR_DOMAIN} {
-    reverse_proxy 127.0.0.1:8081
-}
+        if [ -n "$subdomain" ] && [ -n "$port" ]; then
+            local installed=$(wopr_setting_get "module_${module//-/_}_installed" 2>/dev/null || echo "")
+            if [ "$installed" = "true" ]; then
+                cat >> /etc/caddy/Caddyfile << EOF
 
-# FreshRSS - RSS Reader
-rss.${WOPR_DOMAIN} {
-    reverse_proxy 127.0.0.1:8082
+# ${module}
+${subdomain}.${WOPR_DOMAIN} {
+    reverse_proxy 127.0.0.1:${port}
 }
 EOF
+            fi
+        fi
+    done
 
     systemctl restart caddy
     wopr_log "OK" "Caddy configured with all routes"
 }
 
 #=================================================
-# STEP 11: DEPLOY DASHBOARD
+# STEP 7: DEPLOY DASHBOARD
 #=================================================
 
 step_deploy_dashboard() {
-    wopr_progress 11 16 "Deploying dashboard..."
+    wopr_progress 7 "$TOTAL_STEPS" "Deploying dashboard..."
 
     local dashboard_script="${SCRIPT_DIR}/modules/dashboard.sh"
     if [ -f "$dashboard_script" ]; then
@@ -445,11 +423,12 @@ step_deploy_dashboard() {
 }
 
 #=================================================
-# STEP 12: SETUP AUTHENTIK SSO
+# STEP 8: SETUP AUTHENTIK SSO
 #=================================================
 
 step_setup_sso() {
-    wopr_progress 12 16 "Setting up Single Sign-On..."
+    wopr_progress 8 "$TOTAL_STEPS" "Setting up Single Sign-On..."
+    report_status "configuring_sso" "Setting up SSO"
 
     # Wait for Authentik to be ready
     wopr_authentik_wait_ready
@@ -460,45 +439,33 @@ step_setup_sso() {
     # Create initial WOPR user account
     wopr_authentik_setup_initial_user
 
-    # Register applications with Authentik for SSO and configure native OIDC
-    local app_modules=$(wopr_setting_get "app_modules")
+    # Register apps with Authentik based on deployed modules
     local domain=$(wopr_setting_get "domain")
 
-    for module in $app_modules; do
-        case "$module" in
-            nextcloud)
-                # Register with Authentik
-                wopr_authentik_register_app "Nextcloud" "nextcloud" "files"
-                # Configure Nextcloud's native OIDC integration
-                wopr_log "INFO" "Configuring Nextcloud OIDC..."
-                wopr_nextcloud_configure_sso || wopr_log "WARN" "Nextcloud OIDC config deferred (can be done manually)"
-                ;;
-            vaultwarden)
-                # Vaultwarden uses its own auth - SSO available via OpenID Connect
-                wopr_log "INFO" "Vaultwarden uses its own authentication (SSO optional)"
-                ;;
-            freshrss)
-                # Register with Authentik - uses forward auth
-                wopr_authentik_register_app "FreshRSS" "freshrss" "rss"
-                wopr_log "INFO" "FreshRSS configured with Authentik forward auth"
-                ;;
-            *)
-                wopr_log "INFO" "SSO for $module will be configured when module is implemented"
-                ;;
-        esac
+    for module in "${WOPR_APP_MODULES[@]}"; do
+        local subdomain=$(registry_get_subdomain "$module")
+        local display_name=$(registry_get_name "$module")
+
+        if [ -n "$subdomain" ] && [ -n "$display_name" ]; then
+            local installed=$(wopr_setting_get "module_${module//-/_}_installed" 2>/dev/null || echo "")
+            if [ "$installed" = "true" ]; then
+                local slug="${module//-/_}"
+                wopr_authentik_register_app "$display_name" "$slug" "$subdomain" || \
+                    wopr_log "WARN" "SSO registration deferred for $module"
+            fi
+        fi
     done
 
-    wopr_log "OK" "SSO configured with initial user account"
+    wopr_log "OK" "SSO configured"
 }
 
 #=================================================
-# STEP 13: SCHEDULE BACKUPS
+# STEP 9: SCHEDULE BACKUPS
 #=================================================
 
 step_schedule_backups() {
-    wopr_progress 13 16 "Scheduling backups..."
+    wopr_progress 9 "$TOTAL_STEPS" "Scheduling backups..."
 
-    # Create backup script
     cat > /etc/cron.daily/wopr-backup << 'EOF'
 #!/bin/bash
 source /opt/wopr/scripts/wopr_common.sh
@@ -510,18 +477,16 @@ EOF
 }
 
 #=================================================
-# STEP 14: REGISTER UPDATE AGENT
+# STEP 10: REGISTER UPDATE AGENT
 #=================================================
 
 step_register_update_agent() {
-    wopr_progress 14 16 "Registering update agent..."
+    wopr_progress 10 "$TOTAL_STEPS" "Registering update agent..."
 
-    # Create update check script
     cat > /etc/cron.weekly/wopr-update-check << 'EOF'
 #!/bin/bash
 source /opt/wopr/scripts/wopr_common.sh
 wopr_log "INFO" "Checking for WOPR updates..."
-# Update check implementation
 EOF
     chmod +x /etc/cron.weekly/wopr-update-check
 
@@ -529,36 +494,24 @@ EOF
 }
 
 #=================================================
-# STEP 15: LOG TO DEFCON ONE
-#=================================================
-
-step_log_defcon() {
-    wopr_progress 15 16 "Logging to DEFCON ONE..."
-
-    wopr_defcon_log "INSTALL_COMPLETE" "bundle=$WOPR_BUNDLE,domain=$WOPR_DOMAIN"
-
-    wopr_log "OK" "Installation logged to audit trail"
-}
-
-#=================================================
-# STEP 16: FINALIZE
+# STEP 11: FINALIZE
 #=================================================
 
 step_finalize() {
-    wopr_progress 16 16 "Finalizing installation..."
+    wopr_progress 11 "$TOTAL_STEPS" "Finalizing installation..."
+    report_status "complete" "Installation complete"
 
-    # Mark installation as complete
     wopr_setting_set "install_complete" "true"
     wopr_setting_set "install_timestamp" "$(date -Iseconds)"
+    wopr_defcon_log "INSTALL_COMPLETE" "bundle=$WOPR_BUNDLE,domain=$WOPR_DOMAIN"
 
-    # Get credentials for display
     local ak_bootstrap_pass=$(wopr_setting_get "authentik_bootstrap_password")
     local wopr_username=$(wopr_setting_get "wopr_username")
     local wopr_user_pass=$(wopr_setting_get "user_${wopr_username}_password")
 
     echo ""
     echo "============================================"
-    echo "  WOPR SOVEREIGN SUITE INSTALLATION COMPLETE"
+    echo "  WOPR INSTALLATION COMPLETE"
     echo "============================================"
     echo ""
     echo "  Instance ID: $(wopr_instance_id)"
@@ -567,10 +520,17 @@ step_finalize() {
     echo ""
     echo "  Your Applications:"
     echo "    Dashboard:  https://dashboard.${WOPR_DOMAIN}"
-    echo "    Files:      https://files.${WOPR_DOMAIN}"
-    echo "    Passwords:  https://vault.${WOPR_DOMAIN}"
-    echo "    RSS Reader: https://rss.${WOPR_DOMAIN}"
-    echo "    SSO Admin:  https://auth.${WOPR_DOMAIN}"
+
+    # List all deployed app URLs
+    for module in "${WOPR_APP_MODULES[@]}"; do
+        local subdomain=$(registry_get_subdomain "$module")
+        local display_name=$(registry_get_name "$module")
+        local installed=$(wopr_setting_get "module_${module//-/_}_installed" 2>/dev/null || echo "")
+        if [ "$installed" = "true" ] && [ -n "$subdomain" ]; then
+            printf "    %-12s https://%s.%s\n" "${display_name}:" "${subdomain}" "${WOPR_DOMAIN}"
+        fi
+    done
+
     echo ""
     echo "  ============================================"
     echo "  YOUR LOGIN CREDENTIALS (SAVE THESE!)"
@@ -590,11 +550,6 @@ step_finalize() {
     fi
     echo "  ============================================"
     echo ""
-    echo "  Next steps:"
-    echo "    1. Point DNS for *.${WOPR_DOMAIN} to this server"
-    echo "    2. Access https://dashboard.${WOPR_DOMAIN}"
-    echo "    3. Complete Authentik setup at https://auth.${WOPR_DOMAIN}"
-    echo ""
     echo "  Logs: /var/log/wopr/installer.log"
     echo ""
     echo "============================================"
@@ -606,6 +561,8 @@ step_finalize() {
 # MAIN
 #=================================================
 
+TOTAL_STEPS=11
+
 main() {
     echo ""
     echo "  ██╗    ██╗ ██████╗ ██████╗ ██████╗ "
@@ -615,7 +572,7 @@ main() {
     echo "  ╚███╔███╔╝╚██████╔╝██║     ██║  ██║"
     echo "   ╚══╝╚══╝  ╚═════╝ ╚═╝     ╚═╝  ╚═╝"
     echo ""
-    echo "  Sovereign Suite Installer v1.5"
+    echo "  Installer v2.0 (manifest-driven)"
     echo ""
 
     # Ensure running as root
@@ -623,23 +580,19 @@ main() {
         wopr_die "This script must be run as root"
     fi
 
-    validate_inputs
+    # Read and validate bootstrap.json
+    validate_bootstrap
 
     step_detect_resources
-    step_validate_resources
     step_install_core_stack
-    step_select_bundle
-    step_enable_modules
-    step_optional_modules
     step_human_confirmation
-    step_deploy_infrastructure    # PostgreSQL, Redis, Authentik
-    step_deploy_applications      # Nextcloud, Vaultwarden, FreshRSS, etc.
+    step_deploy_infrastructure    # Core modules from bootstrap.json
+    step_deploy_applications      # App modules from bootstrap.json
     step_configure_caddy          # Reverse proxy with all routes
     step_deploy_dashboard         # Dashboard UI
     step_setup_sso                # Wire apps to Authentik
     step_schedule_backups
     step_register_update_agent
-    step_log_defcon
     step_finalize
 }
 
