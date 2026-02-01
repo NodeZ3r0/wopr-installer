@@ -238,6 +238,7 @@ class WOPRBilling:
         # Create Stripe checkout session
         session = stripe.checkout.Session.create(
             mode="subscription",
+            payment_method_types=["card"],
             customer_email=email,
             line_items=[
                 {
