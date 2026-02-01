@@ -90,6 +90,9 @@ class ProvisioningJob:
     # Beacon reference
     beacon_id: Optional[str] = None
 
+    # Metadata (branding, mesh peers, etc.)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -115,6 +118,7 @@ class ProvisioningJob:
             "stripe_customer_id": self.stripe_customer_id,
             "stripe_subscription_id": self.stripe_subscription_id,
             "beacon_id": self.beacon_id,
+            "metadata": json.dumps(self.metadata),
         }
 
 
@@ -392,6 +396,10 @@ class WOPROrchestrator:
         # Generate subdomain
         short_id = job.job_id[:8]
         job.wopr_subdomain = f"{job.bundle}-{short_id}"
+
+        # Auto-mesh: gather invite tokens from customer's existing beacons
+        # so the new beacon auto-peers on first boot
+        await self._gather_mesh_invites(job)
 
         # Build cloud-init user data
         user_data = self._generate_cloud_init(job)
@@ -722,14 +730,18 @@ class WOPROrchestrator:
         }
 
         # Override with customer branding if provided in job metadata
-        if hasattr(job, 'metadata') and job.metadata:
-            meta = job.metadata if isinstance(job.metadata, dict) else {}
-            if meta.get("branding_title"):
-                branding["title"] = meta["branding_title"]
-            if meta.get("branding_color"):
-                branding["primary_color"] = meta["branding_color"]
-            if meta.get("branding_logo"):
-                branding["logo_url"] = meta["branding_logo"]
+        meta = job.metadata if isinstance(job.metadata, dict) else {}
+        if meta.get("branding_title"):
+            branding["title"] = meta["branding_title"]
+        if meta.get("branding_color"):
+            branding["primary_color"] = meta["branding_color"]
+        if meta.get("branding_logo"):
+            branding["logo_url"] = meta["branding_logo"]
+
+        # Build mesh config
+        # mesh_peers contains invite tokens from other beacons owned by this customer
+        # The installer will auto-accept these to join the customer's mesh
+        mesh_peers = meta.get("mesh_peers", [])
 
         # Build the bootstrap config with embedded module list
         bootstrap_config = _json.dumps({
@@ -744,6 +756,7 @@ class WOPROrchestrator:
             "core_modules": core_modules,
             "app_modules": app_modules,
             "branding": branding,
+            "mesh_peers": mesh_peers,
         }, indent=2)
 
         # Escape for YAML literal block (indent each line by 6 spaces)
@@ -823,6 +836,71 @@ runcmd:
 
 final_message: "WOPR Sovereign Suite installation complete after $UPTIME seconds"
 """
+
+    # =========================================
+    # MESH AUTO-PEERING
+    # =========================================
+
+    async def _gather_mesh_invites(self, job: ProvisioningJob) -> None:
+        """
+        Gather mesh invite tokens from the customer's existing beacons.
+
+        If the customer already has active beacons, we ask each one to
+        generate a mesh invite. These invites are embedded in the new
+        beacon's bootstrap.json so it auto-peers on first boot.
+
+        This is the ONLY centralized action — after this, beacons
+        communicate directly with zero orchestrator involvement.
+        """
+        try:
+            from control_plane.mesh_api import MeshManager
+            from control_plane.models.beacon import beacon_store
+
+            existing_beacons = beacon_store.get_by_owner(job.customer_id)
+            active_beacons = [
+                b for b in existing_beacons
+                if b.status.value == "active" and b.domain
+            ]
+
+            if not active_beacons:
+                logger.info(
+                    f"No existing beacons for customer {job.customer_id} — "
+                    f"skipping mesh auto-peering"
+                )
+                return
+
+            logger.info(
+                f"Found {len(active_beacons)} existing beacon(s) for customer "
+                f"{job.customer_id} — gathering mesh invites"
+            )
+
+            mesh_mgr = MeshManager(beacon_store=beacon_store)
+            new_domain = f"{job.wopr_subdomain}.{self.WOPR_DOMAIN}"
+
+            invite_tokens = await mesh_mgr.auto_mesh_customer_beacons(
+                customer_id=job.customer_id,
+                new_beacon_domain=new_domain,
+                existing_beacons=active_beacons,
+            )
+
+            if invite_tokens:
+                # Store invites in job metadata for cloud-init generation
+                if not hasattr(job, 'metadata') or not job.metadata:
+                    job.metadata = {}
+                if not isinstance(job.metadata, dict):
+                    job.metadata = {}
+                job.metadata["mesh_peers"] = invite_tokens
+                logger.info(
+                    f"Gathered {len(invite_tokens)} mesh invite(s) for new beacon"
+                )
+            else:
+                logger.info("No mesh invites gathered (existing beacons may be offline)")
+
+        except ImportError:
+            logger.debug("Mesh module not available, skipping auto-peering")
+        except Exception as e:
+            logger.warning(f"Mesh auto-peering failed (non-fatal): {e}")
+            # Non-fatal — the beacon can still peer manually later
 
     # =========================================
     # HELPERS

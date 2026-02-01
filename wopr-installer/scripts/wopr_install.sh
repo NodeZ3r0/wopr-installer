@@ -15,6 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/wopr_common.sh"
 source "${SCRIPT_DIR}/modules/registry.sh"
+source "${SCRIPT_DIR}/modules/mesh.sh"
 
 BOOTSTRAP_FILE="/etc/wopr/bootstrap.json"
 
@@ -480,11 +481,44 @@ EOF
 }
 
 #=================================================
-# STEP 10: REGISTER UPDATE AGENT
+# STEP 10: DEPLOY MESH NETWORK
+#=================================================
+
+step_deploy_mesh() {
+    wopr_progress 10 "$TOTAL_STEPS" "Deploying peer-to-peer mesh network..."
+    report_status "deploying_mesh" "Setting up mesh network"
+
+    # Deploy the mesh agent (identity + API + Caddy route)
+    wopr_deploy_mesh
+
+    # Install hourly health check cron
+    wopr_mesh_install_cron
+
+    # If bootstrap.json contains mesh_peers, auto-accept invites
+    local mesh_peers=$(jq -r '.mesh_peers // empty' "$BOOTSTRAP_FILE" 2>/dev/null)
+    if [ -n "$mesh_peers" ] && [ "$mesh_peers" != "null" ]; then
+        local peer_count=$(echo "$mesh_peers" | jq 'length')
+        wopr_log "INFO" "Found ${peer_count} mesh peer invite(s) in bootstrap.json"
+
+        for i in $(seq 0 $((peer_count - 1))); do
+            local invite_token=$(echo "$mesh_peers" | jq -r ".[$i]")
+            if [ -n "$invite_token" ]; then
+                wopr_log "INFO" "Accepting mesh invite ($((i + 1))/${peer_count})..."
+                wopr_mesh_accept_invite "$invite_token" || \
+                    wopr_log "WARN" "Failed to accept mesh invite $((i + 1)) (will retry later)"
+            fi
+        done
+    fi
+
+    wopr_log "OK" "Mesh network ready ($(wopr_mesh_peer_count) peers)"
+}
+
+#=================================================
+# STEP 11: REGISTER UPDATE AGENT
 #=================================================
 
 step_register_update_agent() {
-    wopr_progress 10 "$TOTAL_STEPS" "Registering update agent..."
+    wopr_progress 11 "$TOTAL_STEPS" "Registering update agent..."
 
     cat > /etc/cron.weekly/wopr-update-check << 'EOF'
 #!/bin/bash
@@ -497,11 +531,11 @@ EOF
 }
 
 #=================================================
-# STEP 11: FINALIZE
+# STEP 12: FINALIZE
 #=================================================
 
 step_finalize() {
-    wopr_progress 11 "$TOTAL_STEPS" "Finalizing installation..."
+    wopr_progress 12 "$TOTAL_STEPS" "Finalizing installation..."
     report_status "complete" "Installation complete"
 
     wopr_setting_set "install_complete" "true"
@@ -535,6 +569,11 @@ step_finalize() {
     done
 
     echo ""
+    echo "  Mesh Network:"
+    echo "    Mesh API:    https://mesh.${WOPR_DOMAIN}"
+    echo "    Fingerprint: $(wopr_mesh_get_fingerprint)"
+    echo "    Peers:       $(wopr_mesh_peer_count)"
+    echo ""
     echo "  ============================================"
     echo "  YOUR LOGIN CREDENTIALS (SAVE THESE!)"
     echo "  ============================================"
@@ -564,7 +603,7 @@ step_finalize() {
 # MAIN
 #=================================================
 
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 
 main() {
     echo ""
@@ -595,6 +634,7 @@ main() {
     step_deploy_dashboard         # Dashboard UI
     step_setup_sso                # Wire apps to Authentik
     step_schedule_backups
+    step_deploy_mesh                # P2P mesh network agent
     step_register_update_agent
     step_finalize
 }
