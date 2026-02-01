@@ -456,6 +456,9 @@ step_setup_sso() {
         fi
     done
 
+    # Apply customer branding (colors, logo, title)
+    wopr_authentik_apply_branding || wopr_log "WARN" "Branding deferred"
+
     wopr_log "OK" "SSO configured"
 }
 

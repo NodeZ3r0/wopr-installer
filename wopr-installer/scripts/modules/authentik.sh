@@ -264,3 +264,121 @@ EOF
         wopr_log "WARN" "Failed to create outpost (may already exist)"
     fi
 }
+
+# =========================================
+# AUTHENTIK BRANDING / THEMING
+# =========================================
+# Applies customer branding to their Authentik instance:
+#   - Logo, favicon
+#   - Primary color
+#   - Custom CSS
+#   - Login page title
+#
+# Reads from /etc/wopr/bootstrap.json:
+#   branding.logo_url     - URL to customer logo (or local path)
+#   branding.favicon_url  - URL to favicon
+#   branding.primary_color - Hex color (e.g. "#6559C5")
+#   branding.title        - Login page title (e.g. "Acme Corp Cloud")
+#   branding.custom_css   - Additional CSS for login page
+# =========================================
+
+wopr_authentik_apply_branding() {
+    wopr_log "INFO" "Applying Authentik branding..."
+
+    local domain=$(wopr_setting_get "domain")
+    local bootstrap="/etc/wopr/bootstrap.json"
+
+    # Read branding from bootstrap.json (set by orchestrator)
+    local logo_url=$(jq -r '.branding.logo_url // empty' "$bootstrap" 2>/dev/null)
+    local favicon_url=$(jq -r '.branding.favicon_url // empty' "$bootstrap" 2>/dev/null)
+    local primary_color=$(jq -r '.branding.primary_color // empty' "$bootstrap" 2>/dev/null)
+    local title=$(jq -r '.branding.title // empty' "$bootstrap" 2>/dev/null)
+    local custom_css=$(jq -r '.branding.custom_css // empty' "$bootstrap" 2>/dev/null)
+
+    # Defaults
+    if [ -z "$title" ]; then
+        title="Welcome to ${domain}"
+    fi
+    if [ -z "$primary_color" ]; then
+        primary_color="#6559C5"
+    fi
+
+    # Build the branding payload for Authentik's tenant/brand API
+    # Authentik v2024+ uses /api/v3/brands/ (formerly tenants)
+    local brand_css=""
+    if [ -n "$custom_css" ]; then
+        brand_css="$custom_css"
+    fi
+
+    # Always inject WOPR default theme + customer primary color
+    brand_css=":root { --ak-accent: ${primary_color}; } .pf-c-login__main { border-top: 4px solid ${primary_color}; } ${brand_css}"
+
+    # Get the default brand/tenant
+    local brands=$(wopr_authentik_api GET "/brands/" 2>/dev/null)
+    local brand_pk=$(echo "$brands" | jq -r '.results[0].brand_uuid // .results[0].pk // empty' 2>/dev/null)
+
+    if [ -z "$brand_pk" ]; then
+        # Fallback: try tenants endpoint (older Authentik versions)
+        brands=$(wopr_authentik_api GET "/core/tenants/" 2>/dev/null)
+        brand_pk=$(echo "$brands" | jq -r '.results[0].tenant_uuid // empty' 2>/dev/null)
+    fi
+
+    if [ -z "$brand_pk" ]; then
+        wopr_log "WARN" "Could not find Authentik brand/tenant to update"
+        return 1
+    fi
+
+    # Build update payload
+    local brand_update=$(jq -n \
+        --arg title "$title" \
+        --arg css "$brand_css" \
+        --arg logo "$logo_url" \
+        --arg favicon "$favicon_url" \
+        --arg domain "$domain" \
+        '{
+            "branding_title": $title,
+            "flow_authentication": null,
+            "flow_invalidation": null,
+            "branding_css": $css,
+            "web_certificate": null,
+            "default": true
+        }
+        | if ($logo | length) > 0 then . + {"branding_logo": $logo} else . end
+        | if ($favicon | length) > 0 then . + {"branding_favicon": $favicon} else . end
+    ')
+
+    # Try brands endpoint first, fall back to tenants
+    local response
+    response=$(wopr_authentik_api PATCH "/brands/${brand_pk}/" "$brand_update" 2>/dev/null)
+    if [ -z "$response" ] || echo "$response" | jq -r '.detail // empty' 2>/dev/null | grep -qi "not found"; then
+        response=$(wopr_authentik_api PATCH "/core/tenants/${brand_pk}/" "$brand_update" 2>/dev/null)
+    fi
+
+    local result_title=$(echo "$response" | jq -r '.branding_title // empty' 2>/dev/null)
+    if [ -n "$result_title" ]; then
+        wopr_log "OK" "Authentik branding applied: title='${title}', color=${primary_color}"
+    else
+        wopr_log "WARN" "Branding update may not have applied correctly"
+    fi
+
+    # If logo_url is a remote URL, download and upload to Authentik media
+    if [ -n "$logo_url" ] && [[ "$logo_url" == http* ]]; then
+        wopr_log "INFO" "Downloading custom logo..."
+        local logo_file="${AUTHENTIK_DATA_DIR}/media/custom_logo.png"
+        curl -fsSL "$logo_url" -o "$logo_file" 2>/dev/null && \
+            wopr_log "OK" "Custom logo saved" || \
+            wopr_log "WARN" "Failed to download logo from $logo_url"
+    fi
+
+    if [ -n "$favicon_url" ] && [[ "$favicon_url" == http* ]]; then
+        wopr_log "INFO" "Downloading custom favicon..."
+        local favicon_file="${AUTHENTIK_DATA_DIR}/media/custom_favicon.ico"
+        curl -fsSL "$favicon_url" -o "$favicon_file" 2>/dev/null && \
+            wopr_log "OK" "Custom favicon saved" || \
+            wopr_log "WARN" "Failed to download favicon from $favicon_url"
+    fi
+
+    wopr_setting_set "authentik_branding_applied" "true"
+    wopr_setting_set "authentik_branding_title" "$title"
+    wopr_setting_set "authentik_branding_color" "$primary_color"
+}

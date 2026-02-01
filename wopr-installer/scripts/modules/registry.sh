@@ -1,9 +1,9 @@
 #!/bin/bash
 #=================================================
 # WOPR MODULE REGISTRY
-# Version: 2.0
-# Purpose: Container image, port, subdomain, and env config
-#          for every module in the WOPR ecosystem.
+# Version: 2.1
+# Purpose: Container image, port, subdomain, OIDC config,
+#          and env config for every module in the WOPR ecosystem.
 #
 # This file is sourced by wopr_install.sh.
 # It provides:
@@ -11,9 +11,9 @@
 #   registry_get_port <module_id>      -> host port
 #   registry_get_subdomain <module_id> -> subdomain prefix
 #   registry_get_name <module_id>      -> display name
-#   registry_get_env <module_id>       -> env var flags for podman
-#   registry_get_volumes <module_id>   -> volume mount flags
 #   registry_get_deps <module_id>      -> space-separated dependencies
+#   registry_get_auth_mode <id>        -> oauth2|proxy|header|none
+#   registry_get_oidc_env <id>         -> OIDC env vars for container
 #   wopr_deploy_from_registry <id>     -> generic deploy function
 #
 # License: AGPL-3.0
@@ -105,92 +105,143 @@ declare -A _WOPR_REGISTRY=(
 
 # -----------------------------------------------
 # Port allocation map (avoids collisions)
-# Each module gets a unique host port.
 # -----------------------------------------------
 
 declare -A _WOPR_PORTS=(
-    # Infrastructure (fixed)
-    ["postgresql"]="5432"
-    ["redis"]="6379"
-    ["authentik"]="9000"
-    ["caddy"]="443"
-
-    # Productivity
-    ["nextcloud"]="8080"
-    ["collabora"]="9980"
-    ["outline"]="3100"
-    ["vikunja"]="3456"
-    ["bookstack"]="6875"
-    ["hedgedoc"]="3200"
-    ["affine"]="3010"
-    ["nocodb"]="8085"
-    ["stirling-pdf"]="8086"
-    ["paperless-ngx"]="8087"
-    ["wallabag"]="8088"
-    ["freshrss"]="8082"
-    ["linkwarden"]="3300"
-
-    # Security
-    ["vaultwarden"]="8081"
-    ["passbolt"]="8089"
-
-    # Communication
-    ["mattermost"]="8065"
-    ["matrix-synapse"]="8008"
-    ["element"]="8090"
-    ["jitsi"]="8443"
-    ["ntfy"]="8092"
-    ["mailcow"]="8093"
-    ["listmonk"]="9001"
-    ["chatwoot"]="3400"
-
-    # Developer
-    ["forgejo"]="3500"
-    ["woodpecker"]="8200"
-    ["code-server"]="8443"
-    ["reactor"]="8100"
-    ["portainer"]="9443"
-    ["n8n"]="5678"
-    ["plane"]="3600"
-    ["docker-registry"]="5000"
-
-    # AI
-    ["openwebui"]="8300"
-    ["langfuse"]="3700"
-
-    # Creator
-    ["ghost"]="2368"
-    ["saleor"]="8400"
-    ["castopod"]="8401"
-    ["funkwhale"]="8402"
+    ["postgresql"]="5432"  ["redis"]="6379"  ["authentik"]="9000"  ["caddy"]="443"
+    ["nextcloud"]="8080"   ["collabora"]="9980"  ["outline"]="3100"  ["vikunja"]="3456"
+    ["bookstack"]="6875"   ["hedgedoc"]="3200"   ["affine"]="3010"   ["nocodb"]="8085"
+    ["stirling-pdf"]="8086" ["paperless-ngx"]="8087" ["wallabag"]="8088" ["freshrss"]="8082"
+    ["linkwarden"]="3300"  ["vaultwarden"]="8081" ["passbolt"]="8089"
+    ["mattermost"]="8065"  ["matrix-synapse"]="8008" ["element"]="8090" ["jitsi"]="8443"
+    ["ntfy"]="8092"        ["mailcow"]="8093"    ["listmonk"]="9001"  ["chatwoot"]="3400"
+    ["forgejo"]="3500"     ["woodpecker"]="8200"  ["code-server"]="8444" ["reactor"]="8100"
+    ["portainer"]="9443"   ["n8n"]="5678"        ["plane"]="3600"     ["docker-registry"]="5000"
+    ["openwebui"]="8300"   ["langfuse"]="3700"
+    ["ghost"]="2368"       ["saleor"]="8400"     ["castopod"]="8401"  ["funkwhale"]="8402"
     ["peertube"]="9002"
-
-    # Business
-    ["espocrm"]="8500"
-    ["invoiceninja"]="8501"
-    ["kimai"]="8502"
-    ["calcom"]="3800"
+    ["espocrm"]="8500"     ["invoiceninja"]="8501" ["kimai"]="8502"  ["calcom"]="3800"
     ["docuseal"]="3801"
-
-    # Media
-    ["immich"]="2283"
-    ["jellyfin"]="8096"
-    ["photoprism"]="2342"
-
-    # Monitoring
-    ["plausible"]="8600"
-    ["grafana"]="3900"
-    ["prometheus"]="9090"
-    ["uptime-kuma"]="3001"
-
-    # Security/Network
-    ["defcon-one"]="8110"
-    ["crowdsec"]="8180"
-    ["netbird"]="33073"
-    ["adguard"]="3002"
-
-    # Notes
+    ["immich"]="2283"      ["jellyfin"]="8096"   ["photoprism"]="2342"
+    ["plausible"]="8600"   ["grafana"]="3900"    ["prometheus"]="9090" ["uptime-kuma"]="3001"
+    ["defcon-one"]="8110"  ["crowdsec"]="8180"   ["netbird"]="33073"  ["adguard"]="3002"
     ["standardnotes"]="3003"
+)
+
+# -----------------------------------------------
+# Auth mode per app: oauth2|proxy|header|none
+# Determines how Authentik protects each app
+# -----------------------------------------------
+
+declare -A _WOPR_AUTH_MODE=(
+    # OAuth2/OIDC (app handles auth natively)
+    ["nextcloud"]="oauth2"
+    ["outline"]="oauth2"
+    ["vikunja"]="oauth2"
+    ["linkwarden"]="oauth2"
+    ["bookstack"]="oauth2"
+    ["hedgedoc"]="oauth2"
+    ["affine"]="oauth2"
+    ["nocodb"]="oauth2"
+    ["paperless-ngx"]="oauth2"
+    ["forgejo"]="oauth2"
+    ["woodpecker"]="oauth2"
+    ["reactor"]="oauth2"
+    ["ghost"]="oauth2"
+    ["saleor"]="oauth2"
+    ["immich"]="oauth2"
+    ["jellyfin"]="oauth2"
+    ["peertube"]="oauth2"
+    ["grafana"]="oauth2"
+    ["mattermost"]="oauth2"
+    ["matrix-synapse"]="oauth2"
+    ["plausible"]="oauth2"
+    ["calcom"]="oauth2"
+    ["docuseal"]="oauth2"
+    ["invoiceninja"]="oauth2"
+    ["langfuse"]="oauth2"
+    ["chatwoot"]="oauth2"
+    ["plane"]="oauth2"
+    ["n8n"]="oauth2"
+    ["defcon-one"]="oauth2"
+    ["standardnotes"]="oauth2"
+    ["funkwhale"]="oauth2"
+    ["castopod"]="oauth2"
+    ["photoprism"]="oauth2"
+    ["wallabag"]="oauth2"
+    ["passbolt"]="oauth2"
+
+    # Proxy (Authentik forward auth via Caddy)
+    ["vaultwarden"]="proxy"
+    ["freshrss"]="proxy"
+    ["code-server"]="proxy"
+    ["jitsi"]="proxy"
+    ["listmonk"]="proxy"
+    ["portainer"]="proxy"
+    ["uptime-kuma"]="proxy"
+    ["kimai"]="proxy"
+    ["espocrm"]="proxy"
+    ["openwebui"]="proxy"
+    ["adguard"]="proxy"
+
+    # Header (X-Authentik-* headers passed through)
+    ["ntfy"]="header"
+
+    # None (no SSO needed)
+    ["collabora"]="none"
+    ["element"]="none"
+    ["stirling-pdf"]="none"
+    ["prometheus"]="none"
+    ["crowdsec"]="none"
+    ["netbird"]="none"
+    ["docker-registry"]="none"
+    ["mailcow"]="none"
+)
+
+# -----------------------------------------------
+# Per-app OIDC environment variable mappings
+#
+# Each app has its own env var names for OIDC.
+# This map tells the deployer what env vars to set.
+# Format: space-separated KEY=VALUE_TEMPLATE pairs
+# Placeholders: {client_id} {client_secret} {issuer} {auth_url} {token_url} {userinfo_url} {redirect_uri} {domain}
+# -----------------------------------------------
+
+declare -A _WOPR_OIDC_ENV=(
+    ["outline"]="OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret} OIDC_AUTH_URI={auth_url} OIDC_TOKEN_URI={token_url} OIDC_USERINFO_URI={userinfo_url} OIDC_DISPLAY_NAME=WOPR OIDC_SCOPES=openid,profile,email"
+    ["vikunja"]="VIKUNJA_AUTH_OPENID_ENABLED=true VIKUNJA_AUTH_OPENID_REDIRECTURL=https://tasks.{domain}/auth/openid/authentik VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_NAME=WOPR VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_AUTHURL={auth_url} VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_CLIENTID={client_id} VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_CLIENTSECRET={client_secret}"
+    ["linkwarden"]="NEXT_PUBLIC_AUTHENTIK_ENABLED=true AUTHENTIK_ISSUER={issuer} AUTHENTIK_CLIENT_ID={client_id} AUTHENTIK_CLIENT_SECRET={client_secret}"
+    ["bookstack"]="AUTH_METHOD=oidc OIDC_NAME=WOPR OIDC_DISPLAY_NAME_CLAIMS=name OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret} OIDC_ISSUER={issuer} OIDC_ISSUER_DISCOVER=true"
+    ["hedgedoc"]="CMD_OAUTH2_PROVIDERNAME=WOPR CMD_OAUTH2_CLIENT_ID={client_id} CMD_OAUTH2_CLIENT_SECRET={client_secret} CMD_OAUTH2_AUTHORIZATION_URL={auth_url} CMD_OAUTH2_TOKEN_URL={token_url} CMD_OAUTH2_USER_PROFILE_URL={userinfo_url} CMD_OAUTH2_SCOPE=openid,profile,email CMD_OAUTH2_USER_PROFILE_USERNAME_ATTR=preferred_username CMD_OAUTH2_USER_PROFILE_DISPLAY_NAME_ATTR=name CMD_OAUTH2_USER_PROFILE_EMAIL_ATTR=email"
+    ["affine"]="OAUTH_PROVIDER_NAME=WOPR OAUTH_CLIENT_ID={client_id} OAUTH_CLIENT_SECRET={client_secret} OAUTH_AUTHORIZATION_URL={auth_url} OAUTH_TOKEN_URL={token_url} OAUTH_USERINFO_URL={userinfo_url}"
+    ["nocodb"]="NC_OIDC_ISSUER={issuer} NC_OIDC_CLIENT_ID={client_id} NC_OIDC_CLIENT_SECRET={client_secret} NC_OIDC_AUTHORIZATION_URL={auth_url} NC_OIDC_TOKEN_URL={token_url} NC_OIDC_USERINFO_URL={userinfo_url}"
+    ["paperless-ngx"]="PAPERLESS_SOCIALACCOUNT_PROVIDERS={\"openid_connect\":{\"APPS\":[{\"provider_id\":\"authentik\",\"name\":\"WOPR\",\"client_id\":\"{client_id}\",\"secret\":\"{client_secret}\",\"settings\":{\"server_url\":\"{issuer}\"}}]}}"
+    ["forgejo"]="FORGEJO__oauth2__ENABLED=true FORGEJO__oauth2_client__OPENID_CONNECT_SCOPES=openid,profile,email"
+    ["woodpecker"]="WOODPECKER_AUTHENTIK=true WOODPECKER_AUTHENTIK_URL=https://auth.{domain} WOODPECKER_AUTHENTIK_CLIENT={client_id} WOODPECKER_AUTHENTIK_SECRET={client_secret}"
+    ["reactor"]="AUTHENTIK_ENABLED=true AUTHENTIK_ISSUER={issuer} AUTHENTIK_CLIENT_ID={client_id} AUTHENTIK_CLIENT_SECRET={client_secret}"
+    ["ghost"]="oauth__name=WOPR oauth__clientId={client_id} oauth__clientSecret={client_secret} oauth__authorizeUrl={auth_url} oauth__tokenUrl={token_url} oauth__userinfoUrl={userinfo_url}"
+    ["saleor"]="OIDC_ENABLE=True OIDC_URL={issuer} OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret}"
+    ["immich"]="OAUTH_ENABLED=true OAUTH_ISSUER_URL={issuer} OAUTH_CLIENT_ID={client_id} OAUTH_CLIENT_SECRET={client_secret} OAUTH_SCOPE=openid,profile,email OAUTH_AUTO_REGISTER=true OAUTH_BUTTON_TEXT=Login_with_WOPR"
+    ["jellyfin"]="JELLYFIN_OIDC_ENABLED=true JELLYFIN_OIDC_PROVIDER_NAME=WOPR JELLYFIN_OIDC_CLIENT_ID={client_id} JELLYFIN_OIDC_CLIENT_SECRET={client_secret} JELLYFIN_OIDC_AUTHORITY={issuer}"
+    ["peertube"]="PEERTUBE_AUTH_OIDC_ENABLED=true PEERTUBE_AUTH_OIDC_DISPLAY_NAME=WOPR PEERTUBE_AUTH_OIDC_DISCOVERY_URL={issuer}/.well-known/openid-configuration PEERTUBE_AUTH_OIDC_CLIENT_ID={client_id} PEERTUBE_AUTH_OIDC_CLIENT_SECRET={client_secret} PEERTUBE_AUTH_OIDC_SCOPE=openid,profile,email"
+    ["grafana"]="GF_AUTH_GENERIC_OAUTH_ENABLED=true GF_AUTH_GENERIC_OAUTH_NAME=WOPR GF_AUTH_GENERIC_OAUTH_CLIENT_ID={client_id} GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET={client_secret} GF_AUTH_GENERIC_OAUTH_SCOPES=openid,profile,email GF_AUTH_GENERIC_OAUTH_AUTH_URL={auth_url} GF_AUTH_GENERIC_OAUTH_TOKEN_URL={token_url} GF_AUTH_GENERIC_OAUTH_API_URL={userinfo_url} GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=groups GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{domain}/application/o/grafana/end-session/"
+    ["mattermost"]="MM_GITLABSETTINGS_ENABLE=false MM_OPENIDSETTINGS_ENABLE=true MM_OPENIDSETTINGS_DISCOVERYENDPOINT={issuer}/.well-known/openid-configuration MM_OPENIDSETTINGS_ID={client_id} MM_OPENIDSETTINGS_SECRET={client_secret} MM_OPENIDSETTINGS_BUTTONTEXT=Login_with_WOPR MM_OPENIDSETTINGS_BUTTONCOLOR=#6559C5"
+    ["matrix-synapse"]="SYNAPSE_OIDC_ENABLED=true SYNAPSE_OIDC_IDP_NAME=WOPR SYNAPSE_OIDC_ISSUER={issuer} SYNAPSE_OIDC_CLIENT_ID={client_id} SYNAPSE_OIDC_CLIENT_SECRET={client_secret} SYNAPSE_OIDC_SCOPES=openid,profile,email"
+    ["plausible"]="GOOGLE_CLIENT_ID= OAUTH_PROVIDER=custom OAUTH_CLIENT_ID={client_id} OAUTH_CLIENT_SECRET={client_secret} OAUTH_AUTHORIZE_URL={auth_url} OAUTH_TOKEN_URL={token_url} OAUTH_USERINFO_URL={userinfo_url}"
+    ["calcom"]="OIDC_ISSUER={issuer} OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret}"
+    ["docuseal"]="OIDC_ISSUER={issuer} OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret}"
+    ["invoiceninja"]="OAUTH_PROVIDER=generic OAUTH_CLIENT_ID={client_id} OAUTH_CLIENT_SECRET={client_secret} OAUTH_AUTHORIZATION_URL={auth_url} OAUTH_TOKEN_URL={token_url} OAUTH_USER_URL={userinfo_url}"
+    ["langfuse"]="AUTH_CUSTOM_CLIENT_ID={client_id} AUTH_CUSTOM_CLIENT_SECRET={client_secret} AUTH_CUSTOM_ISSUER={issuer} AUTH_CUSTOM_NAME=WOPR"
+    ["chatwoot"]="OPENID_CONNECT_ENABLED=true OPENID_CONNECT_PROVIDER_NAME=WOPR OPENID_CONNECT_CLIENT_ID={client_id} OPENID_CONNECT_CLIENT_SECRET={client_secret} OPENID_CONNECT_DISCOVERY_URL={issuer}/.well-known/openid-configuration"
+    ["plane"]="OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret} OIDC_ISSUER={issuer}"
+    ["n8n"]="N8N_AUTH_OIDC_ENABLED=true N8N_AUTH_OIDC_CLIENT_ID={client_id} N8N_AUTH_OIDC_CLIENT_SECRET={client_secret} N8N_AUTH_OIDC_ISSUER={issuer} N8N_AUTH_OIDC_DISPLAY_NAME=WOPR"
+    ["defcon-one"]="AUTHENTIK_ENABLED=true AUTHENTIK_ISSUER={issuer} AUTHENTIK_CLIENT_ID={client_id} AUTHENTIK_CLIENT_SECRET={client_secret}"
+    ["standardnotes"]="AUTH_JWT_SECRET={client_secret} OIDC_ENABLED=true OIDC_ISSUER={issuer} OIDC_CLIENT_ID={client_id} OIDC_CLIENT_SECRET={client_secret}"
+    ["funkwhale"]="FUNKWHALE_OIDC_ENABLED=true FUNKWHALE_OIDC_PROVIDER_NAME=WOPR FUNKWHALE_OIDC_CLIENT_ID={client_id} FUNKWHALE_OIDC_CLIENT_SECRET={client_secret} FUNKWHALE_OIDC_SERVER_URL={issuer}"
+    ["castopod"]="AUTH_OIDC_ACTIVE=1 AUTH_OIDC_CLIENT_ID={client_id} AUTH_OIDC_CLIENT_SECRET={client_secret} AUTH_OIDC_DISCOVERY_URL={issuer}/.well-known/openid-configuration"
+    ["photoprism"]="PHOTOPRISM_OIDC_ENABLED=true PHOTOPRISM_OIDC_ISSUER={issuer} PHOTOPRISM_OIDC_CLIENT={client_id} PHOTOPRISM_OIDC_SECRET={client_secret}"
+    ["wallabag"]="SYMFONY__ENV__OAUTH_ENABLED=true SYMFONY__ENV__OAUTH_CLIENT_ID={client_id} SYMFONY__ENV__OAUTH_CLIENT_SECRET={client_secret} SYMFONY__ENV__OAUTH_AUTHORIZE_URL={auth_url} SYMFONY__ENV__OAUTH_ACCESS_TOKEN_URL={token_url} SYMFONY__ENV__OAUTH_RESOURCE_OWNER_URL={userinfo_url}"
+    ["passbolt"]="PASSBOLT_PLUGINS_SSO_ENABLED=true PASSBOLT_SECURITY_SSO_OPENID_CLIENT_ID={client_id} PASSBOLT_SECURITY_SSO_OPENID_CLIENT_SECRET={client_secret} PASSBOLT_SECURITY_SSO_OPENID_PROVIDER_URL={issuer}"
 )
 
 # -----------------------------------------------
@@ -208,29 +259,98 @@ _registry_field() {
     echo "$entry" | cut -d'|' -f"$field_idx"
 }
 
-registry_get_image() {
-    _registry_field "$1" 1
+registry_get_image()     { _registry_field "$1" 1; }
+registry_get_port()      { echo "${_WOPR_PORTS[$1]:-$(_registry_field "$1" 2)}"; }
+registry_get_subdomain() { _registry_field "$1" 3; }
+registry_get_name()      { _registry_field "$1" 4; }
+registry_get_deps()      { _registry_field "$1" 5; }
+registry_get_auth_mode() { echo "${_WOPR_AUTH_MODE[$1]:-none}"; }
+registry_has_module()    { [ -n "${_WOPR_REGISTRY[$1]:-}" ]; }
+
+# -----------------------------------------------
+# OIDC CREDENTIAL MANAGEMENT
+#
+# Creates OAuth2 provider in Authentik for a module
+# and returns the client_id + client_secret.
+# -----------------------------------------------
+
+_oidc_create_for_module() {
+    local module_id="$1"
+    local domain=$(wopr_setting_get "domain")
+    local subdomain=$(registry_get_subdomain "$module_id")
+    local display_name=$(registry_get_name "$module_id")
+
+    local client_id="wopr-${module_id}"
+    local client_secret=$(wopr_random_string 64)
+
+    # Store credentials
+    wopr_setting_set "oidc_${module_id//-/_}_client_id" "$client_id"
+    wopr_setting_set "oidc_${module_id//-/_}_client_secret" "$client_secret"
+
+    # Register with Authentik (creates provider + application)
+    if systemctl is-active --quiet "wopr-authentik-server" 2>/dev/null; then
+        wopr_authentik_register_app "$display_name" "${module_id//-/_}" "$subdomain" || \
+            wopr_log "WARN" "Authentik registration deferred for $module_id"
+    fi
+
+    echo "$client_id $client_secret"
 }
 
-registry_get_port() {
-    # Use the port allocation map (avoids collisions)
-    echo "${_WOPR_PORTS[$1]:-$(_registry_field "$1" 2)}"
-}
+# Build OIDC env flags for podman
+_build_oidc_env_flags() {
+    local module_id="$1"
+    local auth_mode=$(registry_get_auth_mode "$module_id")
 
-registry_get_subdomain() {
-    _registry_field "$1" 3
-}
+    # Only OAuth2 apps get OIDC env vars
+    if [ "$auth_mode" != "oauth2" ]; then
+        echo ""
+        return
+    fi
 
-registry_get_name() {
-    _registry_field "$1" 4
-}
+    local oidc_template="${_WOPR_OIDC_ENV[$module_id]:-}"
+    if [ -z "$oidc_template" ]; then
+        echo ""
+        return
+    fi
 
-registry_get_deps() {
-    _registry_field "$1" 5
-}
+    local domain=$(wopr_setting_get "domain")
+    local client_id=$(wopr_setting_get "oidc_${module_id//-/_}_client_id")
+    local client_secret=$(wopr_setting_get "oidc_${module_id//-/_}_client_secret")
 
-registry_has_module() {
-    [ -n "${_WOPR_REGISTRY[$1]:-}" ]
+    if [ -z "$client_id" ] || [ -z "$client_secret" ]; then
+        # Create credentials if not yet generated
+        local creds
+        creds=$(_oidc_create_for_module "$module_id")
+        client_id=$(echo "$creds" | cut -d' ' -f1)
+        client_secret=$(echo "$creds" | cut -d' ' -f2)
+    fi
+
+    local issuer="https://auth.${domain}/application/o/${module_id//-/_}"
+    local auth_url="https://auth.${domain}/application/o/authorize/"
+    local token_url="https://auth.${domain}/application/o/token/"
+    local userinfo_url="https://auth.${domain}/application/o/userinfo/"
+    local subdomain=$(registry_get_subdomain "$module_id")
+    local redirect_uri="https://${subdomain}.${domain}/auth/callback"
+
+    # Replace placeholders in template
+    local env_flags=""
+    for pair in $oidc_template; do
+        local key="${pair%%=*}"
+        local val="${pair#*=}"
+
+        val="${val//\{client_id\}/$client_id}"
+        val="${val//\{client_secret\}/$client_secret}"
+        val="${val//\{issuer\}/$issuer}"
+        val="${val//\{auth_url\}/$auth_url}"
+        val="${val//\{token_url\}/$token_url}"
+        val="${val//\{userinfo_url\}/$userinfo_url}"
+        val="${val//\{redirect_uri\}/$redirect_uri}"
+        val="${val//\{domain\}/$domain}"
+
+        env_flags="$env_flags -e ${key}=${val}"
+    done
+
+    echo "$env_flags"
 }
 
 # -----------------------------------------------
@@ -239,9 +359,11 @@ registry_has_module() {
 # Deploys any module from registry data alone:
 # 1. Pull container image
 # 2. Create data directories
-# 3. Create systemd service
-# 4. Start and wait for port
-# 5. Record installation
+# 3. Create PostgreSQL DB if needed
+# 4. Generate OIDC credentials + env vars
+# 5. Create systemd service
+# 6. Start and wait for port
+# 7. Record installation
 # -----------------------------------------------
 
 wopr_deploy_from_registry() {
@@ -257,17 +379,17 @@ wopr_deploy_from_registry() {
     local subdomain=$(registry_get_subdomain "$module_id")
     local display_name=$(registry_get_name "$module_id")
     local deps=$(registry_get_deps "$module_id")
+    local auth_mode=$(registry_get_auth_mode "$module_id")
 
     local service_name="wopr-${module_id}"
     local data_dir="${WOPR_DATA_DIR}/${module_id}"
     local domain=$(wopr_setting_get "domain")
-    local container_port  # The port inside the container
+    local container_port
 
-    # Determine internal container port from the registry image default
     container_port=$(_registry_field "$module_id" 2)
 
     wopr_log "INFO" "Generic deploy: $display_name ($module_id)"
-    wopr_log "INFO" "  Image: $image"
+    wopr_log "INFO" "  Image: $image | Auth: $auth_mode"
     wopr_log "INFO" "  Port:  127.0.0.1:$port -> container:$container_port"
     wopr_log "INFO" "  URL:   https://${subdomain}.${domain}"
 
@@ -278,7 +400,6 @@ wopr_deploy_from_registry() {
         return 0
     fi
 
-    # Create data directory
     mkdir -p "$data_dir"
 
     # Pull image
@@ -291,13 +412,12 @@ wopr_deploy_from_registry() {
     # Build environment variables
     local env_flags=""
 
-    # If module needs PostgreSQL, create a database and pass credentials
+    # PostgreSQL
     if echo "$deps" | grep -q "postgresql"; then
         local db_name="${module_id//-/_}"
         local db_pass=$(wopr_random_string 32)
         wopr_setting_set "${module_id//-/_}_db_password" "$db_pass"
 
-        # Create the database (assumes PostgreSQL is running)
         podman exec wopr-postgresql psql -U postgres -c \
             "CREATE DATABASE ${db_name};" 2>/dev/null || true
         podman exec wopr-postgresql psql -U postgres -c \
@@ -312,20 +432,26 @@ wopr_deploy_from_registry() {
         env_flags="$env_flags -e POSTGRES_PASSWORD=${db_pass}"
     fi
 
-    # If module needs Redis
+    # Redis
     if echo "$deps" | grep -q "redis"; then
         env_flags="$env_flags -e REDIS_URL=redis://host.containers.internal:6379"
         env_flags="$env_flags -e REDIS_HOST=host.containers.internal"
     fi
 
-    # Common env vars
+    # Common
     env_flags="$env_flags -e BASE_URL=https://${subdomain}.${domain}"
     env_flags="$env_flags -e APP_URL=https://${subdomain}.${domain}"
 
-    # Generate admin secret for the module
     local admin_secret=$(wopr_random_string 32)
     wopr_setting_set "${module_id//-/_}_admin_secret" "$admin_secret"
     env_flags="$env_flags -e SECRET_KEY=${admin_secret}"
+
+    # OIDC env vars (for oauth2 apps)
+    local oidc_flags=$(_build_oidc_env_flags "$module_id")
+    if [ -n "$oidc_flags" ]; then
+        env_flags="$env_flags $oidc_flags"
+        wopr_log "INFO" "  OIDC: injected env vars for $auth_mode auth"
+    fi
 
     # Create systemd service
     cat > "/etc/systemd/system/${service_name}.service" <<SVCEOF
@@ -356,7 +482,6 @@ ExecStop=/usr/bin/podman stop -t 10 ${service_name}
 WantedBy=multi-user.target
 SVCEOF
 
-    # Enable and start
     systemctl daemon-reload
     systemctl enable "$service_name"
     systemctl start "$service_name"
@@ -369,11 +494,18 @@ SVCEOF
         wopr_log "WARN" "$display_name may still be starting (port $port not ready in 120s)"
     fi
 
+    # For proxy-auth apps, add Caddy route with Authentik forward auth
+    if [ "$auth_mode" = "proxy" ] || [ "$auth_mode" = "header" ]; then
+        wopr_caddy_add_route_with_auth "$subdomain" "$port"
+    else
+        wopr_caddy_add_route "$subdomain" "$port"
+    fi
+
     # Record installation
     wopr_setting_set "module_${module_id//-/_}_installed" "true"
     wopr_setting_set "${module_id//-/_}_port" "$port"
     wopr_setting_set "${module_id//-/_}_url" "https://${subdomain}.${domain}"
 
-    wopr_log "OK" "$display_name deployed: https://${subdomain}.${domain}"
+    wopr_log "OK" "$display_name deployed: https://${subdomain}.${domain} (auth=$auth_mode)"
     return 0
 }

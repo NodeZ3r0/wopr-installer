@@ -712,6 +712,25 @@ class WOPROrchestrator:
         core_modules = ["authentik", "caddy", "postgresql", "redis"]
         app_modules = [m for m in all_modules if m not in core_modules]
 
+        # Build branding config (customer can customize later via dashboard)
+        branding = {
+            "title": f"Welcome to {job.wopr_subdomain}",
+            "primary_color": "#6559C5",
+            "logo_url": "",
+            "favicon_url": "",
+            "custom_css": "",
+        }
+
+        # Override with customer branding if provided in job metadata
+        if hasattr(job, 'metadata') and job.metadata:
+            meta = job.metadata if isinstance(job.metadata, dict) else {}
+            if meta.get("branding_title"):
+                branding["title"] = meta["branding_title"]
+            if meta.get("branding_color"):
+                branding["primary_color"] = meta["branding_color"]
+            if meta.get("branding_logo"):
+                branding["logo_url"] = meta["branding_logo"]
+
         # Build the bootstrap config with embedded module list
         bootstrap_config = _json.dumps({
             "job_id": job.job_id,
@@ -724,6 +743,7 @@ class WOPROrchestrator:
             "orchestrator_url": f"https://orc.{self.WOPR_DOMAIN}",
             "core_modules": core_modules,
             "app_modules": app_modules,
+            "branding": branding,
         }, indent=2)
 
         # Escape for YAML literal block (indent each line by 6 spaces)
