@@ -97,15 +97,6 @@ def init_providers():
         except Exception as e:
             logger.error(f"Failed to initialize DigitalOcean: {e}")
 
-    # Vultr (libcloud)
-    if tokens.vultr:
-        try:
-            from control_plane.providers.vultr import VultrProvider
-            providers["vultr"] = VultrProvider(tokens.vultr)
-            logger.info("Vultr provider initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize Vultr: {e}")
-
     # Linode (libcloud)
     if tokens.linode:
         try:
@@ -126,6 +117,15 @@ def init_providers():
             logger.info("OVH provider initialized")
         except Exception as e:
             logger.error(f"Failed to initialize OVH: {e}")
+
+    # UpCloud (REST API)
+    if tokens.upcloud:
+        try:
+            from control_plane.providers.upcloud import UpCloudProvider
+            providers["upcloud"] = UpCloudProvider(tokens.upcloud)
+            logger.info("UpCloud provider initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize UpCloud: {e}")
 
     logger.info(f"Initialized {len(providers)} provider(s): {list(providers.keys())}")
 
@@ -348,16 +348,30 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
         session = event["data"]["object"]
         metadata = session.get("metadata", {})
 
-        bundle = metadata.get("bundle", "sovereign-starter")
-        tier = int(metadata.get("tier", "1"))
+        bundle = metadata.get("wopr_bundle", metadata.get("bundle", "sovereign-starter"))
+        tier = int(metadata.get("wopr_tier", metadata.get("tier", "1")))
         email = session.get("customer_email", "")
-        domain = metadata.get("domain", "")
-        username = metadata.get("username", "")
-        display_name = metadata.get("display_name", "")
-        provider = metadata.get("provider", "hetzner")
-        region = metadata.get("region", "ash")
+        domain = metadata.get("wopr_custom_domain", metadata.get("domain", ""))
+        display_name = metadata.get("wopr_customer_name", metadata.get("display_name", ""))
+        provider = metadata.get("wopr_provider", metadata.get("provider", ""))
+        region = metadata.get("wopr_region", metadata.get("region", ""))
 
         orchestrator = get_orchestrator()
+
+        # Auto-select provider via weighted round-robin if not specified
+        if not provider or provider not in providers:
+            provider = await orchestrator.select_provider(bundle=bundle)
+
+        # Auto-select region based on provider defaults
+        if not region:
+            default_regions = {
+                "hetzner": "ash",
+                "digitalocean": "nyc1",
+                "linode": "us-east",
+                "ovh": "US-EAST-VA-1",
+                "upcloud": "us-chi1",
+            }
+            region = default_regions.get(provider, "ash")
 
         job = orchestrator.create_job(
             customer_id=session.get("customer", ""),
@@ -367,6 +381,7 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
             region=region,
             datacenter_id=region,
             storage_tier=tier,
+            customer_name=display_name or session.get("customer_details", {}).get("name") or None,
             custom_domain=domain or None,
             stripe_customer_id=session.get("customer"),
             stripe_subscription_id=session.get("subscription"),

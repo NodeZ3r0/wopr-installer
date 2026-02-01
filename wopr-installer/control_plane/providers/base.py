@@ -131,6 +131,8 @@ class ProvisionConfig:
     tags: List[str] = field(default_factory=list)
     wopr_bundle: Optional[str] = None
     wopr_customer_id: Optional[str] = None
+    wopr_customer_email: Optional[str] = None
+    wopr_customer_name: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):

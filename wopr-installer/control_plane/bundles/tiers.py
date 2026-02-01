@@ -142,34 +142,36 @@ class BundlePricing:
 
 # Sovereign Suite Pricing
 SOVEREIGN_PRICING: dict[SovereignSuiteID, BundlePricing] = {
-    SovereignSuiteID.STARTER: BundlePricing("$15.99", "$25.99", "$35.99"),
-    SovereignSuiteID.CREATOR: BundlePricing("$35.99", "$55.99", "$95.99"),
-    SovereignSuiteID.DEVELOPER: BundlePricing("$35.99", "$55.99", "$95.99"),
-    SovereignSuiteID.PROFESSIONAL: BundlePricing("$65.99", "$95.99", "$149.99"),
-    SovereignSuiteID.FAMILY: BundlePricing("$45.99", "$65.99", "$95.99"),
-    SovereignSuiteID.SMALL_BUSINESS: BundlePricing("$95.99", "$149.99", "$199.99"),
-    SovereignSuiteID.ENTERPRISE: BundlePricing("$199.99", "$299.99", "Custom"),
+    SovereignSuiteID.STARTER: BundlePricing("$29.99", "$45.99", "$65.99"),
+    SovereignSuiteID.CREATOR: BundlePricing("$55.99", "$79.99", "$119.99"),
+    SovereignSuiteID.DEVELOPER: BundlePricing("$55.99", "$79.99", "$119.99"),
+    SovereignSuiteID.PROFESSIONAL: BundlePricing("$99.99", "$149.99", "$199.99"),
+    SovereignSuiteID.FAMILY: BundlePricing("$55.99", "$79.99", "$119.99"),
+    SovereignSuiteID.SMALL_BUSINESS: BundlePricing("$129.99", "$179.99", "$249.99"),
+    SovereignSuiteID.ENTERPRISE: BundlePricing("$249.99", "$349.99", "Custom"),
 }
 
 # Micro Bundle Pricing
 MICRO_PRICING: dict[MicroBundleID, BundlePricing] = {
-    MicroBundleID.PERSONAL_PRODUCTIVITY: BundlePricing("$15.99", "$25.99", "$35.99"),
-    MicroBundleID.MEETING_ROOM: BundlePricing("$15.99", "$25.99", "$35.99"),
-    MicroBundleID.PRIVACY_PACK: BundlePricing("$15.99", "$25.99", "$35.99"),
-    MicroBundleID.WRITER_STUDIO: BundlePricing("$19.99", "$29.99", "$45.99"),
-    MicroBundleID.ARTIST_STOREFRONT: BundlePricing("$19.99", "$29.99", "$45.99"),
-    MicroBundleID.PODCASTER: BundlePricing("$25.99", "$35.99", "$55.99"),
-    MicroBundleID.FREELANCER: BundlePricing("$25.99", "$35.99", "$55.99"),
-    MicroBundleID.MUSICIAN: BundlePricing("$25.99", "$35.99", "$55.99"),
-    MicroBundleID.FAMILY_HUB: BundlePricing("$29.99", "$45.99", "$65.99"),
-    MicroBundleID.PHOTOGRAPHER: BundlePricing("$29.99", "$45.99", "$65.99"),
-    MicroBundleID.BOOKKEEPER: BundlePricing("$29.99", "$45.99", "$65.99"),
-    MicroBundleID.VIDEO_CREATOR: BundlePricing("$35.99", "$55.99", "$95.99"),
-    MicroBundleID.CONTRACTOR: BundlePricing("$35.99", "$55.99", "$95.99"),
-    MicroBundleID.REALTOR: BundlePricing("$35.99", "$55.99", "$95.99"),
-    MicroBundleID.EDUCATOR: BundlePricing("$35.99", "$55.99", "$95.99"),
-    MicroBundleID.THERAPIST: BundlePricing("$45.99", "$65.99", "$125.99"),
-    MicroBundleID.LEGAL: BundlePricing("$45.99", "$65.99", "$125.99"),
+    # Light micro-bundles (4GB MEDIUM VPS, weighted avg ~$17/mo cost)
+    MicroBundleID.PERSONAL_PRODUCTIVITY: BundlePricing("$29.99", "$45.99", "$65.99"),
+    MicroBundleID.MEETING_ROOM: BundlePricing("$29.99", "$45.99", "$65.99"),
+    MicroBundleID.PRIVACY_PACK: BundlePricing("$29.99", "$45.99", "$65.99"),
+    MicroBundleID.WRITER_STUDIO: BundlePricing("$29.99", "$45.99", "$65.99"),
+    MicroBundleID.PODCASTER: BundlePricing("$35.99", "$55.99", "$79.99"),
+    MicroBundleID.FREELANCER: BundlePricing("$35.99", "$55.99", "$79.99"),
+    MicroBundleID.CONTRACTOR: BundlePricing("$35.99", "$55.99", "$79.99"),
+    MicroBundleID.MUSICIAN: BundlePricing("$35.99", "$55.99", "$79.99"),
+    MicroBundleID.BOOKKEEPER: BundlePricing("$35.99", "$55.99", "$79.99"),
+    # Medium micro-bundles (8GB HIGH VPS, weighted avg ~$33/mo cost)
+    MicroBundleID.ARTIST_STOREFRONT: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.FAMILY_HUB: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.PHOTOGRAPHER: BundlePricing("$55.99", "$79.99", "$119.99"),
+    MicroBundleID.VIDEO_CREATOR: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.REALTOR: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.EDUCATOR: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.THERAPIST: BundlePricing("$55.99", "$79.99", "$119.99"),
+    MicroBundleID.LEGAL: BundlePricing("$55.99", "$79.99", "$119.99"),
 }
 
 

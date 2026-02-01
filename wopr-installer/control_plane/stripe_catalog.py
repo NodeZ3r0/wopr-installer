@@ -19,34 +19,40 @@ STRIPE_PRICES: Dict[str, str] = {
     # Will be populated with: "bundle_tier_monthly": "price_xxx"
 }
 
-# Bundle pricing in cents
+# Bundle pricing in cents (updated Feb 2026 — aligned with actual VPS costs)
 BUNDLE_PRICING: Dict[str, Dict[str, int]] = {
     # Sovereign Suites
-    "starter": {"t1": 1599, "t2": 2599, "t3": 3599},
-    "creator": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "developer": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "professional": {"t1": 6599, "t2": 9599, "t3": 14999},
-    "family": {"t1": 4599, "t2": 6599, "t3": 9599},
-    "small_business": {"t1": 9599, "t2": 14999, "t3": 19999},
-    "enterprise": {"t1": 19999, "t2": 29999, "t3": 0},  # t3 = custom
+    "starter": {"t1": 2999, "t2": 4599, "t3": 6599},
+    "creator": {"t1": 5599, "t2": 7999, "t3": 11999},
+    "developer": {"t1": 5599, "t2": 7999, "t3": 11999},
+    "professional": {"t1": 9999, "t2": 14999, "t3": 19999},
+    "family": {"t1": 5599, "t2": 7999, "t3": 11999},
+    "small_business": {"t1": 12999, "t2": 17999, "t3": 24999},
+    "enterprise": {"t1": 24999, "t2": 34999, "t3": 0},  # t3 = custom
 
-    # Micro-Bundles
-    "meeting_room": {"t1": 1599, "t2": 2599, "t3": 3599},
-    "privacy_pack": {"t1": 1599, "t2": 2599, "t3": 3599},
-    "writer_studio": {"t1": 1999, "t2": 2999, "t3": 4599},
-    "artist_storefront": {"t1": 1999, "t2": 2999, "t3": 4599},
-    "podcaster": {"t1": 2599, "t2": 3599, "t3": 5599},
-    "freelancer": {"t1": 2599, "t2": 3599, "t3": 5599},
-    "musician": {"t1": 2599, "t2": 3599, "t3": 5599},
-    "family_hub": {"t1": 2999, "t2": 4599, "t3": 6599},
-    "photographer": {"t1": 2999, "t2": 4599, "t3": 6599},
-    "bookkeeper": {"t1": 2999, "t2": 4599, "t3": 6599},
-    "video_creator": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "contractor": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "realtor": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "educator": {"t1": 3599, "t2": 5599, "t3": 9599},
-    "therapist": {"t1": 4599, "t2": 6599, "t3": 12599},
-    "legal": {"t1": 4599, "t2": 6599, "t3": 12599},
+    # Light Micro-Bundles (4GB MEDIUM VPS)
+    "personal_productivity": {"t1": 2999, "t2": 4599, "t3": 6599},
+    "meeting_room": {"t1": 2999, "t2": 4599, "t3": 6599},
+    "privacy_pack": {"t1": 2999, "t2": 4599, "t3": 6599},
+    "writer_studio": {"t1": 2999, "t2": 4599, "t3": 6599},
+    "podcaster": {"t1": 3599, "t2": 5599, "t3": 7999},
+    "freelancer": {"t1": 3599, "t2": 5599, "t3": 7999},
+    "contractor": {"t1": 3599, "t2": 5599, "t3": 7999},
+    "musician": {"t1": 3599, "t2": 5599, "t3": 7999},
+    "bookkeeper": {"t1": 3599, "t2": 5599, "t3": 7999},
+
+    # Medium Micro-Bundles (8GB HIGH VPS)
+    "artist_storefront": {"t1": 4599, "t2": 6599, "t3": 9599},
+    "family_hub": {"t1": 4599, "t2": 6599, "t3": 9599},
+    "photographer": {"t1": 5599, "t2": 7999, "t3": 11999},
+    "video_creator": {"t1": 4599, "t2": 6599, "t3": 9599},
+    "realtor": {"t1": 4599, "t2": 6599, "t3": 9599},
+    "educator": {"t1": 4599, "t2": 6599, "t3": 9599},
+    "therapist": {"t1": 5599, "t2": 7999, "t3": 11999},
+    "legal": {"t1": 5599, "t2": 7999, "t3": 11999},
+
+    # Add-ons
+    "ollama_addon": {"t1": 0, "t2": 1499, "t3": 1499},  # Requires T2+ VPS
 }
 
 # Bundle metadata

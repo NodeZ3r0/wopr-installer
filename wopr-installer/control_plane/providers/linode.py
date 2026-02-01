@@ -13,9 +13,9 @@ Linode (now part of Akamai) offers:
 Requires: pip install apache-libcloud
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from .libcloud_base import LibcloudBaseProvider, LIBCLOUD_AVAILABLE
-from .base import Plan, ProviderError
+from .base import Plan, ProvisionConfig, ProviderError
 from .registry import register_provider
 
 if LIBCLOUD_AVAILABLE:
@@ -58,6 +58,20 @@ class LinodeProvider(LibcloudBaseProvider):
     def _create_driver(self, driver_cls):
         """Create Linode driver."""
         return driver_cls(self.api_token)
+
+    def _build_customer_tags(self, config: ProvisionConfig) -> Dict[str, Any]:
+        """Build Linode tags for customer identity."""
+        # Linode supports tags as an array of strings via ex_tags
+        tags = ["wopr", "managed-by-wopr-systems"]
+        if config.wopr_bundle:
+            tags.append(f"bundle-{config.wopr_bundle}")
+        if config.wopr_customer_id:
+            tags.append(f"customer-{config.wopr_customer_id}")
+        if config.wopr_customer_email:
+            tags.append(f"email-{config.wopr_customer_email}")
+        if config.wopr_customer_name:
+            tags.append(f"name-{config.wopr_customer_name.replace(' ', '-')}")
+        return {"ex_tags": tags}
 
     def _get_plan_price(self, size) -> float:
         """Get Linode plan price."""

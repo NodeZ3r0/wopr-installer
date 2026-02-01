@@ -29,6 +29,7 @@ import json
 import uuid
 import time
 import asyncio
+import random
 from datetime import datetime
 from typing import Dict, Optional, Any, List
 from dataclasses import dataclass, field
@@ -63,6 +64,7 @@ class ProvisioningJob:
     region: str
     datacenter_id: str
     storage_tier: int = 1
+    customer_name: Optional[str] = None
     custom_domain: Optional[str] = None
 
     # State tracking
@@ -94,6 +96,7 @@ class ProvisioningJob:
             "job_id": self.job_id,
             "customer_id": self.customer_id,
             "customer_email": self.customer_email,
+            "customer_name": self.customer_name,
             "bundle": self.bundle,
             "storage_tier": self.storage_tier,
             "provider_id": self.provider_id,
@@ -159,7 +162,84 @@ class WOPROrchestrator:
         # In-memory cache (DB is source of truth when available)
         self.jobs: Dict[str, ProvisioningJob] = {}
 
+        # Weighted round-robin state
+        self._rr_counter: int = 0
+
         os.makedirs(job_store_path, exist_ok=True)
+
+    # =========================================
+    # WEIGHTED ROUND-ROBIN PROVIDER SELECTION
+    # =========================================
+
+    async def select_provider(self, bundle: Optional[str] = None) -> str:
+        """
+        Select next provider using weighted round-robin.
+
+        Weights from plan_registry.PROVIDER_WEIGHTS (out of 100):
+          hetzner=40, digitalocean=20, linode=20, ovh=10, upcloud=10
+
+        Only selects from providers that are actually initialized.
+        Falls back to random choice if DB counter unavailable.
+        """
+        from control_plane.providers.plan_registry import PROVIDER_WEIGHTS
+
+        # Filter to only available providers
+        available = {
+            pid: weight
+            for pid, weight in PROVIDER_WEIGHTS.items()
+            if pid in self.providers
+        }
+
+        if not available:
+            # Last resort: pick any initialized provider
+            if self.providers:
+                return next(iter(self.providers))
+            raise RuntimeError("No providers initialized")
+
+        # Build weighted selection list (e.g., hetzner appears 40 times)
+        weighted_pool = []
+        for pid, weight in available.items():
+            weighted_pool.extend([pid] * weight)
+
+        # Get counter from DB or use in-memory
+        counter = await self._get_rr_counter()
+        selected = weighted_pool[counter % len(weighted_pool)]
+
+        # Increment counter
+        await self._increment_rr_counter()
+
+        logger.info(
+            f"Provider selected: {selected} (counter={counter}, "
+            f"pool_size={len(weighted_pool)}, available={list(available.keys())})"
+        )
+        return selected
+
+    async def _get_rr_counter(self) -> int:
+        """Get current round-robin counter from DB or memory."""
+        if self.db_pool:
+            try:
+                row = await self.db_pool.fetchrow(
+                    "SELECT value FROM wopr_state WHERE key = 'rr_counter'"
+                )
+                if row:
+                    return int(row["value"])
+            except Exception:
+                pass
+        return self._rr_counter
+
+    async def _increment_rr_counter(self) -> None:
+        """Increment round-robin counter in DB and memory."""
+        self._rr_counter += 1
+        if self.db_pool:
+            try:
+                await self.db_pool.execute("""
+                    INSERT INTO wopr_state (key, value)
+                    VALUES ('rr_counter', $1::text)
+                    ON CONFLICT (key)
+                    DO UPDATE SET value = $1::text, updated_at = NOW()
+                """, str(self._rr_counter))
+            except Exception as e:
+                logger.debug(f"Could not persist rr_counter to DB: {e}")
 
     def create_job(
         self,
@@ -170,6 +250,7 @@ class WOPROrchestrator:
         region: str,
         datacenter_id: str,
         storage_tier: int = 1,
+        customer_name: Optional[str] = None,
         custom_domain: Optional[str] = None,
         stripe_customer_id: Optional[str] = None,
         stripe_subscription_id: Optional[str] = None,
@@ -186,6 +267,7 @@ class WOPROrchestrator:
             region=region,
             datacenter_id=datacenter_id,
             storage_tier=storage_tier,
+            customer_name=customer_name,
             custom_domain=custom_domain,
             stripe_customer_id=stripe_customer_id,
             stripe_subscription_id=stripe_subscription_id,
@@ -326,6 +408,8 @@ class WOPROrchestrator:
                 user_data=user_data,
                 wopr_bundle=job.bundle,
                 wopr_customer_id=job.customer_id,
+                wopr_customer_email=job.customer_email,
+                wopr_customer_name=job.customer_name,
                 metadata={
                     "wopr_job_id": job.job_id,
                     "wopr_instance_id": str(uuid.uuid4()),
@@ -681,12 +765,13 @@ final_message: "WOPR Sovereign Suite installation complete after $UPTIME seconds
     def _get_plan_for_tier(self, storage_tier: int, provider_id: str) -> str:
         """Map storage tier to a provider plan ID."""
         # Default plans per provider per tier
+        # Tier 1=MEDIUM(4GB), Tier 2=HIGH(8GB), Tier 3=VERY_HIGH(16GB)
         tier_plans = {
             "hetzner": {1: "cx22", 2: "cx32", 3: "cx42"},
-            "digitalocean": {1: "s-2vcpu-2gb", 2: "s-2vcpu-4gb", 3: "s-4vcpu-8gb"},
-            "vultr": {1: "vc2-1c-2gb", 2: "vc2-2c-4gb", 3: "vc2-4c-8gb"},
-            "linode": {1: "g6-standard-1", 2: "g6-standard-2", 3: "g6-standard-4"},
-            "ovh": {1: "d2-4", 2: "d2-8", 3: "b2-7"},
+            "digitalocean": {1: "s-2vcpu-4gb", 2: "s-4vcpu-8gb", 3: "s-8vcpu-16gb"},
+            "linode": {1: "g6-standard-2", 2: "g6-standard-4", 3: "g6-standard-6"},
+            "ovh": {1: "B2-7", 2: "B2-15", 3: "B2-30"},
+            "upcloud": {1: "2xCPU-4GB", 2: "4xCPU-8GB", 3: "6xCPU-16GB"},
         }
         provider_plans = tier_plans.get(provider_id, tier_plans["hetzner"])
         return provider_plans.get(storage_tier, provider_plans.get(1, "cx22"))

@@ -1,26 +1,26 @@
 # WOPR Systems - Stripe Product Setup Script
 # ==========================================
 #
-# This script creates all Stripe products and prices for WOPR Sovereign Suite bundles.
-# Run this ONCE to set up your Stripe catalog.
+# Creates all 69 Stripe products for WOPR bundles:
+# - 7 Sovereign Suites × 3 tiers = 21 products
+# - 16 Micro-Bundles × 3 tiers = 48 products
 #
 # Prerequisites:
 # 1. Stripe CLI installed (winget install Stripe.StripeCli)
 # 2. Stripe CLI logged in (stripe login)
 #
 # Usage:
-#   .\stripe-setup.ps1
-#
-# To use LIVE mode (real money):
-#   .\stripe-setup.ps1 -Live
+#   .\stripe-setup.ps1           # Test mode
+#   .\stripe-setup.ps1 -Live     # Live mode (real money!)
+#   .\stripe-setup.ps1 -ExportCatalog  # Export price IDs to Python file
 
 param(
-    [switch]$Live
+    [switch]$Live,
+    [switch]$ExportCatalog
 )
 
 $StripeCLI = "C:\Users\sbink\AppData\Local\Microsoft\WinGet\Packages\Stripe.StripeCli_Microsoft.Winget.Source_8wekyb3d8bbwe\stripe.exe"
 
-# Check if stripe CLI exists
 if (-not (Test-Path $StripeCLI)) {
     Write-Host "Stripe CLI not found at expected path. Trying 'stripe' command..." -ForegroundColor Yellow
     $StripeCLI = "stripe"
@@ -29,212 +29,255 @@ if (-not (Test-Path $StripeCLI)) {
 $ModeFlag = ""
 if ($Live) {
     Write-Host "=== LIVE MODE - Real money will be charged ===" -ForegroundColor Red
+    $confirm = Read-Host "Type 'CONFIRM' to proceed"
+    if ($confirm -ne "CONFIRM") {
+        Write-Host "Aborted." -ForegroundColor Yellow
+        exit
+    }
     $ModeFlag = "--live"
 } else {
     Write-Host "=== TEST MODE - No real charges ===" -ForegroundColor Yellow
-    Write-Host "Run with -Live flag for production setup" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "WOPR Systems - Stripe Product Setup" -ForegroundColor Cyan
-Write-Host "====================================" -ForegroundColor Cyan
+Write-Host "WOPR Systems - Stripe Product Setup (69 Products)" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ============================================
-# STEP 1: Create Products
+# PRODUCT DEFINITIONS
 # ============================================
 
-Write-Host "Creating Products..." -ForegroundColor Green
-
-# Personal Sovereign Suite
-Write-Host "  Creating: Personal Sovereign Suite"
-$personalProduct = & $StripeCLI products create $ModeFlag `
-    --name="Personal Sovereign Suite" `
-    --description="Your personal cloud. Includes Nextcloud, Vaultwarden, FreshRSS, and automated backups." `
-    --metadata[bundle_id]="personal" `
-    --metadata[tier]="1" `
-    2>&1
-
-# Creator Sovereign Suite
-Write-Host "  Creating: Creator Sovereign Suite"
-$creatorProduct = & $StripeCLI products create $ModeFlag `
-    --name="Creator Sovereign Suite" `
-    --description="Personal cloud + monetization. Includes Ghost blog, Saleor commerce, and portfolio tools." `
-    --metadata[bundle_id]="creator" `
-    --metadata[tier]="2" `
-    2>&1
-
-# Developer Sovereign Suite
-Write-Host "  Creating: Developer Sovereign Suite"
-$developerProduct = & $StripeCLI products create $ModeFlag `
-    --name="Developer Sovereign Suite" `
-    --description="Personal cloud + dev tools. Includes Forgejo Git, Woodpecker CI, VS Code Server, and Reactor AI." `
-    --metadata[bundle_id]="developer" `
-    --metadata[tier]="2" `
-    2>&1
-
-# Professional Sovereign Suite
-Write-Host "  Creating: Professional Sovereign Suite"
-$professionalProduct = & $StripeCLI products create $ModeFlag `
-    --name="Professional Sovereign Suite" `
-    --description="Complete sovereign workspace. Includes everything: cloud, commerce, dev tools, collaboration, and AI." `
-    --metadata[bundle_id]="professional" `
-    --metadata[tier]="3" `
-    2>&1
-
-Write-Host ""
-Write-Host "Products created!" -ForegroundColor Green
-Write-Host ""
-
-# ============================================
-# STEP 2: Get Product IDs
-# ============================================
-
-Write-Host "Fetching product IDs..." -ForegroundColor Green
-
-$products = & $StripeCLI products list $ModeFlag --limit=10 2>&1 | ConvertFrom-Json
-
-$productIds = @{}
-foreach ($product in $products.data) {
-    if ($product.metadata.bundle_id) {
-        $productIds[$product.metadata.bundle_id] = $product.id
-        Write-Host "  $($product.metadata.bundle_id): $($product.id)"
+# Sovereign Suites (7 bundles)
+$SovereignSuites = @(
+    @{
+        id = "starter"
+        name = "Starter Sovereign Suite"
+        description = "Drive, calendar, notes, tasks, passwords - the essentials to ditch Big Tech."
+        prices = @{ t1 = 1599; t2 = 2599; t3 = 3599 }
+    },
+    @{
+        id = "creator"
+        name = "Creator Sovereign Suite"
+        description = "Blog, portfolio, online store, newsletter - monetize your work."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "developer"
+        name = "Developer Sovereign Suite"
+        description = "Git hosting, CI/CD, code editor, Reactor AI coding assistant."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "professional"
+        name = "Professional Sovereign Suite"
+        description = "Creator + Developer combined + DEFCON ONE security gateway."
+        prices = @{ t1 = 6599; t2 = 9599; t3 = 14999 }
+    },
+    @{
+        id = "family"
+        name = "Family Sovereign Suite"
+        description = "6 user accounts, shared photos, shared passwords, family calendar."
+        prices = @{ t1 = 4599; t2 = 6599; t3 = 9599 }
+    },
+    @{
+        id = "small_business"
+        name = "Small Business Sovereign Suite"
+        description = "CRM, team chat, office suite, DEFCON ONE + Reactor AI."
+        prices = @{ t1 = 9599; t2 = 14999; t3 = 19999 }
+    },
+    @{
+        id = "enterprise"
+        name = "Enterprise Sovereign Suite"
+        description = "Unlimited users, custom integrations, dedicated support, full AI suite."
+        prices = @{ t1 = 19999; t2 = 29999; t3 = 0 }  # t3 = custom
     }
+)
+
+# Micro-Bundles (16 bundles)
+$MicroBundles = @(
+    @{
+        id = "meeting_room"
+        name = "Meeting Room"
+        description = "Video calls, scheduling, collaborative notes - replace Zoom."
+        prices = @{ t1 = 1599; t2 = 2599; t3 = 3599 }
+    },
+    @{
+        id = "privacy_pack"
+        name = "Privacy Pack"
+        description = "Encrypted storage, password manager, private VPN - total privacy."
+        prices = @{ t1 = 1599; t2 = 2599; t3 = 3599 }
+    },
+    @{
+        id = "writer_studio"
+        name = "Writer's Studio"
+        description = "Blog, newsletter, research archive, bookmarks - replace Substack."
+        prices = @{ t1 = 1999; t2 = 2999; t3 = 4599 }
+    },
+    @{
+        id = "artist_storefront"
+        name = "Artist Storefront"
+        description = "Online store, portfolio, photo galleries - replace Etsy."
+        prices = @{ t1 = 1999; t2 = 2999; t3 = 4599 }
+    },
+    @{
+        id = "podcaster"
+        name = "Podcaster Pack"
+        description = "Podcast hosting, show notes blog, listener analytics - own your feed."
+        prices = @{ t1 = 2599; t2 = 3599; t3 = 5599 }
+    },
+    @{
+        id = "freelancer"
+        name = "Freelancer Essentials"
+        description = "Invoicing, scheduling, client contacts - run your business."
+        prices = @{ t1 = 2599; t2 = 3599; t3 = 5599 }
+    },
+    @{
+        id = "musician"
+        name = "Musician Bundle"
+        description = "Music streaming, artist website, merch store - own your music."
+        prices = @{ t1 = 2599; t2 = 3599; t3 = 5599 }
+    },
+    @{
+        id = "family_hub"
+        name = "Family Hub"
+        description = "Shared drive, photos, passwords for 6 family members."
+        prices = @{ t1 = 2999; t2 = 4599; t3 = 6599 }
+    },
+    @{
+        id = "photographer"
+        name = "Photographer Pro"
+        description = "Photo library, client galleries, portfolio, print sales."
+        prices = @{ t1 = 2999; t2 = 4599; t3 = 6599 }
+    },
+    @{
+        id = "bookkeeper"
+        name = "Bookkeeper Bundle"
+        description = "Document scanner, client portal, secure messaging."
+        prices = @{ t1 = 2999; t2 = 4599; t3 = 6599 }
+    },
+    @{
+        id = "video_creator"
+        name = "Video Creator"
+        description = "Video hosting, community blog, paid memberships - replace YouTube."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "contractor"
+        name = "Contractor Pro"
+        description = "Digital contracts, project management, time tracking."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "realtor"
+        name = "Real Estate Agent"
+        description = "Lead CRM, listing photos, digital contracts."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "educator"
+        name = "Educator Suite"
+        description = "Virtual classroom, whiteboard, file sharing for students."
+        prices = @{ t1 = 3599; t2 = 5599; t3 = 9599 }
+    },
+    @{
+        id = "therapist"
+        name = "Therapist/Coach"
+        description = "Secure video sessions, encrypted notes, client portal - HIPAA-ready."
+        prices = @{ t1 = 4599; t2 = 6599; t3 = 12599 }
+    },
+    @{
+        id = "legal"
+        name = "Legal Lite"
+        description = "Document management, e-signatures, secure client portal."
+        prices = @{ t1 = 4599; t2 = 6599; t3 = 12599 }
+    }
+)
+
+# Combine all bundles
+$AllBundles = $SovereignSuites + $MicroBundles
+
+# Storage tier descriptions
+$TierDescriptions = @{
+    t1 = "50GB storage"
+    t2 = "200GB storage"
+    t3 = "500GB+ storage"
 }
 
-Write-Host ""
+# Track created products and prices for export
+$CreatedProducts = @{}
+$CreatedPrices = @{}
 
 # ============================================
-# STEP 3: Create Prices
+# CREATE PRODUCTS AND PRICES
 # ============================================
 
-Write-Host "Creating Prices..." -ForegroundColor Green
+$totalProducts = $AllBundles.Count * 3
+$currentProduct = 0
 
-# Personal - $9.99/month, $99/year
-if ($productIds["personal"]) {
-    Write-Host "  Personal Monthly: `$9.99/mo"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["personal"]) `
-        --unit-amount=999 `
-        --currency=usd `
-        --recurring[interval]=month `
-        --metadata[bundle_id]="personal" `
-        --metadata[billing_period]="monthly" `
-        2>&1 | Out-Null
+foreach ($bundle in $AllBundles) {
+    Write-Host ""
+    Write-Host "Creating: $($bundle.name)" -ForegroundColor Green
 
-    Write-Host "  Personal Yearly: `$99/yr (save `$20)"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["personal"]) `
-        --unit-amount=9900 `
-        --currency=usd `
-        --recurring[interval]=year `
-        --metadata[bundle_id]="personal" `
-        --metadata[billing_period]="yearly" `
-        2>&1 | Out-Null
-}
+    foreach ($tier in @("t1", "t2", "t3")) {
+        $currentProduct++
+        $priceAmount = $bundle.prices[$tier]
 
-# Creator - $19.99/month, $199/year
-if ($productIds["creator"]) {
-    Write-Host "  Creator Monthly: `$19.99/mo"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["creator"]) `
-        --unit-amount=1999 `
-        --currency=usd `
-        --recurring[interval]=month `
-        --metadata[bundle_id]="creator" `
-        --metadata[billing_period]="monthly" `
-        2>&1 | Out-Null
+        # Skip custom pricing (enterprise t3)
+        if ($priceAmount -eq 0) {
+            Write-Host "  [$currentProduct/$totalProducts] $tier - Custom pricing (skipped)" -ForegroundColor Gray
+            continue
+        }
 
-    Write-Host "  Creator Yearly: `$199/yr (save `$40)"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["creator"]) `
-        --unit-amount=19900 `
-        --currency=usd `
-        --recurring[interval]=year `
-        --metadata[bundle_id]="creator" `
-        --metadata[billing_period]="yearly" `
-        2>&1 | Out-Null
-}
+        $productName = "$($bundle.name) - Tier $($tier.Substring(1)) ($($TierDescriptions[$tier]))"
+        $productId = "$($bundle.id)_$tier"
+        $priceDisplay = [math]::Round($priceAmount / 100, 2)
 
-# Developer - $29.99/month, $299/year
-if ($productIds["developer"]) {
-    Write-Host "  Developer Monthly: `$29.99/mo"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["developer"]) `
-        --unit-amount=2999 `
-        --currency=usd `
-        --recurring[interval]=month `
-        --metadata[bundle_id]="developer" `
-        --metadata[billing_period]="monthly" `
-        2>&1 | Out-Null
+        Write-Host "  [$currentProduct/$totalProducts] $tier - `$$priceDisplay/mo" -ForegroundColor White
 
-    Write-Host "  Developer Yearly: `$299/yr (save `$60)"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["developer"]) `
-        --unit-amount=29900 `
-        --currency=usd `
-        --recurring[interval]=year `
-        --metadata[bundle_id]="developer" `
-        --metadata[billing_period]="yearly" `
-        2>&1 | Out-Null
-}
+        # Create product
+        try {
+            $productResult = & $StripeCLI products create $ModeFlag `
+                --name="$productName" `
+                --description="$($bundle.description) $($TierDescriptions[$tier])." `
+                --metadata[bundle_id]="$($bundle.id)" `
+                --metadata[tier]="$tier" `
+                --metadata[storage]="$($TierDescriptions[$tier])" `
+                2>&1 | ConvertFrom-Json
 
-# Professional - $49.99/month, $499/year
-if ($productIds["professional"]) {
-    Write-Host "  Professional Monthly: `$49.99/mo"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["professional"]) `
-        --unit-amount=4999 `
-        --currency=usd `
-        --recurring[interval]=month `
-        --metadata[bundle_id]="professional" `
-        --metadata[billing_period]="monthly" `
-        2>&1 | Out-Null
+            $stripeProductId = $productResult.id
+            $CreatedProducts[$productId] = $stripeProductId
 
-    Write-Host "  Professional Yearly: `$499/yr (save `$100)"
-    & $StripeCLI prices create $ModeFlag `
-        --product=$($productIds["professional"]) `
-        --unit-amount=49900 `
-        --currency=usd `
-        --recurring[interval]=year `
-        --metadata[bundle_id]="professional" `
-        --metadata[billing_period]="yearly" `
-        2>&1 | Out-Null
-}
+            # Create monthly price
+            $monthlyPriceResult = & $StripeCLI prices create $ModeFlag `
+                --product="$stripeProductId" `
+                --unit-amount=$priceAmount `
+                --currency=usd `
+                --recurring[interval]=month `
+                --metadata[bundle_id]="$($bundle.id)" `
+                --metadata[tier]="$tier" `
+                --metadata[billing_period]="monthly" `
+                2>&1 | ConvertFrom-Json
 
-Write-Host ""
-Write-Host "Prices created!" -ForegroundColor Green
-Write-Host ""
+            $CreatedPrices["${productId}_monthly"] = $monthlyPriceResult.id
 
-# ============================================
-# STEP 4: Create Payment Links
-# ============================================
+            # Create yearly price (2 months free = 10 months price)
+            $yearlyAmount = [math]::Floor($priceAmount * 10)
+            $yearlyPriceResult = & $StripeCLI prices create $ModeFlag `
+                --product="$stripeProductId" `
+                --unit-amount=$yearlyAmount `
+                --currency=usd `
+                --recurring[interval]=year `
+                --metadata[bundle_id]="$($bundle.id)" `
+                --metadata[tier]="$tier" `
+                --metadata[billing_period]="yearly" `
+                2>&1 | ConvertFrom-Json
 
-Write-Host "Creating Payment Links..." -ForegroundColor Green
+            $CreatedPrices["${productId}_yearly"] = $yearlyPriceResult.id
 
-$prices = & $StripeCLI prices list $ModeFlag --limit=20 2>&1 | ConvertFrom-Json
-
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "PAYMENT LINKS (for wopr.systems/join)" -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
-
-foreach ($price in $prices.data) {
-    if ($price.metadata.bundle_id) {
-        $link = & $StripeCLI payment_links create $ModeFlag `
-            --line-items[0][price]=$($price.id) `
-            --line-items[0][quantity]=1 `
-            2>&1 | ConvertFrom-Json
-
-        $bundle = $price.metadata.bundle_id
-        $period = $price.metadata.billing_period
-        $amount = [math]::Round($price.unit_amount / 100, 2)
-
-        Write-Host "$bundle ($period) - `$$amount" -ForegroundColor Yellow
-        Write-Host "  URL: $($link.url)" -ForegroundColor White
-        Write-Host "  Price ID: $($price.id)" -ForegroundColor Gray
-        Write-Host ""
+        } catch {
+            Write-Host "    ERROR: $_" -ForegroundColor Red
+        }
     }
 }
 
@@ -243,8 +286,107 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "SETUP COMPLETE!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
+Write-Host "Created:" -ForegroundColor Cyan
+Write-Host "  - $($CreatedProducts.Count) products"
+Write-Host "  - $($CreatedPrices.Count) prices (monthly + yearly)"
+Write-Host ""
+
+# ============================================
+# EXPORT CATALOG TO PYTHON
+# ============================================
+
+if ($ExportCatalog -or $true) {
+    $catalogPath = "C:\Users\sbink\WOPR\wopr-installer\control_plane\stripe_catalog.py"
+
+    Write-Host "Exporting catalog to: $catalogPath" -ForegroundColor Cyan
+
+    $pythonContent = @"
+# WOPR Stripe Product Catalog
+# Auto-generated by stripe-setup.ps1
+# Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+# Mode: $(if ($Live) { "LIVE" } else { "TEST" })
+
+from typing import Dict, Any
+
+# Stripe Product IDs
+STRIPE_PRODUCTS: Dict[str, str] = {
+
+"@
+
+    foreach ($key in $CreatedProducts.Keys | Sort-Object) {
+        $pythonContent += "    `"$key`": `"$($CreatedProducts[$key])`",`n"
+    }
+
+    $pythonContent += @"
+}
+
+# Stripe Price IDs (monthly and yearly)
+STRIPE_PRICES: Dict[str, str] = {
+
+"@
+
+    foreach ($key in $CreatedPrices.Keys | Sort-Object) {
+        $pythonContent += "    `"$key`": `"$($CreatedPrices[$key])`",`n"
+    }
+
+    $pythonContent += @"
+}
+
+# Bundle pricing in cents (for validation)
+BUNDLE_PRICING: Dict[str, Dict[str, int]] = {
+
+"@
+
+    foreach ($bundle in $AllBundles) {
+        $pythonContent += "    `"$($bundle.id)`": {`n"
+        $pythonContent += "        `"t1`": $($bundle.prices.t1),`n"
+        $pythonContent += "        `"t2`": $($bundle.prices.t2),`n"
+        $pythonContent += "        `"t3`": $($bundle.prices.t3),`n"
+        $pythonContent += "    },`n"
+    }
+
+    $pythonContent += @"
+}
+
+# Helper functions
+def get_price_id(bundle_id: str, tier: str, period: str = "monthly") -> str:
+    """Get Stripe price ID for a bundle/tier/period combination."""
+    key = f"{bundle_id}_{tier}_{period}"
+    return STRIPE_PRICES.get(key)
+
+def get_product_id(bundle_id: str, tier: str) -> str:
+    """Get Stripe product ID for a bundle/tier combination."""
+    key = f"{bundle_id}_{tier}"
+    return STRIPE_PRODUCTS.get(key)
+
+def get_price_cents(bundle_id: str, tier: str) -> int:
+    """Get price in cents for a bundle/tier."""
+    bundle = BUNDLE_PRICING.get(bundle_id, {})
+    return bundle.get(tier, 0)
+
+def get_all_bundles() -> list:
+    """Get list of all bundle IDs."""
+    return list(BUNDLE_PRICING.keys())
+
+def get_sovereign_suites() -> list:
+    """Get list of Sovereign Suite bundle IDs."""
+    return ["starter", "creator", "developer", "professional", "family", "small_business", "enterprise"]
+
+def get_micro_bundles() -> list:
+    """Get list of Micro-Bundle IDs."""
+    sovereign = set(get_sovereign_suites())
+    return [b for b in get_all_bundles() if b not in sovereign]
+"@
+
+    $pythonContent | Out-File -FilePath $catalogPath -Encoding utf8
+
+    Write-Host "Catalog exported!" -ForegroundColor Green
+}
+
+Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "1. Copy the payment links above to your join page"
-Write-Host "2. Or use the Price IDs with Stripe Checkout in your code"
-Write-Host "3. Configure webhooks at: https://dashboard.stripe.com/webhooks"
+Write-Host "1. Verify products in Stripe Dashboard"
+Write-Host "2. stripe_catalog.py has been generated with all price IDs"
+Write-Host "3. Update billing.py to use the new catalog"
+Write-Host "4. Configure webhooks at: https://dashboard.stripe.com/webhooks"
 Write-Host ""

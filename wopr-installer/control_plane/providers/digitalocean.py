@@ -13,9 +13,9 @@ DigitalOcean offers:
 Requires: pip install apache-libcloud
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from .libcloud_base import LibcloudBaseProvider, LIBCLOUD_AVAILABLE
-from .base import Plan, ProviderError
+from .base import Plan, ProvisionConfig, ProviderError
 from .registry import register_provider
 
 if LIBCLOUD_AVAILABLE:
@@ -57,6 +57,23 @@ class DigitalOceanProvider(LibcloudBaseProvider):
     def _create_driver(self, driver_cls):
         """Create DigitalOcean driver."""
         return driver_cls(self.api_token, api_version="v2")
+
+    def _build_customer_tags(self, config: ProvisionConfig) -> Dict[str, Any]:
+        """Build DigitalOcean tags for customer identity."""
+        # DO tags are simple strings (no key-value), alphanumeric + colons/dashes/underscores
+        tags = ["wopr", "managed-by:wopr-systems"]
+        if config.wopr_bundle:
+            tags.append(f"bundle:{config.wopr_bundle}")
+        if config.wopr_customer_id:
+            tags.append(f"customer:{config.wopr_customer_id}")
+        if config.wopr_customer_email:
+            # Replace @ and . for tag-safe format
+            safe_email = config.wopr_customer_email.replace("@", "_at_").replace(".", "_")
+            tags.append(f"email:{safe_email}")
+        if config.wopr_customer_name:
+            safe_name = config.wopr_customer_name.replace(" ", "-")
+            tags.append(f"name:{safe_name}")
+        return {"ex_create_attr": {"tags": tags}}
 
     def _get_plan_price(self, size) -> float:
         """Get DigitalOcean plan price."""

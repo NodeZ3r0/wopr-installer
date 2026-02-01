@@ -279,9 +279,16 @@ class HetznerProvider(WOPRProviderInterface):
 
             # Add WOPR metadata
             if config.wopr_customer_id:
-                labels["wopr-customer"] = config.wopr_customer_id
+                labels["wopr-customer"] = config.wopr_customer_id[:63]
             if config.wopr_bundle:
-                labels["wopr-bundle"] = config.wopr_bundle
+                labels["wopr-bundle"] = config.wopr_bundle[:63]
+            if config.wopr_customer_email:
+                labels["wopr-email"] = config.wopr_customer_email[:63]
+            if config.wopr_customer_name:
+                # Hetzner labels: alphanumeric, dashes, underscores, dots only
+                safe_name = config.wopr_customer_name.replace(" ", "-")
+                labels["wopr-name"] = safe_name[:63]
+            labels["managed-by"] = "wopr-systems"
 
             # Create server
             response = self.client.servers.create(

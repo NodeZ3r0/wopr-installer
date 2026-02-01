@@ -13,9 +13,9 @@ OVHcloud offers:
 Requires: pip install apache-libcloud
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from .libcloud_base import LibcloudBaseProvider, LIBCLOUD_AVAILABLE
-from .base import Plan, Region, ProviderError
+from .base import Plan, Region, ProvisionConfig, ProviderError
 from .registry import register_provider
 
 if LIBCLOUD_AVAILABLE:
@@ -74,6 +74,20 @@ class OVHProvider(LibcloudBaseProvider):
             raise ProviderError("ovh", "project_id is required for OVH")
 
         super().__init__(api_token, **kwargs)
+
+    def _build_customer_tags(self, config: ProvisionConfig) -> Dict[str, Any]:
+        """Build OVH/OpenStack metadata for customer identity."""
+        # OpenStack supports instance metadata as key-value pairs via ex_metadata
+        metadata = {"managed_by": "wopr-systems"}
+        if config.wopr_bundle:
+            metadata["wopr_bundle"] = config.wopr_bundle
+        if config.wopr_customer_id:
+            metadata["wopr_customer"] = config.wopr_customer_id
+        if config.wopr_customer_email:
+            metadata["wopr_email"] = config.wopr_customer_email
+        if config.wopr_customer_name:
+            metadata["wopr_name"] = config.wopr_customer_name
+        return {"ex_metadata": metadata}
 
     def _create_driver(self, driver_cls):
         """Create OVH driver (OpenStack-based)."""

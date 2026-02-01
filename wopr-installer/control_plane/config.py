@@ -64,12 +64,12 @@ class AuthentikConfig:
 class ProviderTokens:
     hetzner: str = ""
     digitalocean: str = ""
-    vultr: str = ""
     linode: str = ""
     ovh_application_key: str = ""
     ovh_application_secret: str = ""
     ovh_consumer_key: str = ""
     ovh_project_id: str = ""
+    upcloud: str = ""  # format: "username:password"
 
     def available_providers(self) -> List[str]:
         providers = []
@@ -77,12 +77,12 @@ class ProviderTokens:
             providers.append("hetzner")
         if self.digitalocean:
             providers.append("digitalocean")
-        if self.vultr:
-            providers.append("vultr")
         if self.linode:
             providers.append("linode")
         if self.ovh_application_key:
             providers.append("ovh")
+        if self.upcloud:
+            providers.append("upcloud")
         return providers
 
 
@@ -139,12 +139,12 @@ class WOPRConfig:
             providers=ProviderTokens(
                 hetzner=os.environ.get("HETZNER_API_TOKEN", ""),
                 digitalocean=os.environ.get("DIGITALOCEAN_API_TOKEN", ""),
-                vultr=os.environ.get("VULTR_API_TOKEN", ""),
                 linode=os.environ.get("LINODE_API_TOKEN", ""),
                 ovh_application_key=os.environ.get("OVH_APPLICATION_KEY", ""),
                 ovh_application_secret=os.environ.get("OVH_APPLICATION_SECRET", ""),
                 ovh_consumer_key=os.environ.get("OVH_CONSUMER_KEY", ""),
                 ovh_project_id=os.environ.get("OVH_PROJECT_ID", ""),
+                upcloud=os.environ.get("UPCLOUD_CREDENTIALS", ""),  # username:password
             ),
             wopr_domain=os.environ.get("WOPR_DOMAIN", "wopr.systems"),
             job_store_path=os.environ.get("JOB_STORE_PATH", "/var/lib/wopr/jobs"),

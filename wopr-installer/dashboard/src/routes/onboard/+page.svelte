@@ -5,103 +5,73 @@
 		onboarding,
 		bundleInfo,
 		bundlePricing,
-		tierInfo,
-		selectedPrice,
-		formattedPrice,
 		canProceed,
 		setBundle,
-		nextStep
+		nextStep,
+		formatPrice
 	} from '$lib/stores/onboarding.js';
 
-	// Get bundles from URL params if passed from join page
 	import { page } from '$app/stores';
 
 	onMount(() => {
-		// Set step to 1 when arriving at this page
 		onboarding.update(o => ({ ...o, currentStep: 1 }));
 
-		// Check for URL params from join page
 		const bundleParam = $page.url.searchParams.get('bundle');
-		const tierParam = $page.url.searchParams.get('tier');
-
 		if (bundleParam && bundleInfo[bundleParam]) {
-			setBundle(bundleParam, tierParam || 't1');
+			setBundle(bundleParam);
 		}
 	});
 
-	let selectedType = 'sovereign'; // 'sovereign' or 'micro'
+	let selectedType = 'sovereign';
 
-	$: sovereignSuites = Object.entries(bundleInfo)
+	$: completePackages = Object.entries(bundleInfo)
 		.filter(([_, info]) => info.type === 'sovereign')
 		.map(([id, info]) => ({ id, ...info, pricing: bundlePricing[id] }));
 
-	$: microBundles = Object.entries(bundleInfo)
+	$: builtForYou = Object.entries(bundleInfo)
 		.filter(([_, info]) => info.type === 'micro')
 		.map(([id, info]) => ({ id, ...info, pricing: bundlePricing[id] }));
 
-	$: displayedBundles = selectedType === 'sovereign' ? sovereignSuites : microBundles;
+	$: displayedBundles = selectedType === 'sovereign' ? completePackages : builtForYou;
 
 	function selectBundle(bundleId) {
 		setBundle(bundleId, $onboarding.tier);
 	}
 
-	function selectTier(tier) {
-		onboarding.update(o => ({ ...o, tier }));
-	}
-
-	function formatPrice(cents) {
-		if (cents === 0) return 'Custom';
-		return `$${(cents / 100).toFixed(2)}`;
-	}
-
 	function handleContinue() {
 		if ($canProceed) {
 			nextStep();
-			goto('/onboard/account');
+			goto('/onboard/plan');
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Choose Your Bundle - WOPR Onboarding</title>
+	<title>What Do You Need? - WOPR</title>
 </svelte:head>
 
 <div class="step-container">
 	<div class="step-header">
-		<h1>Choose Your Bundle</h1>
-		<p class="subtitle">Select the perfect combination of apps for your needs</p>
+		<span class="step-badge">Step 1 of 4</span>
+		<h1>What do you need?</h1>
+		<p class="subtitle">Pick the apps that fit your life. You can always change later.</p>
 	</div>
 
-	<!-- Tier selector -->
-	<div class="tier-selector">
-		<span class="tier-label">Storage Tier:</span>
-		<div class="tier-buttons">
-			{#each Object.entries(tierInfo) as [tierId, tier]}
-				<button
-					class="tier-btn {$onboarding.tier === tierId ? 'active' : ''}"
-					on:click={() => selectTier(tierId)}
-				>
-					<span class="tier-name">{tier.storage}</span>
-				</button>
-			{/each}
-		</div>
-	</div>
-
-	<!-- Type tabs -->
+	<!-- Category tabs -->
 	<div class="type-tabs">
 		<button
 			class="type-tab {selectedType === 'sovereign' ? 'active' : ''}"
 			on:click={() => (selectedType = 'sovereign')}
 		>
-			Sovereign Suites
-			<span class="tab-count">{sovereignSuites.length}</span>
+			Complete Packages
+			<span class="tab-hint">Everything in one place</span>
 		</button>
 		<button
 			class="type-tab {selectedType === 'micro' ? 'active' : ''}"
 			on:click={() => (selectedType = 'micro')}
 		>
-			Micro-Bundles
-			<span class="tab-count">{microBundles.length}</span>
+			Built for You
+			<span class="tab-hint">Tools for what you do</span>
 		</button>
 	</div>
 
@@ -115,13 +85,13 @@
 				<div class="bundle-header">
 					<h3>{bundle.name}</h3>
 					<div class="bundle-price">
-						{formatPrice(bundle.pricing[$onboarding.tier])}<span class="period">/mo</span>
+						Starting at {formatPrice(bundle.pricing.t1)}<span class="period">/mo</span>
 					</div>
 				</div>
 				<p class="bundle-description">{bundle.description}</p>
 				{#if bundle.maxUsers > 1}
 					<span class="user-badge">
-						{bundle.maxUsers === -1 ? 'Unlimited' : bundle.maxUsers} users
+						{bundle.maxUsers === -1 ? 'Unlimited' : `Up to ${bundle.maxUsers}`} users
 					</span>
 				{/if}
 				{#if $onboarding.bundle === bundle.id}
@@ -133,17 +103,16 @@
 		{/each}
 	</div>
 
-	<!-- Summary bar -->
+	<!-- Bottom bar -->
 	{#if $onboarding.bundle}
 		<div class="summary-bar">
 			<div class="summary-info">
 				<strong>{bundleInfo[$onboarding.bundle].name}</strong>
-				<span class="summary-tier">{tierInfo[$onboarding.tier].storage}</span>
-				<span class="summary-price">{$formattedPrice}/mo</span>
+				<span class="summary-price">Starting at {formatPrice(bundlePricing[$onboarding.bundle].t1)}/mo</span>
 			</div>
 			<button class="btn btn-primary" on:click={handleContinue} disabled={!$canProceed}>
-				Continue
-				<span class="arrow">→</span>
+				Pick Your Plan Size
+				<span class="arrow">&rarr;</span>
 			</button>
 		</div>
 	{/if}
@@ -152,6 +121,7 @@
 <style>
 	.step-container {
 		animation: fadeIn 0.3s ease;
+		padding-bottom: 6rem;
 	}
 
 	@keyframes fadeIn {
@@ -164,6 +134,19 @@
 		margin-bottom: 2rem;
 	}
 
+	.step-badge {
+		display: inline-block;
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--theme-primary);
+		background: var(--theme-primary-subtle);
+		padding: 0.3rem 0.75rem;
+		border-radius: var(--theme-radius);
+		margin-bottom: 0.75rem;
+	}
+
 	.step-header h1 {
 		font-size: 2rem;
 		margin-bottom: 0.5rem;
@@ -174,93 +157,44 @@
 		font-size: 1.1rem;
 	}
 
-	/* Tier selector */
-	.tier-selector {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 1rem;
-		margin-bottom: 1.5rem;
-		flex-wrap: wrap;
-	}
-
-	.tier-label {
-		color: var(--theme-text-muted);
-		font-weight: 500;
-	}
-
-	.tier-buttons {
-		display: flex;
-		gap: 0.5rem;
-		background: var(--theme-surface);
-		padding: 0.25rem;
-		border-radius: var(--theme-radius);
-		border: 1px solid var(--theme-border);
-	}
-
-	.tier-btn {
-		padding: 0.5rem 1.25rem;
-		border: none;
-		background: transparent;
-		color: var(--theme-text-muted);
-		border-radius: calc(var(--theme-radius) - 2px);
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.tier-btn:hover {
-		color: var(--theme-text);
-	}
-
-	.tier-btn.active {
-		background: var(--theme-primary);
-		color: var(--theme-text-on-primary);
-	}
-
-	/* Type tabs */
+	/* Category tabs */
 	.type-tabs {
 		display: flex;
 		gap: 1rem;
 		margin-bottom: 1.5rem;
-		border-bottom: 1px solid var(--theme-border);
 	}
 
 	.type-tab {
-		padding: 0.75rem 1.5rem;
-		border: none;
-		background: transparent;
+		flex: 1;
+		padding: 1rem 1.5rem;
+		border: 2px solid var(--theme-border);
+		background: var(--theme-surface);
 		color: var(--theme-text-muted);
-		font-size: 1rem;
-		font-weight: 500;
+		font-size: 1.1rem;
+		font-weight: 600;
 		cursor: pointer;
-		border-bottom: 2px solid transparent;
-		margin-bottom: -1px;
+		border-radius: var(--theme-radius);
 		transition: all 0.2s;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		text-align: center;
 	}
 
 	.type-tab:hover {
+		border-color: var(--theme-primary);
 		color: var(--theme-text);
 	}
 
 	.type-tab.active {
+		border-color: var(--theme-primary);
+		background: var(--theme-primary-subtle);
 		color: var(--theme-primary);
-		border-bottom-color: var(--theme-primary);
 	}
 
-	.tab-count {
-		background: var(--theme-surface);
-		padding: 0.15rem 0.5rem;
-		border-radius: var(--theme-radius);
+	.tab-hint {
+		display: block;
 		font-size: 0.8rem;
-	}
-
-	.type-tab.active .tab-count {
-		background: var(--theme-primary);
-		color: var(--theme-text-on-primary);
+		font-weight: 400;
+		margin-top: 0.25rem;
+		opacity: 0.7;
 	}
 
 	/* Bundle grid */
@@ -301,20 +235,20 @@
 	}
 
 	.bundle-header h3 {
-		font-size: 1rem;
+		font-size: 1.1rem;
 		font-weight: 600;
 		margin: 0;
 	}
 
 	.bundle-price {
-		font-size: 1.1rem;
-		font-weight: 700;
+		font-size: 0.85rem;
+		font-weight: 600;
 		color: var(--theme-primary);
 		white-space: nowrap;
 	}
 
 	.period {
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 		font-weight: 400;
 		color: var(--theme-text-muted);
 	}
@@ -376,17 +310,9 @@
 		flex-wrap: wrap;
 	}
 
-	.summary-tier {
-		color: var(--theme-text-muted);
-		padding: 0.25rem 0.75rem;
-		background: var(--theme-border);
-		border-radius: var(--theme-radius);
-		font-size: 0.85rem;
-	}
-
 	.summary-price {
-		font-size: 1.25rem;
-		font-weight: 700;
+		font-size: 1rem;
+		font-weight: 600;
 		color: var(--theme-primary);
 	}
 
@@ -421,6 +347,10 @@
 	}
 
 	@media (max-width: 640px) {
+		.type-tabs {
+			flex-direction: column;
+		}
+
 		.bundle-grid {
 			grid-template-columns: 1fr;
 		}

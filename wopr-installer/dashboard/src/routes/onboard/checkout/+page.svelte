@@ -4,9 +4,9 @@
 	import {
 		onboarding,
 		bundleInfo,
-		tierInfo,
-		providerOptions,
-		selectedPrice,
+		tierLabels,
+		tierDetails,
+		regionOptions,
 		formattedPrice,
 		yearlyPrice,
 		formattedYearlyPrice,
@@ -14,22 +14,22 @@
 		goToStep
 	} from '$lib/stores/onboarding.js';
 
-	let billingPeriod = 'monthly'; // 'monthly' or 'yearly'
+	let billingPeriod = 'monthly';
 	let isSubmitting = false;
 	let submitError = '';
 
 	onMount(() => {
-		// Redirect if no bundle selected
 		if (!$onboarding.bundle || !$onboarding.beaconName) {
 			goto('/onboard');
 			return;
 		}
-		onboarding.update(o => ({ ...o, currentStep: 5 }));
+		onboarding.update(o => ({ ...o, currentStep: 4 }));
 	});
 
 	$: bundleMeta = bundleInfo[$onboarding.bundle] || {};
-	$: tierMeta = tierInfo[$onboarding.tier] || {};
-	$: providerMeta = providerOptions.find(p => p.id === $onboarding.provider) || {};
+	$: tierMeta = tierDetails[$onboarding.tier] || {};
+	$: tierLabel = tierLabels[$onboarding.tier] || '';
+	$: regionMeta = regionOptions.find(r => r.id === $onboarding.region) || regionOptions[0];
 
 	$: displayPrice = billingPeriod === 'yearly' ? $formattedYearlyPrice : $formattedPrice;
 	$: displayPeriod = billingPeriod === 'yearly' ? '/year' : '/mo';
@@ -42,7 +42,6 @@
 		submitError = '';
 
 		try {
-			// Build checkout request
 			const checkoutData = {
 				bundle: $onboarding.bundle,
 				tier: $onboarding.tier,
@@ -50,11 +49,10 @@
 				email: $onboarding.email,
 				name: $onboarding.name,
 				beacon_name: $onboarding.beaconName,
-				provider: $onboarding.provider,
+				region: $onboarding.region,
 				additional_users: $onboarding.additionalUsers,
 			};
 
-			// Call API to create Stripe checkout session
 			const response = await fetch('/api/v1/onboard/create-checkout', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -67,10 +65,7 @@
 			}
 
 			const { checkout_url } = await response.json();
-
-			// Redirect to Stripe
 			window.location.href = checkout_url;
-
 		} catch (err) {
 			submitError = err.message;
 			isSubmitting = false;
@@ -79,51 +74,75 @@
 
 	function handleBack() {
 		prevStep();
-		if (bundleMeta.maxUsers > 1) {
-			goto('/onboard/users');
-		} else {
-			goto('/onboard/beacon');
-		}
+		goto('/onboard/account');
 	}
 
 	function editStep(step) {
 		goToStep(step);
 		switch (step) {
 			case 1: goto('/onboard'); break;
-			case 2: goto('/onboard/account'); break;
-			case 3: goto('/onboard/beacon'); break;
-			case 4: goto('/onboard/users'); break;
+			case 2: goto('/onboard/plan'); break;
+			case 3: goto('/onboard/account'); break;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Review Your Order - WOPR Onboarding</title>
+	<title>Review Your Order - WOPR</title>
 </svelte:head>
 
 <div class="step-container">
 	<div class="step-header">
-		<h1>Review Your Order</h1>
-		<p class="subtitle">Everything look good? Let's set up your Beacon!</p>
+		<span class="step-badge">Step 4 of 4</span>
+		<h1>Review your order</h1>
+		<p class="subtitle">Everything look good? Let's get your server set up!</p>
 	</div>
 
 	<div class="checkout-grid">
 		<!-- Order summary -->
 		<div class="order-summary">
-			<h2>Order Summary</h2>
+			<h2>Your Setup</h2>
 
 			<!-- Bundle -->
 			<div class="summary-section">
 				<div class="section-header">
-					<h3>Bundle</h3>
-					<button class="edit-btn" on:click={() => editStep(1)}>Edit</button>
+					<h3>Package</h3>
+					<button class="edit-btn" on:click={() => editStep(1)}>Change</button>
 				</div>
 				<div class="section-content">
-					<div class="bundle-line">
-						<span class="bundle-name">{bundleMeta.name}</span>
-						<span class="bundle-tier">{tierMeta.storage}</span>
+					<strong>{bundleMeta.name}</strong>
+					<p class="muted">{bundleMeta.description}</p>
+				</div>
+			</div>
+
+			<!-- Plan size -->
+			<div class="summary-section">
+				<div class="section-header">
+					<h3>Plan Size</h3>
+					<button class="edit-btn" on:click={() => editStep(2)}>Change</button>
+				</div>
+				<div class="section-content">
+					<div class="plan-line">
+						<strong>{tierLabel}</strong>
+						<span class="plan-detail">{tierMeta.storage} storage</span>
 					</div>
-					<p class="bundle-desc">{bundleMeta.description}</p>
+					<p class="muted">{tierMeta.users} &middot; {tierMeta.backups}</p>
+				</div>
+			</div>
+
+			<!-- Server location -->
+			<div class="summary-section">
+				<div class="section-header">
+					<h3>Server Location</h3>
+					<button class="edit-btn" on:click={() => editStep(2)}>Change</button>
+				</div>
+				<div class="section-content">
+					<span class="region-display">
+						{regionMeta.flag} {regionMeta.name}
+						{#if regionMeta.id !== 'auto'}
+							<span class="muted">({regionMeta.description})</span>
+						{/if}
+					</span>
 				</div>
 			</div>
 
@@ -131,7 +150,7 @@
 			<div class="summary-section">
 				<div class="section-header">
 					<h3>Account</h3>
-					<button class="edit-btn" on:click={() => editStep(2)}>Edit</button>
+					<button class="edit-btn" on:click={() => editStep(3)}>Change</button>
 				</div>
 				<div class="section-content">
 					<p><strong>{$onboarding.name}</strong></p>
@@ -142,30 +161,23 @@
 			<!-- Beacon -->
 			<div class="summary-section">
 				<div class="section-header">
-					<h3>Beacon</h3>
-					<button class="edit-btn" on:click={() => editStep(3)}>Edit</button>
+					<h3>Your Address</h3>
+					<button class="edit-btn" on:click={() => editStep(3)}>Change</button>
 				</div>
 				<div class="section-content">
 					<p class="beacon-url">https://<strong>{$onboarding.beaconName}</strong>.wopr.systems</p>
-					<p class="muted">Hosted on {providerMeta.name}</p>
 				</div>
 			</div>
 
-			<!-- Users (if applicable) -->
+			<!-- Users -->
 			{#if $onboarding.additionalUsers.length > 0}
 				<div class="summary-section">
 					<div class="section-header">
-						<h3>Team Members</h3>
-						<button class="edit-btn" on:click={() => editStep(4)}>Edit</button>
+						<h3>Team</h3>
+						<button class="edit-btn" on:click={() => editStep(3)}>Change</button>
 					</div>
 					<div class="section-content">
-						<p>{1 + $onboarding.additionalUsers.length} total users</p>
-						<ul class="user-list">
-							<li>{$onboarding.name} (Admin)</li>
-							{#each $onboarding.additionalUsers as user}
-								<li>{user.name}</li>
-							{/each}
-						</ul>
+						<p>{1 + $onboarding.additionalUsers.length} users total</p>
 					</div>
 				</div>
 			{/if}
@@ -200,26 +212,21 @@
 
 			{#if monthlyEquivalent}
 				<p class="monthly-equivalent">
-					That's just {monthlyEquivalent} - 2 months free!
+					That's just {monthlyEquivalent} &mdash; 2 months free!
 				</p>
 			{/if}
 
 			<!-- What's included -->
 			<div class="included">
-				<h4>What's included:</h4>
+				<h4>Everything included:</h4>
 				<ul>
-					<li>Full access to all {bundleMeta.name} apps</li>
+					<li>All your {bundleMeta.name} apps</li>
 					<li>{tierMeta.storage} cloud storage</li>
+					<li>Your own private server</li>
 					<li>Automatic backups</li>
-					<li>SSL certificate included</li>
+					<li>SSL security certificate</li>
 					<li>24/7 uptime monitoring</li>
 				</ul>
-			</div>
-
-			<!-- Server cost note -->
-			<div class="server-note">
-				<strong>Note:</strong> VPS hosting ({providerMeta.priceRange}) is billed separately
-				by {providerMeta.name}. We'll help you set it up after checkout.
 			</div>
 
 			<!-- Submit button -->
@@ -240,14 +247,14 @@
 			</button>
 
 			<p class="secure-note">
-				Secure checkout powered by Stripe
+				Secure checkout powered by Stripe. Cancel anytime.
 			</p>
 		</div>
 	</div>
 
 	<div class="step-actions">
 		<button class="btn btn-secondary" on:click={handleBack}>
-			<span class="arrow">←</span>
+			<span class="arrow">&larr;</span>
 			Back
 		</button>
 	</div>
@@ -266,6 +273,19 @@
 	.step-header {
 		text-align: center;
 		margin-bottom: 2rem;
+	}
+
+	.step-badge {
+		display: inline-block;
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--theme-primary);
+		background: var(--theme-primary-subtle);
+		padding: 0.3rem 0.75rem;
+		border-radius: var(--theme-radius);
+		margin-bottom: 0.75rem;
 	}
 
 	.step-header h1 {
@@ -318,10 +338,11 @@
 	}
 
 	.section-header h3 {
-		font-size: 0.9rem;
+		font-size: 0.8rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--theme-text-muted);
+		margin: 0;
 	}
 
 	.edit-btn {
@@ -337,32 +358,29 @@
 		text-decoration: underline;
 	}
 
-	.bundle-line {
+	.plan-line {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 	}
 
-	.bundle-name {
-		font-weight: 600;
-	}
-
-	.bundle-tier {
-		font-size: 0.8rem;
-		padding: 0.2rem 0.5rem;
+	.plan-detail {
+		font-size: 0.85rem;
+		padding: 0.15rem 0.5rem;
 		background: var(--theme-border);
 		border-radius: var(--theme-radius);
-	}
-
-	.bundle-desc {
-		font-size: 0.9rem;
-		color: var(--theme-text-muted);
-		margin-top: 0.5rem;
 	}
 
 	.muted {
 		color: var(--theme-text-muted);
 		font-size: 0.9rem;
+		margin-top: 0.25rem;
+	}
+
+	.region-display {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.beacon-url {
@@ -371,13 +389,7 @@
 		padding: 0.5rem 0.75rem;
 		border-radius: var(--theme-radius);
 		display: inline-block;
-	}
-
-	.user-list {
-		margin-top: 0.5rem;
-		padding-left: 1.25rem;
-		font-size: 0.9rem;
-		color: var(--theme-text-muted);
+		font-size: 0.95rem;
 	}
 
 	/* Payment card */
@@ -479,18 +491,9 @@
 	}
 
 	.included li::before {
-		content: "✓ ";
+		content: "\2713 ";
 		color: var(--theme-success);
 		font-weight: bold;
-	}
-
-	.server-note {
-		background: var(--theme-bg);
-		padding: 0.75rem 1rem;
-		border-radius: var(--theme-radius);
-		font-size: 0.85rem;
-		color: var(--theme-text-muted);
-		margin-bottom: 1.5rem;
 	}
 
 	.error-message {

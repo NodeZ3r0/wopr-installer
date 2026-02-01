@@ -163,143 +163,6 @@ HETZNER_PROFILE = ProviderProfile(
     ],
 )
 
-VULTR_PROFILE = ProviderProfile(
-    id="vultr",
-    name="Vultr",
-    website="https://www.vultr.com",
-    signup_url="https://www.vultr.com/register/",
-    api_docs_url="https://www.vultr.com/api/",
-    datacenters=[
-        # US West
-        Datacenter(
-            id="lax",
-            name="Los Angeles, CA",
-            city="Los Angeles",
-            state_country="California, USA",
-            geo_region=GeoRegion.US_WEST,
-            latency_from_us_ms=30
-        ),
-        Datacenter(
-            id="sjc",
-            name="Silicon Valley, CA",
-            city="San Jose",
-            state_country="California, USA",
-            geo_region=GeoRegion.US_WEST,
-            latency_from_us_ms=35
-        ),
-        Datacenter(
-            id="sea",
-            name="Seattle, WA",
-            city="Seattle",
-            state_country="Washington, USA",
-            geo_region=GeoRegion.US_WEST,
-            latency_from_us_ms=45
-        ),
-        # US Central
-        Datacenter(
-            id="dfw",
-            name="Dallas, TX",
-            city="Dallas",
-            state_country="Texas, USA",
-            geo_region=GeoRegion.US_CENTRAL,
-            latency_from_us_ms=15
-        ),
-        Datacenter(
-            id="ord",
-            name="Chicago, IL",
-            city="Chicago",
-            state_country="Illinois, USA",
-            geo_region=GeoRegion.US_CENTRAL,
-            latency_from_us_ms=20
-        ),
-        # US East
-        Datacenter(
-            id="ewr",
-            name="New Jersey",
-            city="Newark",
-            state_country="New Jersey, USA",
-            geo_region=GeoRegion.US_EAST,
-            latency_from_us_ms=25
-        ),
-        Datacenter(
-            id="atl",
-            name="Atlanta, GA",
-            city="Atlanta",
-            state_country="Georgia, USA",
-            geo_region=GeoRegion.US_EAST,
-            latency_from_us_ms=20
-        ),
-        Datacenter(
-            id="mia",
-            name="Miami, FL",
-            city="Miami",
-            state_country="Florida, USA",
-            geo_region=GeoRegion.US_EAST,
-            latency_from_us_ms=30
-        ),
-    ],
-    plans={
-        ResourceTier.LOW: RecommendedPlan(
-            provider="vultr",
-            plan_id="vc2-1c-2gb",
-            plan_name="Cloud Compute 2GB",
-            tier=ResourceTier.LOW,
-            cpu=1,
-            ram_gb=2,
-            disk_gb=55,
-            price_monthly_usd=10.00,
-            bandwidth_tb=2.0,
-            notes="Entry level, good for light personal use"
-        ),
-        ResourceTier.MEDIUM: RecommendedPlan(
-            provider="vultr",
-            plan_id="vc2-2c-4gb",
-            plan_name="Cloud Compute 4GB",
-            tier=ResourceTier.MEDIUM,
-            cpu=2,
-            ram_gb=4,
-            disk_gb=80,
-            price_monthly_usd=20.00,
-            bandwidth_tb=3.0,
-            notes="Good for creator/developer with moderate workloads"
-        ),
-        ResourceTier.HIGH: RecommendedPlan(
-            provider="vultr",
-            plan_id="vc2-4c-8gb",
-            plan_name="Cloud Compute 8GB",
-            tier=ResourceTier.HIGH,
-            cpu=4,
-            ram_gb=8,
-            disk_gb=160,
-            price_monthly_usd=40.00,
-            bandwidth_tb=4.0,
-            notes="Professional bundle capable"
-        ),
-        ResourceTier.VERY_HIGH: RecommendedPlan(
-            provider="vultr",
-            plan_id="vc2-6c-16gb",
-            plan_name="Cloud Compute 16GB",
-            tier=ResourceTier.VERY_HIGH,
-            cpu=6,
-            ram_gb=16,
-            disk_gb=320,
-            price_monthly_usd=80.00,
-            bandwidth_tb=5.0,
-            notes="Heavy workloads, video conferencing"
-        ),
-    },
-    pros=[
-        "8 US datacenter locations",
-        "Hourly billing",
-        "Fast provisioning",
-        "Good for latency-sensitive apps",
-    ],
-    cons=[
-        "Higher price than Hetzner",
-        "Bandwidth limits on lower tiers",
-    ],
-)
-
 DIGITALOCEAN_PROFILE = ProviderProfile(
     id="digitalocean",
     name="DigitalOcean",
@@ -526,6 +389,157 @@ LINODE_PROFILE = ProviderProfile(
 )
 
 
+OVHCLOUD_PROFILE = ProviderProfile(
+    id="ovh",
+    name="OVHcloud",
+    website="https://us.ovhcloud.com",
+    signup_url="https://us.ovhcloud.com/auth/signup/",
+    api_docs_url="https://api.us.ovhcloud.com/console/",
+    datacenters=[
+        Datacenter(
+            id="us-east-va-1",
+            name="Vint Hill, VA",
+            city="Vint Hill",
+            state_country="Virginia, USA",
+            geo_region=GeoRegion.US_EAST,
+            latency_from_us_ms=20
+        ),
+        Datacenter(
+            id="us-west-or-1",
+            name="Hillsboro, OR",
+            city="Hillsboro",
+            state_country="Oregon, USA",
+            geo_region=GeoRegion.US_WEST,
+            latency_from_us_ms=50
+        ),
+    ],
+    plans={
+        ResourceTier.MEDIUM: RecommendedPlan(
+            provider="ovh",
+            plan_id="b2-7",
+            plan_name="B2-7",
+            tier=ResourceTier.MEDIUM,
+            cpu=2,
+            ram_gb=7,
+            disk_gb=50,
+            price_monthly_usd=18.00,
+            bandwidth_tb=1.0,
+            notes="OpenStack, good value mid-tier"
+        ),
+        ResourceTier.HIGH: RecommendedPlan(
+            provider="ovh",
+            plan_id="b2-15",
+            plan_name="B2-15",
+            tier=ResourceTier.HIGH,
+            cpu=4,
+            ram_gb=15,
+            disk_gb=100,
+            price_monthly_usd=33.00,
+            bandwidth_tb=2.0,
+            notes="OpenStack, professional workloads"
+        ),
+        ResourceTier.VERY_HIGH: RecommendedPlan(
+            provider="ovh",
+            plan_id="b2-30",
+            plan_name="B2-30",
+            tier=ResourceTier.VERY_HIGH,
+            cpu=8,
+            ram_gb=30,
+            disk_gb=200,
+            price_monthly_usd=63.00,
+            bandwidth_tb=3.0,
+            notes="OpenStack, heavy workloads"
+        ),
+    },
+    pros=[
+        "Strong customer data protection (forbidden access clause)",
+        "OpenStack API compatibility",
+        "European-owned, GDPR-first",
+        "Good pricing for mid/high tiers",
+    ],
+    cons=[
+        "No LOW tier plan available",
+        "OpenStack auth is multi-key",
+        "Fewer US locations",
+    ],
+)
+
+UPCLOUD_PROFILE = ProviderProfile(
+    id="upcloud",
+    name="UpCloud",
+    website="https://upcloud.com",
+    signup_url="https://signup.upcloud.com/",
+    api_docs_url="https://developers.upcloud.com/",
+    datacenters=[
+        Datacenter(
+            id="us-chi1",
+            name="Chicago, IL",
+            city="Chicago",
+            state_country="Illinois, USA",
+            geo_region=GeoRegion.US_CENTRAL,
+            latency_from_us_ms=20
+        ),
+        Datacenter(
+            id="us-nyc1",
+            name="New York, NY",
+            city="New York",
+            state_country="New York, USA",
+            geo_region=GeoRegion.US_EAST,
+            latency_from_us_ms=25
+        ),
+    ],
+    plans={
+        ResourceTier.MEDIUM: RecommendedPlan(
+            provider="upcloud",
+            plan_id="2xCPU-4GB",
+            plan_name="General Purpose 4GB",
+            tier=ResourceTier.MEDIUM,
+            cpu=2,
+            ram_gb=4,
+            disk_gb=80,
+            price_monthly_usd=29.00,
+            bandwidth_tb=4.0,
+            notes="MaxIOPS storage, 100% wind powered (NYC)"
+        ),
+        ResourceTier.HIGH: RecommendedPlan(
+            provider="upcloud",
+            plan_id="4xCPU-8GB",
+            plan_name="General Purpose 8GB",
+            tier=ResourceTier.HIGH,
+            cpu=4,
+            ram_gb=8,
+            disk_gb=160,
+            price_monthly_usd=57.00,
+            bandwidth_tb=5.0,
+            notes="MaxIOPS, professional workloads"
+        ),
+        ResourceTier.VERY_HIGH: RecommendedPlan(
+            provider="upcloud",
+            plan_id="6xCPU-16GB",
+            plan_name="General Purpose 16GB",
+            tier=ResourceTier.VERY_HIGH,
+            cpu=6,
+            ram_gb=16,
+            disk_gb=320,
+            price_monthly_usd=106.00,
+            bandwidth_tb=6.0,
+            notes="MaxIOPS, heavy workloads"
+        ),
+    },
+    pros=[
+        "99.999% uptime SLA",
+        "MaxIOPS storage (fastest in benchmarks)",
+        "European-owned (Finnish), clean TOS",
+        "Native cloud-init support",
+    ],
+    cons=[
+        "Only 2 US locations",
+        "No LOW tier plan",
+        "Higher price point",
+    ],
+)
+
+
 # ============================================
 # PROVIDER REGISTRY
 # ============================================
@@ -533,17 +547,54 @@ LINODE_PROFILE = ProviderProfile(
 # All provider profiles (US-focused for v1)
 PROVIDERS: Dict[str, ProviderProfile] = {
     "hetzner": HETZNER_PROFILE,
-    "vultr": VULTR_PROFILE,
     "digitalocean": DIGITALOCEAN_PROFILE,
     "linode": LINODE_PROFILE,
+    "ovh": OVHCLOUD_PROFILE,
+    "upcloud": UPCLOUD_PROFILE,
 }
 
-# Bundle to tier mapping
+# Provider provisioning weights for round-robin distribution.
+# Hetzner gets the most traffic due to best price/performance.
+# Weight = approximate percentage of new beacons sent to each provider.
+PROVIDER_WEIGHTS: Dict[str, int] = {
+    "hetzner": 40,       # Best price/performance, primary provider
+    "digitalocean": 20,  # Solid US presence, good API
+    "linode": 20,        # Good coverage, Akamai backbone
+    "ovh": 10,           # OpenStack, strong data protection
+    "upcloud": 10,       # Premium, 99.999% SLA
+}
+
+# Bundle to VPS tier mapping — corrected for actual RAM requirements.
+# With ollama removed from default bundles, these tiers are now accurate.
+# MEDIUM = 4GB RAM, HIGH = 8GB RAM, VERY_HIGH = 16GB RAM
 BUNDLE_TIERS = {
-    "personal": ResourceTier.LOW,
-    "creator": ResourceTier.MEDIUM,
-    "developer": ResourceTier.MEDIUM,
-    "professional": ResourceTier.HIGH,
+    # Sovereign Suites
+    "starter": ResourceTier.MEDIUM,           # 4.2GB RAM (without ollama)
+    "creator": ResourceTier.HIGH,             # 9.9GB RAM — needs 8GB VPS
+    "developer": ResourceTier.HIGH,           # 10.7GB RAM (without ollama)
+    "professional": ResourceTier.VERY_HIGH,   # 16.8GB RAM (without ollama)
+    "family": ResourceTier.HIGH,              # 9.8GB RAM
+    "smallbusiness": ResourceTier.VERY_HIGH,  # 14.1GB RAM (without ollama)
+    "enterprise": ResourceTier.VERY_HIGH,     # 28.7GB RAM (without ollama) — may need 32GB
+    # Micro-Bundles — light (MEDIUM = 4GB VPS)
+    "personal_productivity": ResourceTier.MEDIUM,  # 5.6GB calc, ~3.4GB actual
+    "meeting_room": ResourceTier.MEDIUM,           # 5.0GB calc, ~3.0GB actual
+    "privacy_pack": ResourceTier.MEDIUM,           # 3.9GB calc, ~2.4GB actual
+    "writer_studio": ResourceTier.MEDIUM,          # 4.2GB calc, ~2.5GB actual
+    "podcaster": ResourceTier.MEDIUM,              # 4.7GB calc, ~2.8GB actual
+    "freelancer": ResourceTier.MEDIUM,             # 4.7GB calc, ~2.8GB actual
+    "contractor": ResourceTier.MEDIUM,             # 4.7GB calc, ~2.8GB actual
+    "musician": ResourceTier.MEDIUM,               # 5.2GB calc, ~3.1GB actual
+    "bookkeeper": ResourceTier.MEDIUM,             # 5.8GB calc, ~3.5GB actual
+    # Micro-Bundles — medium (HIGH = 8GB VPS)
+    "artist_storefront": ResourceTier.HIGH,        # 6.0GB calc — immich is 2GB
+    "family_hub": ResourceTier.HIGH,               # 7.3GB calc — immich + jellyfin
+    "photographer": ResourceTier.HIGH,             # 10.6GB calc — photoprism 4GB
+    "video_creator": ResourceTier.HIGH,            # 6.3GB calc — peertube 2GB
+    "realtor": ResourceTier.HIGH,                  # 6.0GB calc — immich
+    "educator": ResourceTier.HIGH,                 # 6.5GB calc — jitsi 2GB
+    "therapist": ResourceTier.HIGH,                # 6.3GB calc — jitsi 2GB
+    "legal": ResourceTier.HIGH,                    # 6.3GB calc — mattermost 1GB
 }
 
 

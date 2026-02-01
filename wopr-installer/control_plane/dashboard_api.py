@@ -110,7 +110,7 @@ if FASTAPI_AVAILABLE:
         email: str
         name: str
         beacon_name: str
-        provider: str
+        region: str = "auto"  # 'auto', 'us-east', 'eu-west'
         additional_users: List[Dict[str, str]] = []
 
     class OnboardCheckoutResponse(BaseModel):
@@ -588,12 +588,35 @@ def create_dashboard_app(
                 detail="Products not yet configured. Please run stripe-setup.ps1 first."
             )
 
+        # Map region to provider+datacenter via backend round-robin
+        # Customer never sees provider name — we choose it automatically
+        region = request.region or "auto"
+        region_to_datacenter = {
+            "us-east": {"hetzner": "ash", "digitalocean": "nyc1", "linode": "us-east", "ovh": "US-EAST-VA-1", "upcloud": "us-chi1"},
+            "eu-west": {"hetzner": "fsn1", "digitalocean": "fra1", "linode": "eu-west", "ovh": "GRA11", "upcloud": "de-fra1"},
+        }
+        if region == "auto":
+            region = "us-east"  # Default; future: use X-Forwarded-For geolocation
+
+        # Auto-select provider via weighted round-robin
+        provider_id = "hetzner"  # Fallback
+        try:
+            from control_plane.orchestrator import get_orchestrator
+            orchestrator = get_orchestrator()
+            if orchestrator:
+                provider_id = await orchestrator.select_provider(bundle=request.bundle)
+        except Exception:
+            pass
+
+        datacenter_id = region_to_datacenter.get(region, {}).get(provider_id, "ash")
+
         # Prepare metadata for webhook
         metadata = {
             "bundle": request.bundle,
             "tier": request.tier,
             "beacon_name": request.beacon_name,
-            "provider": request.provider,
+            "provider": provider_id,
+            "region": region,
             "customer_name": request.name,
             "additional_users": json.dumps(request.additional_users) if request.additional_users else "",
         }
@@ -601,11 +624,12 @@ def create_dashboard_app(
         # Create Stripe checkout session
         session = billing.create_checkout_session(
             email=request.email,
+            name=request.name,
             bundle=request.bundle,
             tier=request.tier,
-            provider_id=request.provider,
-            region="auto",
-            datacenter_id="auto",
+            provider_id=provider_id,
+            region=region,
+            datacenter_id=datacenter_id,
             beacon_name=request.beacon_name,
             additional_users=request.additional_users,
         )

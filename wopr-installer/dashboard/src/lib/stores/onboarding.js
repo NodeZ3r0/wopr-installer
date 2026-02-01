@@ -2,24 +2,22 @@ import { writable, derived } from 'svelte/store';
 
 // Onboarding wizard state
 export const onboarding = writable({
-    // Step tracking
+    // Step tracking (4 steps now)
     currentStep: 1,
-    maxStep: 5,
+    maxStep: 4,
 
     // Step 1: Bundle selection
     bundle: null,           // 'starter', 'creator', 'developer', etc.
-    tier: 't1',             // 't1', 't2', 't3'
 
-    // Step 2: Account info
+    // Step 2: Plan size + region
+    tier: 't1',             // 't1', 't2', 't3'
+    region: 'auto',         // 'auto', 'us-east', 'eu-west'
+
+    // Step 3: Account + beacon (merged)
     email: '',
     name: '',
     password: '',
-
-    // Step 3: Beacon configuration
     beaconName: '',         // subdomain (e.g., 'mybeacon' -> mybeacon.wopr.systems)
-    provider: 'hetzner',    // 'hetzner', 'contabo', 'bring_your_own'
-
-    // Step 4: Additional users (Family/Business bundles only)
     additionalUsers: [],    // Array of { email, name }
 
     // Validation states
@@ -27,208 +25,245 @@ export const onboarding = writable({
     emailValid: null,
 });
 
-// Bundle pricing data (matches stripe_catalog.py)
+// Bundle pricing in cents (matches stripe_catalog.py — updated Feb 2026)
 export const bundlePricing = {
-    // Sovereign Suites
-    starter: { t1: 1599, t2: 2599, t3: 3599 },
-    creator: { t1: 3599, t2: 5599, t3: 9599 },
-    developer: { t1: 3599, t2: 5599, t3: 9599 },
-    professional: { t1: 6599, t2: 9599, t3: 14999 },
-    family: { t1: 4599, t2: 6599, t3: 9599 },
-    small_business: { t1: 9599, t2: 14999, t3: 19999 },
-    enterprise: { t1: 19999, t2: 29999, t3: 0 },
+    // Sovereign Suites (Complete Packages)
+    starter: { t1: 2999, t2: 4599, t3: 6599 },
+    creator: { t1: 5599, t2: 7999, t3: 11999 },
+    developer: { t1: 5599, t2: 7999, t3: 11999 },
+    professional: { t1: 9999, t2: 14999, t3: 19999 },
+    family: { t1: 5599, t2: 7999, t3: 11999 },
+    small_business: { t1: 12999, t2: 17999, t3: 24999 },
+    enterprise: { t1: 24999, t2: 34999, t3: 0 }, // t3 = custom
 
-    // Micro-Bundles
-    meeting_room: { t1: 1599, t2: 2599, t3: 3599 },
-    privacy_pack: { t1: 1599, t2: 2599, t3: 3599 },
-    writer_studio: { t1: 1999, t2: 2999, t3: 4599 },
-    artist_storefront: { t1: 1999, t2: 2999, t3: 4599 },
-    podcaster: { t1: 2599, t2: 3599, t3: 5599 },
-    freelancer: { t1: 2599, t2: 3599, t3: 5599 },
-    musician: { t1: 2599, t2: 3599, t3: 5599 },
-    family_hub: { t1: 2999, t2: 4599, t3: 6599 },
-    photographer: { t1: 2999, t2: 4599, t3: 6599 },
-    bookkeeper: { t1: 2999, t2: 4599, t3: 6599 },
-    video_creator: { t1: 3599, t2: 5599, t3: 9599 },
-    contractor: { t1: 3599, t2: 5599, t3: 9599 },
-    realtor: { t1: 3599, t2: 5599, t3: 9599 },
-    educator: { t1: 3599, t2: 5599, t3: 9599 },
-    therapist: { t1: 4599, t2: 6599, t3: 12599 },
-    legal: { t1: 4599, t2: 6599, t3: 12599 },
+    // Light Micro-Bundles (4GB MEDIUM VPS)
+    personal_productivity: { t1: 2999, t2: 4599, t3: 6599 },
+    meeting_room: { t1: 2999, t2: 4599, t3: 6599 },
+    privacy_pack: { t1: 2999, t2: 4599, t3: 6599 },
+    writer_studio: { t1: 2999, t2: 4599, t3: 6599 },
+    podcaster: { t1: 3599, t2: 5599, t3: 7999 },
+    freelancer: { t1: 3599, t2: 5599, t3: 7999 },
+    contractor: { t1: 3599, t2: 5599, t3: 7999 },
+    musician: { t1: 3599, t2: 5599, t3: 7999 },
+    bookkeeper: { t1: 3599, t2: 5599, t3: 7999 },
+
+    // Medium Micro-Bundles (8GB HIGH VPS)
+    artist_storefront: { t1: 4599, t2: 6599, t3: 9599 },
+    family_hub: { t1: 4599, t2: 6599, t3: 9599 },
+    photographer: { t1: 5599, t2: 7999, t3: 11999 },
+    video_creator: { t1: 4599, t2: 6599, t3: 9599 },
+    realtor: { t1: 4599, t2: 6599, t3: 9599 },
+    educator: { t1: 4599, t2: 6599, t3: 9599 },
+    therapist: { t1: 5599, t2: 7999, t3: 11999 },
+    legal: { t1: 5599, t2: 7999, t3: 11999 },
 };
 
 // Bundle metadata
 export const bundleInfo = {
-    // Sovereign Suites
+    // Complete Packages (Sovereign Suites)
     starter: {
-        name: 'Starter Sovereign Suite',
-        description: 'Drive, calendar, notes, tasks, passwords - the essentials to ditch Big Tech.',
+        name: 'Starter',
+        description: 'Cloud drive, calendar, notes, tasks, and passwords — everything you need to get off Big Tech.',
         type: 'sovereign',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     creator: {
-        name: 'Creator Sovereign Suite',
-        description: 'Blog, portfolio, online store, newsletter - monetize your work.',
+        name: 'Creator',
+        description: 'Blog, portfolio, online store, and newsletter — share your work and get paid for it.',
         type: 'sovereign',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     developer: {
-        name: 'Developer Sovereign Suite',
-        description: 'Git hosting, CI/CD, code editor, Reactor AI coding assistant.',
+        name: 'Developer',
+        description: 'Your own Git server, CI/CD pipeline, code editor, and AI coding assistant.',
         type: 'sovereign',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     professional: {
-        name: 'Professional Sovereign Suite',
-        description: 'Creator + Developer combined + DEFCON ONE security gateway.',
+        name: 'Professional',
+        description: 'Everything from Creator and Developer combined, plus a security gateway.',
         type: 'sovereign',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     family: {
-        name: 'Family Sovereign Suite',
-        description: '6 user accounts, shared photos, shared passwords, family calendar.',
+        name: 'Family',
+        description: 'Shared photos, passwords, calendars, and cloud drive for up to 6 family members.',
         type: 'sovereign',
         maxUsers: 6,
     },
     small_business: {
-        name: 'Small Business Sovereign Suite',
-        description: 'CRM, team chat, office suite, DEFCON ONE + Reactor AI.',
+        name: 'Small Business',
+        description: 'CRM, team chat, office apps, security gateway, and AI assistant for your team.',
         type: 'sovereign',
         maxUsers: 25,
     },
     enterprise: {
-        name: 'Enterprise Sovereign Suite',
-        description: 'Unlimited users, custom integrations, dedicated support, full AI suite.',
+        name: 'Enterprise',
+        description: 'Unlimited users, custom integrations, dedicated support, and the full AI suite.',
         type: 'sovereign',
         maxUsers: -1, // unlimited
     },
 
-    // Micro-Bundles
+    // Built for You (Micro-Bundles)
+    personal_productivity: {
+        name: 'Personal Productivity',
+        description: 'Drive, calendar, notes, tasks — the basics to replace Google.',
+        type: 'micro',
+        maxUsers: 5,
+    },
     meeting_room: {
         name: 'Meeting Room',
-        description: 'Video calls, scheduling, collaborative notes - replace Zoom.',
+        description: 'Video calls, scheduling, and shared notes — replace Zoom.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     privacy_pack: {
         name: 'Privacy Pack',
-        description: 'Encrypted storage, password manager, private VPN - total privacy.',
+        description: 'Encrypted storage, password manager, and private VPN — total privacy.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     writer_studio: {
         name: "Writer's Studio",
-        description: 'Blog, newsletter, research archive, bookmarks - replace Substack.',
+        description: 'Blog, newsletter, research archive — replace Substack and own your words.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     artist_storefront: {
         name: 'Artist Storefront',
-        description: 'Online store, portfolio, photo galleries - replace Etsy.',
+        description: 'Online store, portfolio, and photo galleries — replace Etsy.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     podcaster: {
-        name: 'Podcaster Pack',
-        description: 'Podcast hosting, show notes blog, listener analytics - own your feed.',
+        name: 'Podcaster',
+        description: 'Podcast hosting, show notes blog, and listener stats — own your feed.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     freelancer: {
-        name: 'Freelancer Essentials',
-        description: 'Invoicing, scheduling, client contacts - run your business.',
+        name: 'Freelancer',
+        description: 'Invoicing, scheduling, and client contacts — run your business.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     musician: {
-        name: 'Musician Bundle',
-        description: 'Music streaming, artist website, merch store - own your music.',
+        name: 'Musician',
+        description: 'Music streaming, artist website, and merch store — own your music.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     family_hub: {
         name: 'Family Hub',
-        description: 'Shared drive, photos, passwords for 6 family members.',
+        description: 'Shared drive, photos, and passwords for up to 6 family members.',
         type: 'micro',
         maxUsers: 6,
     },
     photographer: {
-        name: 'Photographer Pro',
-        description: 'Photo library, client galleries, portfolio, print sales.',
+        name: 'Photographer',
+        description: 'Photo library, client galleries, portfolio, and print sales.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     bookkeeper: {
-        name: 'Bookkeeper Bundle',
-        description: 'Document scanner, client portal, secure messaging.',
+        name: 'Bookkeeper',
+        description: 'Document scanner, client portal, and secure messaging.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     video_creator: {
         name: 'Video Creator',
-        description: 'Video hosting, community blog, paid memberships - replace YouTube.',
+        description: 'Video hosting, community blog, and paid memberships — replace YouTube.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     contractor: {
-        name: 'Contractor Pro',
-        description: 'Digital contracts, project management, time tracking.',
+        name: 'Contractor',
+        description: 'Digital contracts, project management, and time tracking.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     realtor: {
         name: 'Real Estate Agent',
-        description: 'Lead CRM, listing photos, digital contracts.',
+        description: 'Lead CRM, listing photos, and digital contracts.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     educator: {
-        name: 'Educator Suite',
-        description: 'Virtual classroom, whiteboard, file sharing for students.',
+        name: 'Educator',
+        description: 'Virtual classroom, whiteboard, and file sharing for students.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     therapist: {
-        name: 'Therapist/Coach',
-        description: 'Secure video sessions, encrypted notes, client portal - HIPAA-ready.',
+        name: 'Therapist / Coach',
+        description: 'Secure video sessions, encrypted notes, and client portal — HIPAA-ready.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
     legal: {
         name: 'Legal Lite',
-        description: 'Document management, e-signatures, secure client portal.',
+        description: 'Document management, e-signatures, and secure client portal.',
         type: 'micro',
-        maxUsers: 1,
+        maxUsers: 5,
     },
 };
 
-// Tier info
-export const tierInfo = {
-    t1: { name: 'Tier 1', storage: '50GB', description: '50GB storage' },
-    t2: { name: 'Tier 2', storage: '200GB', description: '200GB storage' },
-    t3: { name: 'Tier 3', storage: '500GB+', description: '500GB+ storage' },
+// Plan size labels (customer-facing names for tiers)
+export const tierLabels = {
+    t1: 'Basic',
+    t2: 'Plus',
+    t3: 'Max',
 };
 
-// VPS provider options
-export const providerOptions = [
+// Plan size details (6th grade reading level)
+export const tierDetails = {
+    t1: {
+        name: 'Basic',
+        storage: '50 GB',
+        storageContext: 'About 10,000 photos',
+        users: 'Up to 5 users',
+        backups: 'Weekly backups',
+        description: 'Great for getting started',
+    },
+    t2: {
+        name: 'Plus',
+        storage: '200 GB',
+        storageContext: 'About 40,000 photos',
+        users: 'Up to 25 users',
+        backups: 'Daily backups',
+        description: 'Room to grow — most popular',
+        popular: true,
+    },
+    t3: {
+        name: 'Max',
+        storage: '500 GB+',
+        storageContext: 'About 100,000 photos',
+        users: 'Up to 100 users',
+        backups: 'Daily backups, 90 days of history',
+        description: 'Power user — no limits',
+    },
+};
+
+// Region options (user-facing)
+export const regionOptions = [
     {
-        id: 'hetzner',
-        name: 'Hetzner Cloud',
-        description: 'European data centers, excellent performance',
-        priceRange: '$5-20/mo',
-        recommended: true,
+        id: 'auto',
+        name: 'Automatic',
+        description: "We'll pick the closest server to you",
+        flag: '🌐',
     },
     {
-        id: 'contabo',
-        name: 'Contabo',
-        description: 'Budget-friendly with more storage',
-        priceRange: '$5-15/mo',
+        id: 'us-east',
+        name: 'US East',
+        description: 'Virginia, USA',
+        flag: '🇺🇸',
     },
     {
-        id: 'bring_your_own',
-        name: 'Bring Your Own Server',
-        description: 'Use your existing VPS or dedicated server',
-        priceRange: 'Varies',
+        id: 'eu-west',
+        name: 'Europe',
+        description: 'Falkenstein, Germany',
+        flag: '🇪🇺',
     },
 ];
 
@@ -271,15 +306,14 @@ export const needsAdditionalUsers = derived(onboarding, $o => {
 export const canProceed = derived(onboarding, $o => {
     switch ($o.currentStep) {
         case 1:
-            return $o.bundle && $o.tier;
+            return !!$o.bundle;
         case 2:
-            return $o.email && $o.name && $o.password && $o.password.length >= 8;
+            return !!$o.tier && !!$o.region;
         case 3:
-            return $o.beaconName && $o.beaconAvailable === true && $o.provider;
+            return $o.email && $o.name && $o.password && $o.password.length >= 8
+                && $o.beaconName && $o.beaconAvailable === true;
         case 4:
-            return true; // Additional users are optional
-        case 5:
-            return true; // Summary step
+            return true; // Review step
         default:
             return false;
     }
@@ -289,14 +323,14 @@ export const canProceed = derived(onboarding, $o => {
 export function resetOnboarding() {
     onboarding.set({
         currentStep: 1,
-        maxStep: 5,
+        maxStep: 4,
         bundle: null,
         tier: 't1',
+        region: 'auto',
         email: '',
         name: '',
         password: '',
         beaconName: '',
-        provider: 'hetzner',
         additionalUsers: [],
         beaconAvailable: null,
         emailValid: null,
@@ -332,6 +366,13 @@ export function setBundle(bundleId, tier = 't1') {
     }));
 }
 
+export function setRegion(regionId) {
+    onboarding.update(o => ({
+        ...o,
+        region: regionId,
+    }));
+}
+
 export function addUser(email, name) {
     onboarding.update(o => ({
         ...o,
@@ -344,4 +385,9 @@ export function removeUser(index) {
         ...o,
         additionalUsers: o.additionalUsers.filter((_, i) => i !== index),
     }));
+}
+
+export function formatPrice(cents) {
+    if (cents === 0) return 'Custom';
+    return `$${(cents / 100).toFixed(2)}`;
 }

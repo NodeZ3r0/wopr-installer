@@ -226,15 +226,24 @@ class LibcloudBaseProvider(WOPRProviderInterface):
             if not image:
                 raise ProviderError(self.PROVIDER_ID, f"Image not found: {config.image}")
 
+            # Build customer identity tags for the provider
+            create_kwargs = {
+                "name": config.name,
+                "size": size,
+                "image": image,
+                "location": location,
+                "ex_user_data": config.user_data,
+            }
+
+            if config.ssh_keys:
+                create_kwargs["ex_ssh_keys"] = config.ssh_keys
+
+            # Add provider-specific customer labels/tags
+            extra_tags = self._build_customer_tags(config)
+            create_kwargs.update(extra_tags)
+
             # Create node
-            node = self.driver.create_node(
-                name=config.name,
-                size=size,
-                image=image,
-                location=location,
-                ex_ssh_keys=config.ssh_keys if config.ssh_keys else None,
-                ex_user_data=config.user_data,
-            )
+            node = self.driver.create_node(**create_kwargs)
 
             return self._convert_node_to_instance(node)
 
@@ -242,6 +251,15 @@ class LibcloudBaseProvider(WOPRProviderInterface):
             raise
         except Exception as e:
             raise ProviderError(self.PROVIDER_ID, f"Failed to provision: {e}")
+
+    def _build_customer_tags(self, config: ProvisionConfig) -> Dict[str, Any]:
+        """
+        Build provider-specific kwargs for customer identity labels/tags.
+
+        Subclasses can override for provider-specific behavior.
+        Default implementation returns empty dict (no-op).
+        """
+        return {}
 
     @abstractmethod
     def _get_image(self, image_name: str) -> Optional[NodeImage]:

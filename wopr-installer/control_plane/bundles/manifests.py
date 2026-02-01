@@ -108,10 +108,10 @@ SOVEREIGN_DEVELOPER = BundleManifest(
         "code-server",    # VS Code in browser
         "reactor",        # Reactor AI coding assistant
         "portainer",      # Docker management
-        "ollama",         # Local LLM
-        "openwebui",      # Chat UI for Ollama
+        "openwebui",      # Chat UI for LLMs
         "nocodb",         # Database spreadsheet
         "n8n",            # Workflow automation
+        # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
     ],
 )
 
@@ -139,7 +139,6 @@ SOVEREIGN_PROFESSIONAL = BundleManifest(
         "code-server",
         "reactor",
         "portainer",
-        "ollama",
         "openwebui",
         "nocodb",
         "n8n",
@@ -147,6 +146,7 @@ SOVEREIGN_PROFESSIONAL = BundleManifest(
         "defcon-one",     # DEFCON ONE security gateway
         "crowdsec",       # Threat intelligence
         "netbird",        # Zero-trust VPN
+        # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
     ],
 )
 
@@ -189,9 +189,9 @@ SOVEREIGN_SMALL_BUSINESS = BundleManifest(
         "calcom",         # Scheduling
         # AI & Security
         "reactor",        # AI coding assistant
-        "ollama",
         "openwebui",
         "defcon-one",
+        # ollama available as $14.99/mo addon
         "crowdsec",
         "netbird",
         # DevOps
@@ -245,9 +245,9 @@ SOVEREIGN_ENTERPRISE = BundleManifest(
         # Full AI suite
         "reactor",
         "defcon-one",
-        "ollama",
         "openwebui",
         "langfuse",
+        # ollama available as $14.99/mo addon
         # Security
         "crowdsec",
         "netbird",
