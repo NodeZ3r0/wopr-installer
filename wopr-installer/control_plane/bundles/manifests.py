@@ -146,6 +146,7 @@ SOVEREIGN_PROFESSIONAL = BundleManifest(
         "defcon-one",     # DEFCON ONE security gateway
         "crowdsec",       # Threat intelligence
         "netbird",        # Zero-trust VPN
+        "support-plane",  # Zero-trust remote support
         # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
     ],
 )
@@ -194,6 +195,7 @@ SOVEREIGN_SMALL_BUSINESS = BundleManifest(
         # ollama available as $14.99/mo addon
         "crowdsec",
         "netbird",
+        "support-plane",  # Zero-trust remote support
         # DevOps
         "portainer",
         "grafana",
@@ -252,6 +254,7 @@ SOVEREIGN_ENTERPRISE = BundleManifest(
         "crowdsec",
         "netbird",
         "passbolt",
+        "support-plane",  # Zero-trust remote support
         # Analytics
         "grafana",
         "prometheus",

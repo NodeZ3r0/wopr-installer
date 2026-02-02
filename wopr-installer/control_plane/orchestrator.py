@@ -339,6 +339,9 @@ class WOPROrchestrator:
         all steps of the one-click install.
         """
         try:
+            # Step 0: Create user and beacon records in DB
+            await self._create_user_and_beacon(job)
+
             # Step 1: Mark payment received
             await self._update_state(job, ProvisioningState.PAYMENT_RECEIVED)
 
@@ -369,6 +372,9 @@ class WOPROrchestrator:
             await self._update_state(job, ProvisioningState.SENDING_WELCOME)
             await self._send_welcome_email(job, docs)
 
+            # Step 8: Mark beacon as active
+            await self._activate_beacon(job)
+
             # Complete!
             await self._update_state(job, ProvisioningState.COMPLETED)
             logger.info(f"Job {job.job_id} completed successfully!")
@@ -378,6 +384,78 @@ class WOPROrchestrator:
             logger.error(f"Job {job.job_id} failed: {e}", exc_info=True)
             await self._update_state(job, ProvisioningState.FAILED, str(e))
             return False
+
+    async def _create_user_and_beacon(self, job: ProvisioningJob) -> None:
+        """Create user and beacon records in the database."""
+        if not self.db_pool:
+            logger.warning("No DB pool — skipping user/beacon record creation")
+            return
+
+        try:
+            from control_plane.database import get_or_create_user, create_beacon
+
+            # Create or get user
+            user = await get_or_create_user(
+                self.db_pool,
+                email=job.customer_email,
+                stripe_customer_id=job.stripe_customer_id,
+                name=job.customer_name,
+            )
+            user_id = user["id"]
+
+            # Generate subdomain early if not set
+            if not job.wopr_subdomain:
+                short_id = job.job_id[:8]
+                job.wopr_subdomain = f"{job.bundle}-{short_id}"
+
+            # Resolve module list for beacon record
+            modules = json.dumps(self._get_modules_for_bundle(job.bundle))
+
+            # Create beacon record in provisioning state
+            beacon_id = await create_beacon(self.db_pool, {
+                "owner_id": user_id,
+                "name": job.wopr_subdomain,
+                "domain": f"{job.wopr_subdomain}.{self.WOPR_DOMAIN}",
+                "custom_domain": job.custom_domain,
+                "status": "provisioning",
+                "provider": job.provider_id,
+                "region": job.region,
+                "datacenter_id": job.datacenter_id,
+                "instance_id": None,
+                "instance_ip": None,
+                "bundle": job.bundle,
+                "storage_tier": job.storage_tier,
+                "modules": modules,
+                "stripe_subscription_id": job.stripe_subscription_id,
+            })
+
+            job.beacon_id = beacon_id
+            await self._save_job(job)
+            logger.info(f"Created user {user_id} and beacon {beacon_id} for job {job.job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to create user/beacon records: {e}")
+            # Non-fatal: provisioning can continue without DB records
+            # (cleanup just won't be automated)
+
+    async def _activate_beacon(self, job: ProvisioningJob) -> None:
+        """Mark beacon as active and update with final instance details."""
+        if not self.db_pool or not job.beacon_id:
+            return
+
+        try:
+            from control_plane.database import update_beacon_status
+            await update_beacon_status(
+                self.db_pool,
+                job.beacon_id,
+                "active",
+                instance_id=job.instance_id,
+                instance_ip=job.instance_ip,
+                dns_record_ids=json.dumps(job.dns_record_ids),
+            )
+            logger.info(f"Beacon {job.beacon_id} activated with IP {job.instance_ip}")
+        except Exception as e:
+            logger.error(f"Failed to activate beacon: {e}")
 
     # =========================================
     # STEP 1: PROVISION VPS

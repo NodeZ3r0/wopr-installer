@@ -1,0 +1,33 @@
+[Unit]
+Description=WOPR SSH Certificate Authority
+Documentation=https://wopr.systems/docs/support-plane/sshca
+After=network.target
+Requires=network.target
+
+[Service]
+User=wopr
+Group=wopr
+WorkingDirectory=/opt/wopr-sshca
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/wopr-sshca/.env
+ExecStart=/opt/wopr-sshca/venv/bin/gunicorn -c gunicorn.conf.py sshca.main:app
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wopr-sshca
+
+# Security hardening (strict for CA service)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wopr-sshca
+ReadOnlyPaths=/etc/wopr-sshca
+PrivateTmp=true
+CapabilityBoundingSet=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

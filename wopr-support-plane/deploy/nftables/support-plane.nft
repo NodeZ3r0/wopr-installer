@@ -1,0 +1,48 @@
+#!/usr/sbin/nft -f
+# WOPR Support Plane - nftables Firewall Rules
+# Deploy to: /etc/nftables.d/wopr-support-plane.conf
+
+table inet wopr_support {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # Loopback always allowed
+        iif lo accept
+
+        # Established and related connections
+        ct state established,related accept
+
+        # ICMP / ICMPv6
+        ip protocol icmp accept
+        ip6 nexthdr icmpv6 accept
+
+        # SSH (management access)
+        tcp dport 22 ct state new accept
+
+        # HTTP / HTTPS (Caddy reverse proxy)
+        tcp dport { 80, 443 } ct state new accept
+
+        # Nebula mesh overlay
+        udp dport 4242 accept
+
+        # Localhost services (support-gateway 8443, sshca 9444)
+        # These bind to 127.0.0.1 only, but explicitly allow for clarity
+        iif lo tcp dport { 8443, 9444 } accept
+
+        # Log dropped packets (rate limited)
+        limit rate 5/minute log prefix "wopr-drop: " drop
+
+        # Drop everything else
+        drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        # No forwarding on support plane node
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+        # Allow all outbound (needed for SSH to beacons, DNS, updates)
+    }
+}

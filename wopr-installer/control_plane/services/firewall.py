@@ -24,6 +24,7 @@ WOPR_FIREWALL_RULES = [
     {"port": "80", "protocol": "tcp", "description": "HTTP"},
     {"port": "443", "protocol": "tcp", "description": "HTTPS"},
     {"port": "8443", "protocol": "tcp", "description": "Authentik"},
+    {"port": "4242", "protocol": "udp", "description": "Nebula mesh"},
 ]
 
 

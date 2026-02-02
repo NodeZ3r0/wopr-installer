@@ -125,6 +125,20 @@ WOPR_GROUPS = {
         "name": "DEFCON ONE Observers",
         "description": "Read-only access to DEFCON",
     },
+
+    # Support Plane roles (Zero Trust support access)
+    "wopr-support-diag": {
+        "name": "WOPR Support Diagnostics",
+        "description": "Read-only diagnostics access to beacons via support gateway",
+    },
+    "wopr-support-remediate": {
+        "name": "WOPR Support Remediation",
+        "description": "Can execute pre-approved remediation actions on beacons",
+    },
+    "wopr-support-breakglass": {
+        "name": "WOPR Support Break Glass",
+        "description": "Emergency full access to beacons - audit logged, time-limited",
+    },
 }
 
 # Bundle -> Groups mapping
@@ -191,6 +205,8 @@ BUNDLE_GROUPS = {
         "uptime-kuma-users",
         "grafana-users",
         "defcon-operators",
+        "wopr-support-diag",
+        "wopr-support-remediate",
     ],
     "family": [
         "wopr-family",
@@ -229,6 +245,8 @@ BUNDLE_GROUPS = {
         "uptime-kuma-users",
         "grafana-users",
         "defcon-operators",
+        "wopr-support-diag",
+        "wopr-support-remediate",
     ],
     "enterprise": [
         "wopr-enterprise",
@@ -262,6 +280,9 @@ BUNDLE_GROUPS = {
         "uptime-kuma-users",
         "grafana-users",
         "defcon-operators",
+        "wopr-support-diag",
+        "wopr-support-remediate",
+        "wopr-support-breakglass",
     ],
 
     # ==========================================
@@ -908,6 +929,10 @@ FEATURE_ACCESS = {
     "collabora": {
         "permanent": ["collabora-users"],
         "trial": ["collabora-trial"],
+    },
+    "support_plane": {
+        "permanent": ["wopr-support-diag", "wopr-support-remediate", "wopr-support-breakglass"],
+        "trial": [],
     },
 }
 

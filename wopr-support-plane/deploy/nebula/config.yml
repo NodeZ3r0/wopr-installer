@@ -1,0 +1,67 @@
+# WOPR Support Plane - Nebula Mesh Configuration
+# This node connects to the WOPR lighthouse for beacon access.
+# Deploy to: /etc/nebula/config.yml
+
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/support-plane.crt
+  key: /etc/nebula/support-plane.key
+
+static_host_map:
+  # Lighthouse Nebula IP -> public IP:port
+  "10.0.0.1": ["LIGHTHOUSE_PUBLIC_IP:4242"]
+
+lighthouse:
+  am_lighthouse: false
+  interval: 60
+  hosts:
+    - "10.0.0.1"
+
+listen:
+  host: 0.0.0.0
+  port: 4242
+
+punchy:
+  punch: true
+  respond: true
+
+tun:
+  dev: nebula0
+  drop_local_broadcast: false
+  drop_multicast: false
+  tx_queue: 500
+  mtu: 1300
+
+logging:
+  level: info
+  format: json
+
+firewall:
+  conntrack:
+    tcp_timeout: 12m
+    udp_timeout: 3m
+    default_timeout: 10m
+
+  outbound:
+    # Support plane can reach beacons on SSH and metrics
+    - port: 22
+      proto: tcp
+      host: any
+    - port: 9100
+      proto: tcp
+      host: any
+    # Allow ICMP for connectivity checks
+    - port: any
+      proto: icmp
+      host: any
+
+  inbound:
+    # Only allow SSH from wopr-support group (for reverse access if needed)
+    - port: 22
+      proto: tcp
+      groups:
+        - wopr-support
+    # Allow ICMP
+    - port: any
+      proto: icmp
+      host: any

@@ -11,6 +11,8 @@
 	let error = null;
 	let beaconUrl = '';
 	let dashboardUrl = '';
+	let instanceIp = '';
+	let customDomain = '';
 	let eventSource = null;
 
 	const steps = [
@@ -75,6 +77,8 @@
 			status = 'complete';
 			beaconUrl = data.beacon_url || '';
 			dashboardUrl = data.dashboard_url || '';
+			instanceIp = data.instance_ip || '';
+			customDomain = data.custom_domain || '';
 			if (eventSource) eventSource.close();
 		}
 
@@ -210,6 +214,29 @@
 				<div class="next-steps-hint">
 					<p>Check your email for login credentials and a getting started guide.</p>
 				</div>
+
+				{#if customDomain}
+					<div class="custom-domain-section">
+						<h3>Custom Domain Setup</h3>
+						<p>To use <strong>{customDomain}</strong> with your beacon, point it to your server:</p>
+						<div class="dns-instructions">
+							<div class="dns-row"><span class="dns-label">Type:</span><span class="dns-value">A</span></div>
+							<div class="dns-row"><span class="dns-label">Name:</span><span class="dns-value">@ (or your subdomain)</span></div>
+							<div class="dns-row"><span class="dns-label">Value:</span><span class="dns-value">{instanceIp}</span></div>
+							<div class="dns-row"><span class="dns-label">TTL:</span><span class="dns-value">3600</span></div>
+						</div>
+						<p class="dns-note">Add this record at your domain registrar. DNS changes can take up to 48 hours to propagate. SSL will be provisioned automatically.</p>
+					</div>
+				{:else if instanceIp}
+					<div class="custom-domain-section">
+						<h3>Want to use your own domain?</h3>
+						<p>Point any domain to your server with a DNS A record to:</p>
+						<div class="dns-instructions">
+							<div class="dns-row"><span class="dns-label">IP Address:</span><span class="dns-value">{instanceIp}</span></div>
+						</div>
+						<p class="dns-note">Then activate it in your beacon's Settings &gt; Custom Domain page.</p>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -449,6 +476,57 @@
 	.next-steps-hint {
 		color: var(--theme-text-muted, #888);
 		font-size: 0.9rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.custom-domain-section {
+		text-align: left;
+		background: var(--theme-surface, #1a1a1a);
+		border: 1px solid var(--theme-border, #333);
+		border-radius: var(--theme-radius, 8px);
+		padding: 1.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.custom-domain-section h3 {
+		color: var(--theme-text, #e0e0e0);
+		margin-bottom: 0.75rem;
+	}
+
+	.custom-domain-section p {
+		color: var(--theme-text-muted, #888);
+		font-size: 0.9rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.dns-instructions {
+		background: var(--theme-bg, #0a0a0a);
+		border: 1px solid var(--theme-border, #333);
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 0.75rem;
+		font-family: monospace;
+	}
+
+	.dns-row {
+		display: flex;
+		gap: 1rem;
+		padding: 0.25rem 0;
+	}
+
+	.dns-label {
+		color: var(--theme-text-muted, #888);
+		min-width: 80px;
+	}
+
+	.dns-value {
+		color: var(--theme-primary, #00ff41);
+		font-weight: 600;
+	}
+
+	.dns-note {
+		font-size: 0.8rem;
+		color: var(--theme-text-muted, #666);
 	}
 
 	/* Waiting message */

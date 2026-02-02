@@ -1,0 +1,28 @@
+[Unit]
+Description=WOPR Support Gateway
+Documentation=https://wopr.systems/docs/support-plane
+After=network.target
+Requires=network.target
+
+[Service]
+User=wopr
+Group=wopr
+WorkingDirectory=/opt/wopr-support-gateway
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/wopr-support-gateway/.env
+ExecStart=/opt/wopr-support-gateway/venv/bin/gunicorn -c gunicorn.conf.py app:app
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=support-gateway
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wopr-support-gateway
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

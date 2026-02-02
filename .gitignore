@@ -18,6 +18,7 @@ ENV/
 node_modules/
 dist/
 build/
+.svelte-kit/
 
 # AI models (too large for Git)
 *.pt

@@ -1,5 +1,5 @@
 """
-WOPR Module Registry - 76 Modules across 9 Categories
+WOPR Module Registry - 77 Modules across 9 Categories
 Updated: January 2026
 """
 
@@ -70,6 +70,22 @@ def register_module(module: Module) -> Module:
     MODULES[module.id] = module
     return module
 
+
+class ModuleRegistry:
+    """Registry wrapper providing lookup methods for deployed modules."""
+
+    def get_module(self, module_id: str) -> Optional[Module]:
+        return MODULES.get(module_id)
+
+    def get_all_modules(self) -> List[Module]:
+        return list(MODULES.values())
+
+    def get_modules_for_bundle(self, bundle: str) -> List[Module]:
+        return [m for m in MODULES.values() if m.is_included_in(bundle)]
+
+    def get_modules_by_category(self, category: ModuleCategory) -> List[Module]:
+        return [m for m in MODULES.values() if m.category == category]
+
 # CORE (4)
 register_module(Module(id="authentik", name="Authentik", description="SSO and identity management", category=ModuleCategory.CORE, tier=ModuleTier.LOW, container_image="ghcr.io/goauthentik/server:2025.8", default_port=9000, sso_type=SSOType.NONE, bundles=["starter","creator","developer","professional","family","small_business","enterprise"], subdomain="auth", ram_mb=1024, replaces="Okta, Auth0"))
 register_module(Module(id="caddy", name="Caddy", description="Automatic HTTPS reverse proxy", category=ModuleCategory.CORE, tier=ModuleTier.MINIMAL, container_image="caddy:2-alpine", default_port=443, sso_type=SSOType.NONE, bundles=["starter","creator","developer","professional","family","small_business","enterprise"], ram_mb=128, replaces="Nginx, Apache"))
@@ -91,13 +107,14 @@ register_module(Module(id="stirling_pdf", name="Stirling PDF", description="PDF 
 register_module(Module(id="docuseal", name="DocuSeal", description="Document signing", category=ModuleCategory.PRODUCTIVITY, tier=ModuleTier.LOW, container_image="docuseal/docuseal:latest", default_port=3000, sso_type=SSOType.OIDC, bundles=["professional","small_business","enterprise"], dependencies=["postgresql"], subdomain="sign", ram_mb=512, monthly_addon_price=4.99, trial_eligible=True, replaces="DocuSign"))
 register_module(Module(id="freshrss", name="FreshRSS", description="RSS feed reader", category=ModuleCategory.PRODUCTIVITY, tier=ModuleTier.MINIMAL, container_image="freshrss/freshrss:latest", default_port=80, sso_type=SSOType.PROXY, bundles=["starter","creator","developer","professional"], subdomain="rss", ram_mb=256, replaces="Feedly"))
 
-# SECURITY (6)
+# SECURITY (7)
 register_module(Module(id="vaultwarden", name="Vaultwarden", description="Password manager (Bitwarden)", category=ModuleCategory.SECURITY, tier=ModuleTier.MINIMAL, container_image="vaultwarden/server:latest", default_port=80, sso_type=SSOType.OIDC, bundles=["starter","creator","developer","professional","family","small_business"], subdomain="vault", ram_mb=256, replaces="Bitwarden, 1Password, LastPass"))
 register_module(Module(id="netbird", name="NetBird", description="WireGuard mesh VPN", category=ModuleCategory.SECURITY, tier=ModuleTier.LOW, container_image="netbirdio/netbird:latest", default_port=443, sso_type=SSOType.OIDC, bundles=["developer","professional","small_business","enterprise"], dependencies=["postgresql"], subdomain="vpn", ram_mb=512, monthly_addon_price=4.99, trial_eligible=True, replaces="Tailscale, NordVPN"))
 register_module(Module(id="crowdsec", name="CrowdSec", description="Collaborative IDS", category=ModuleCategory.SECURITY, tier=ModuleTier.LOW, container_image="crowdsecurity/crowdsec:latest", default_port=8080, sso_type=SSOType.PROXY, bundles=["developer","professional","small_business","enterprise"], subdomain="security", ram_mb=512, replaces="Fail2ban"))
 register_module(Module(id="wg_easy", name="WireGuard Easy", description="Simple WireGuard VPN", category=ModuleCategory.SECURITY, tier=ModuleTier.MINIMAL, container_image="ghcr.io/wg-easy/wg-easy:latest", default_port=51821, sso_type=SSOType.PROXY, bundles=["starter","family"], subdomain="wg", ram_mb=128, replaces="NordVPN, ExpressVPN"))
 register_module(Module(id="adguard", name="AdGuard Home", description="Ad and tracker blocking", category=ModuleCategory.SECURITY, tier=ModuleTier.MINIMAL, container_image="adguard/adguardhome:latest", default_port=3000, sso_type=SSOType.PROXY, bundles=["starter","family","small_business"], subdomain="dns", ram_mb=256, replaces="Pi-hole, NextDNS"))
 register_module(Module(id="passbolt", name="Passbolt", description="Team password manager", category=ModuleCategory.SECURITY, tier=ModuleTier.LOW, container_image="passbolt/passbolt:latest", default_port=443, sso_type=SSOType.OIDC, bundles=["small_business","enterprise"], dependencies=["postgresql"], subdomain="passwords", ram_mb=512, monthly_addon_price=4.99, trial_eligible=True, replaces="1Password Teams"))
+register_module(Module(id="support-plane", name="WOPR Support Plane", description="Zero-trust remote support with SSH CA and audit logging", category=ModuleCategory.SECURITY, tier=ModuleTier.LOW, container_image="wopr/support-gateway:latest", default_port=8443, sso_type=SSOType.PROXY, authentik_app_slug="support-gateway", authentik_group="wopr-support-diag", bundles=["professional","small_business","enterprise"], dependencies=["authentik","caddy","postgresql"], subdomain="support-gateway", ram_mb=512, replaces="Custom SSH access, VPN-only support"))
 
 # COMMUNICATION (8)
 register_module(Module(id="matrix", name="Matrix (Synapse)", description="Decentralized chat server", category=ModuleCategory.COMMUNICATION, tier=ModuleTier.MEDIUM, container_image="matrixdotorg/synapse:latest", default_port=8008, sso_type=SSOType.OIDC, bundles=["professional","small_business","enterprise"], dependencies=["postgresql"], subdomain="matrix", ram_mb=1024, monthly_addon_price=4.99, trial_eligible=True, replaces="Slack, Teams"))
@@ -176,3 +193,41 @@ def get_module_count():
 
 if __name__ == "__main__":
     print(f"WOPR Module Registry: {get_module_count()}")
+
+
+# ── Bundle registry (merged from bundles.manifests) ─────────────────────────
+def _build_bundles():
+    """Build a combined BUNDLES dict with string keys from sovereign + micro manifests."""
+    try:
+        from ..bundles.manifests import SOVEREIGN_BUNDLES, MICRO_BUNDLES, BundleManifest
+        # Add compatibility properties if needed
+        if not hasattr(BundleManifest, 'base_modules'):
+            BundleManifest.base_modules = property(lambda self: self.modules)
+        if not hasattr(BundleManifest, 'description'):
+            BundleManifest.description = property(lambda self: self.tagline)
+        if not hasattr(BundleManifest, 'trial_modules'):
+            BundleManifest.trial_modules = property(lambda self: [
+                m_id for m_id in self.modules
+                if m_id in MODULES and MODULES[m_id].trial_eligible
+            ])
+        combined = {}
+        for k, v in SOVEREIGN_BUNDLES.items():
+            combined[k.value if hasattr(k, 'value') else str(k)] = v
+        for k, v in MICRO_BUNDLES.items():
+            combined[k.value if hasattr(k, 'value') else str(k)] = v
+        return combined
+    except ImportError:
+        return {}
+
+BUNDLES = _build_bundles()
+
+class BundleModules:
+    """Convenience class for querying modules within bundles."""
+    @staticmethod
+    def get_bundle_modules(bundle_id: str) -> List[str]:
+        bundle = BUNDLES.get(bundle_id)
+        return bundle.modules if bundle else []
+
+    @staticmethod
+    def get_all_bundle_ids() -> List[str]:
+        return list(BUNDLES.keys())

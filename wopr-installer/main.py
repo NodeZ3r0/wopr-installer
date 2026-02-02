@@ -217,6 +217,9 @@ async def startup_event():
     import os
     os.makedirs(config.job_store_path, exist_ok=True)
 
+    # Retry any jobs that were interrupted by a restart
+    asyncio.create_task(retry_stale_jobs())
+
     logger.info("WOPR Orchestrator API started")
 
 
@@ -438,8 +441,49 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
     # ---- customer.subscription.updated ----
     elif event_type == "customer.subscription.updated":
         subscription = event["data"]["object"]
-        logger.info(f"Subscription updated: {subscription.get('id')}")
-        # TODO Phase 4: handle plan changes (upgrade/downgrade)
+        subscription_id = subscription.get("id", "")
+        sub_status = subscription.get("status", "")
+        logger.info(f"Subscription updated: {subscription_id} status={sub_status}")
+
+        # If payment succeeds after failures, resolve dunning and unsuspend
+        if sub_status == "active" and db_pool:
+            try:
+                from control_plane.database import (
+                    resolve_payment_failures,
+                    get_beacon_by_subscription,
+                    update_beacon_status,
+                )
+                await resolve_payment_failures(db_pool, subscription_id)
+                beacon = await get_beacon_by_subscription(db_pool, subscription_id)
+                if beacon and beacon.get("status") == "suspended":
+                    await update_beacon_status(db_pool, beacon["id"], "active")
+                    logger.info(f"Beacon {beacon['id']} reactivated after payment recovery")
+            except Exception as e:
+                logger.error(f"Failed to handle subscription recovery: {e}")
+
+        # Handle plan/tier changes from subscription metadata
+        metadata = subscription.get("metadata", {})
+        new_bundle = metadata.get("wopr_bundle")
+        new_tier = metadata.get("wopr_tier")
+
+        if (new_bundle or new_tier) and db_pool:
+            try:
+                from control_plane.database import get_beacon_by_subscription, update_beacon_status
+                beacon = await get_beacon_by_subscription(db_pool, subscription_id)
+                if beacon:
+                    update_kwargs = {}
+                    if new_bundle and new_bundle != beacon.get("bundle"):
+                        update_kwargs["bundle"] = new_bundle
+                    if new_tier and int(new_tier.replace("t", "")) != beacon.get("storage_tier"):
+                        update_kwargs["storage_tier"] = int(new_tier.replace("t", ""))
+                    if update_kwargs:
+                        await update_beacon_status(
+                            db_pool, beacon["id"], beacon.get("status", "active"),
+                            **update_kwargs,
+                        )
+                        logger.info(f"Beacon {beacon['id']} updated: {update_kwargs}")
+            except Exception as e:
+                logger.error(f"Failed to handle plan change: {e}")
 
         return {"received": True}
 
@@ -458,12 +502,34 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
 
         if email_service and customer_email:
             try:
-                import asyncio
+                # Look up beacon details for the reminder
+                beacon_name = "your beacon"
+                bundle_name = "WOPR"
+                tier_name = ""
+                monthly_price = ""
+                sub_metadata = subscription.get("metadata", {})
+
+                if db_pool:
+                    try:
+                        from control_plane.database import get_beacon_by_subscription
+                        beacon = await get_beacon_by_subscription(db_pool, subscription.get("id", ""))
+                        if beacon:
+                            beacon_name = beacon.get("name", beacon_name)
+                            bundle_name = (beacon.get("bundle", "WOPR") or "").replace("_", " ").replace("-", " ").title()
+                            tier_name = f"Tier {beacon.get('storage_tier', 1)}"
+                    except Exception:
+                        pass
+
                 await asyncio.to_thread(
                     email_service.send_trial_reminder,
                     to_email=customer_email,
                     name=customer_email.split("@")[0].title(),
+                    beacon_name=beacon_name,
+                    bundle_name=bundle_name,
+                    tier_name=tier_name,
+                    monthly_price=monthly_price,
                     days_remaining=3,
+                    trial_days_used=0,
                 )
                 logger.info(f"Trial ending reminder sent to {customer_email}")
             except Exception as e:
@@ -481,42 +547,43 @@ async def _send_dunning_email(customer_email: str, failure_count: int, subscript
 
     name = customer_email.split("@")[0].title()
 
-    try:
-        if failure_count == 1:
-            await asyncio.to_thread(
-                email_service.send_payment_failed,
-                to_email=customer_email,
-                name=name,
-                severity="notice",
-                days_until_suspension=7,
-            )
-            logger.info(f"Dunning email (1st failure) sent to {customer_email}")
-        elif failure_count == 2:
-            await asyncio.to_thread(
-                email_service.send_payment_failed,
-                to_email=customer_email,
-                name=name,
-                severity="warning",
-                days_until_suspension=3,
-            )
-            logger.info(f"Dunning email (2nd failure) sent to {customer_email}")
-        elif failure_count >= 3:
-            await asyncio.to_thread(
-                email_service.send_payment_failed,
-                to_email=customer_email,
-                name=name,
-                severity="urgent",
-                days_until_suspension=0,
-            )
-            logger.warning(f"Dunning email (3rd+ failure) sent to {customer_email} — suspension pending")
+    # Look up beacon details for the email
+    beacon_name = "your beacon"
+    if db_pool:
+        try:
+            from control_plane.database import get_beacon_by_subscription
+            beacon = await get_beacon_by_subscription(db_pool, subscription_id)
+            if beacon:
+                beacon_name = beacon.get("name", beacon_name)
+        except Exception:
+            pass
 
-            # Suspend the beacon
-            if db_pool:
-                from control_plane.database import get_beacon_by_subscription, update_beacon_status
-                beacon = await get_beacon_by_subscription(db_pool, subscription_id)
-                if beacon:
-                    await update_beacon_status(db_pool, beacon["id"], "suspended")
-                    logger.warning(f"Beacon {beacon['id']} suspended due to payment failures")
+    # Map failure count to grace days
+    grace_days = max(0, 7 - (failure_count * 2))
+
+    try:
+        await asyncio.to_thread(
+            email_service.send_payment_failed,
+            to_email=customer_email,
+            name=name,
+            beacon_name=beacon_name,
+            amount="your subscription",
+            billing_period="current period",
+            card_brand="",
+            card_last4="",
+            failure_reason="Payment could not be processed",
+            grace_days_remaining=grace_days,
+        )
+        logger.info(f"Dunning email (failure #{failure_count}) sent to {customer_email}")
+
+        # Suspend the beacon after 3+ failures
+        if failure_count >= 3 and db_pool:
+            from control_plane.database import get_beacon_by_subscription, update_beacon_status
+            beacon = await get_beacon_by_subscription(db_pool, subscription_id)
+            if beacon:
+                await update_beacon_status(db_pool, beacon["id"], "suspended")
+                logger.warning(f"Beacon {beacon['id']} suspended due to {failure_count} payment failures")
+
     except Exception as e:
         logger.error(f"Dunning email failed: {e}")
 
@@ -562,14 +629,36 @@ async def _handle_subscription_cleanup(customer_id: str, subscription_id: str):
 
         # Send cancellation email
         if email_service:
-            customer_email = beacon.get("owner_email", "")
+            # Try multiple fields for the email (schema uses different column names)
+            customer_email = (
+                beacon.get("owner_email")
+                or beacon.get("customer_email")
+                or ""
+            )
+            # If no email on beacon, look up from user record
+            if not customer_email and beacon.get("owner_id"):
+                try:
+                    async with db_pool.acquire() as conn:
+                        user_row = await conn.fetchrow(
+                            "SELECT email FROM users WHERE id = $1", beacon["owner_id"]
+                        )
+                        if user_row:
+                            customer_email = user_row["email"]
+                except Exception:
+                    pass
+
             if customer_email:
                 try:
+                    # Calculate service end date (now, since subscription is deleted)
+                    from datetime import datetime, timedelta
+                    end_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
+
                     await asyncio.to_thread(
                         email_service.send_subscription_cancelled,
                         to_email=customer_email,
                         name=customer_email.split("@")[0].title(),
-                        beacon_name=beacon.get("subdomain", ""),
+                        beacon_name=beacon.get("name", beacon.get("subdomain", "")),
+                        end_date=end_date,
                     )
                 except Exception as e:
                     logger.error(f"Failed to send cancellation email: {e}")
@@ -582,9 +671,38 @@ async def run_provisioning(job_id: str):
     """Run the full provisioning workflow."""
     orchestrator = get_orchestrator()
     try:
-        await orchestrator.run_provisioning(job_id)
+        success = await orchestrator.run_provisioning(job_id)
+        if not success:
+            # Schedule automatic retry if under the limit
+            job = orchestrator.get_job(job_id)
+            if job and job.retry_count < 3:
+                wait_seconds = 60 * (2 ** job.retry_count)  # exponential backoff: 60s, 120s, 240s
+                logger.info(f"Scheduling retry #{job.retry_count + 1} for {job_id} in {wait_seconds}s")
+                await asyncio.sleep(wait_seconds)
+                await orchestrator.retry_failed_job(job_id)
     except Exception as e:
         logger.error(f"Provisioning failed for {job_id}: {e}", exc_info=True)
+
+
+async def retry_stale_jobs():
+    """On startup, retry any jobs that were left in a non-terminal state."""
+    await asyncio.sleep(10)  # Wait for services to initialize
+    orchestrator = get_orchestrator()
+
+    if db_pool:
+        try:
+            from control_plane.database import get_jobs_by_state
+            for state in ["provisioning_vps", "waiting_for_vps", "configuring_dns",
+                          "deploying_wopr", "generating_docs", "sending_welcome"]:
+                stale_jobs = await get_jobs_by_state(db_pool, state)
+                for job_data in stale_jobs:
+                    job_id = str(job_data["job_id"])
+                    retry_count = job_data.get("retry_count", 0)
+                    if retry_count < 3:
+                        logger.info(f"Retrying stale job {job_id} (was in state: {state})")
+                        asyncio.create_task(run_provisioning(job_id))
+        except Exception as e:
+            logger.error(f"Failed to retry stale jobs: {e}")
 
 
 @app.post("/api/provision")
@@ -634,6 +752,7 @@ async def get_provision_status(job_id: str):
 
 
 @app.get("/api/provision/{job_id}/stream")
+@app.get("/api/v1/provisioning/{job_id}/stream")
 async def stream_provision_status(job_id: str):
     """
     SSE stream for real-time provisioning updates.
@@ -642,20 +761,56 @@ async def stream_provision_status(job_id: str):
     """
     orchestrator = get_orchestrator()
 
+    # Map provisioning states to frontend step index and progress %
+    STATE_TO_STEP = {
+        ProvisioningState.PENDING: (0, 0),
+        ProvisioningState.PAYMENT_RECEIVED: (0, 10),
+        ProvisioningState.PROVISIONING_VPS: (1, 20),
+        ProvisioningState.WAITING_FOR_VPS: (1, 35),
+        ProvisioningState.CONFIGURING_DNS: (2, 50),
+        ProvisioningState.DEPLOYING_WOPR: (3, 65),
+        ProvisioningState.GENERATING_DOCS: (4, 85),
+        ProvisioningState.SENDING_WELCOME: (4, 90),
+        ProvisioningState.COMPLETED: (5, 100),
+        ProvisioningState.FAILED: (0, 0),
+    }
+
     async def event_generator():
         last_state = None
         while True:
             job = orchestrator.get_job(job_id)
             if not job:
-                yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
+                yield f"data: {json.dumps({'error': 'Job not found', 'status': 'error'})}\n\n"
                 break
 
-            current_state = job.state.value
+            current_state = job.state
             if current_state != last_state:
-                yield f"data: {json.dumps(job.to_dict())}\n\n"
+                step, progress = STATE_TO_STEP.get(current_state, (0, 0))
+
+                payload = {
+                    "progress": progress,
+                    "step": step,
+                    "state": current_state.value,
+                    "job_id": job.job_id,
+                }
+
+                if current_state == ProvisioningState.COMPLETED:
+                    beacon_domain = f"{job.wopr_subdomain}.{config.wopr_domain}" if job.wopr_subdomain else ""
+                    payload["status"] = "complete"
+                    payload["beacon_url"] = f"https://{beacon_domain}" if beacon_domain else ""
+                    payload["dashboard_url"] = f"https://{beacon_domain}/dashboard" if beacon_domain else ""
+                    payload["instance_ip"] = job.instance_ip
+                    payload["custom_domain"] = job.custom_domain
+                elif current_state == ProvisioningState.FAILED:
+                    payload["status"] = "error"
+                    payload["error"] = job.error_message or "Provisioning failed"
+                else:
+                    payload["status"] = "in_progress"
+
+                yield f"data: {json.dumps(payload)}\n\n"
                 last_state = current_state
 
-            if job.state in [ProvisioningState.COMPLETED, ProvisioningState.FAILED]:
+            if current_state in [ProvisioningState.COMPLETED, ProvisioningState.FAILED]:
                 break
 
             await asyncio.sleep(2)
@@ -876,22 +1031,39 @@ async def handle_onboard_success(session_id: str):
         currency = session.currency.upper() if session.currency else "USD"
 
         # Look up provisioning job from the webhook (it should already exist)
+        # Try by subscription ID first (most reliable), then by email
         job_id = None
+        subscription_id = session.subscription
+
         if db_pool:
             try:
                 async with db_pool.acquire() as conn:
-                    row = await conn.fetchrow(
-                        "SELECT job_id FROM provisioning_jobs WHERE customer_email = $1 ORDER BY created_at DESC LIMIT 1",
-                        session.customer_email,
-                    )
-                    if row:
-                        job_id = row["job_id"]
+                    if subscription_id:
+                        row = await conn.fetchrow(
+                            "SELECT job_id FROM provisioning_jobs WHERE stripe_subscription_id = $1 ORDER BY created_at DESC LIMIT 1",
+                            subscription_id,
+                        )
+                        if row:
+                            job_id = str(row["job_id"])
+
+                    if not job_id and session.customer_email:
+                        row = await conn.fetchrow(
+                            "SELECT job_id FROM provisioning_jobs WHERE customer_email = $1 ORDER BY created_at DESC LIMIT 1",
+                            session.customer_email,
+                        )
+                        if row:
+                            job_id = str(row["job_id"])
             except Exception:
                 pass
 
+        # Also check in-memory jobs (JSON fallback)
         if not job_id:
-            import uuid
-            job_id = str(uuid.uuid4())
+            orchestrator = get_orchestrator()
+            for jid, job in orchestrator.jobs.items():
+                if (subscription_id and job.stripe_subscription_id == subscription_id) or \
+                   (session.customer_email and job.customer_email == session.customer_email):
+                    job_id = jid
+                    break
 
         return {
             "order": {
@@ -906,6 +1078,7 @@ async def handle_onboard_success(session_id: str):
                 "amount": f"${amount_paid:.2f} {currency}",
             },
             "job_id": job_id,
+            "setup_url": f"/setup/{job_id}" if job_id else None,
         }
 
     except stripe.error.StripeError as e:

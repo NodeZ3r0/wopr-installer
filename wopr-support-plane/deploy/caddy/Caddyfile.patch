@@ -1,0 +1,59 @@
+# WOPR Support Plane - Caddy Site Blocks
+# These blocks are appended/merged into the existing Caddyfile.
+# support-gateway and ssh-ca bind to localhost only.
+
+support-gateway.wopr.systems {
+    # Authentik forward auth wall
+    forward_auth https://auth.wopr.systems {
+        uri /outpost.goauthentik.io/auth/caddy
+        copy_headers X-Authentik-UID
+        copy_headers X-Authentik-Username
+        copy_headers X-Authentik-Email
+        copy_headers X-Authentik-Groups
+        copy_headers Authorization
+    }
+
+    reverse_proxy 127.0.0.1:8443 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Authentik-UID {header.X-Authentik-UID}
+        header_up X-Authentik-Username {header.X-Authentik-Username}
+        header_up X-Authentik-Email {header.X-Authentik-Email}
+        header_up X-Authentik-Groups {header.X-Authentik-Groups}
+        header_up Authorization {header.Authorization}
+    }
+
+    log {
+        output file /var/log/caddy/support-gateway.log
+        format json
+    }
+}
+
+sshca.wopr.systems {
+    # Authentik forward auth wall
+    forward_auth https://auth.wopr.systems {
+        uri /outpost.goauthentik.io/auth/caddy
+        copy_headers X-Authentik-UID
+        copy_headers X-Authentik-Username
+        copy_headers X-Authentik-Email
+        copy_headers X-Authentik-Groups
+        copy_headers Authorization
+    }
+
+    reverse_proxy 127.0.0.1:9444 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Authentik-UID {header.X-Authentik-UID}
+        header_up X-Authentik-Username {header.X-Authentik-Username}
+        header_up X-Authentik-Email {header.X-Authentik-Email}
+        header_up X-Authentik-Groups {header.X-Authentik-Groups}
+        header_up Authorization {header.Authorization}
+    }
+
+    log {
+        output file /var/log/caddy/sshca.log
+        format json
+    }
+}
