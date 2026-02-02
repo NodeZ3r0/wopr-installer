@@ -30,6 +30,13 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+# Load .env file if present (dev mode)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # WOPR internal imports
 from control_plane.config import WOPRConfig
 from control_plane.orchestrator import WOPROrchestrator, ProvisioningState, ProvisioningJob

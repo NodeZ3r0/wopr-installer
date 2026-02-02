@@ -1,9 +1,6 @@
 # WOPR Installer Dependencies
 # ==========================
 
-# Core
-python>=3.9
-
 # Provider SDKs
 hcloud>=1.30.0          # Hetzner Cloud (official SDK)
 apache-libcloud>=3.8.0  # Multi-cloud abstraction (Vultr, DO, Linode, OVH)
