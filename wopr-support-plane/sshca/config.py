@@ -53,8 +53,5 @@ class SSHCAConfig:
             cert_validity_breakglass=int(
                 os.environ.get("SSHCA_VALIDITY_BREAKGLASS", "1800")
             ),
-            database_url=os.environ.get(
-                "DATABASE_URL",
-                "postgresql://wopr:changeme@localhost:5432/wopr_support",
-            ),
+            database_url=os.environ.get("DATABASE_URL", ""),
         )

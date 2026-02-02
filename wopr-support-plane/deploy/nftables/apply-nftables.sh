@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RULES_FILE="${SCRIPT_DIR}/support-plane.nft"
 DEST="/etc/nftables.d/wopr-support-plane.conf"
-BACKUP="/tmp/nftables-backup-$(date +%s).nft"
+BACKUP="/var/backups/wopr/nftables-backup-$(date +%s).nft"
 
 echo "=== WOPR Support Plane - Firewall Configuration ==="
 
@@ -17,6 +17,7 @@ if [ ! -f "$RULES_FILE" ]; then
 fi
 
 # Backup current ruleset
+install -d /var/backups/wopr
 echo "[1/4] Backing up current firewall rules..."
 nft list ruleset > "$BACKUP"
 echo "    Backup saved to ${BACKUP}"

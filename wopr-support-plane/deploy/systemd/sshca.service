@@ -10,7 +10,7 @@ Group=wopr
 WorkingDirectory=/opt/wopr-sshca
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/opt/wopr-sshca/.env
-ExecStart=/opt/wopr-sshca/venv/bin/gunicorn -c gunicorn.conf.py sshca.main:app
+ExecStart=/opt/wopr-sshca/venv/bin/gunicorn -c sshca/gunicorn.conf.py sshca.main:app
 Restart=always
 RestartSec=3
 StandardOutput=journal

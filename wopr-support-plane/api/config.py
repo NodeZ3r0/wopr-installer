@@ -24,10 +24,7 @@ class SupportGatewayConfig:
         return cls(
             host=os.environ.get("SUPPORT_GW_HOST", "127.0.0.1"),
             port=int(os.environ.get("SUPPORT_GW_PORT", "8443")),
-            database_url=os.environ.get(
-                "DATABASE_URL",
-                "postgresql://wopr:changeme@localhost:5432/wopr_support",
-            ),
+            database_url=os.environ.get("DATABASE_URL", ""),
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
             breakglass_max_minutes=int(
                 os.environ.get("BREAKGLASS_MAX_MINUTES", "30")

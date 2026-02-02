@@ -3,6 +3,19 @@
 
 BEGIN;
 
+-- Known beacons on the Nebula mesh
+CREATE TABLE IF NOT EXISTS beacons (
+    beacon_id       TEXT PRIMARY KEY,
+    nebula_ip       INET NOT NULL,
+    hostname        TEXT,
+    status          TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('healthy', 'degraded', 'offline', 'unknown')),
+    registered_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen       TIMESTAMPTZ,
+    metadata        JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX idx_beacons_status ON beacons (status);
+
 -- Audit log: every action through the support gateway
 CREATE TABLE IF NOT EXISTS audit_log (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
