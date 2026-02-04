@@ -35,10 +35,11 @@ wopr_deploy_authentik() {
         return 1
     fi
 
-    # Create directories
+    # Create directories (Authentik runs as UID 1000 inside container)
     mkdir -p "${AUTHENTIK_DATA_DIR}/media"
     mkdir -p "${AUTHENTIK_DATA_DIR}/templates"
     mkdir -p "${AUTHENTIK_DATA_DIR}/certs"
+    chmod -R 777 "${AUTHENTIK_DATA_DIR}/media" "${AUTHENTIK_DATA_DIR}/templates" "${AUTHENTIK_DATA_DIR}/certs"
 
     # Get database credentials
     local db_password=$(wopr_setting_get "authentik_db_password")
