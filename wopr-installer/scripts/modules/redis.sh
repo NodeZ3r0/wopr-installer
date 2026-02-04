@@ -72,6 +72,7 @@ ExecStartPre=-/usr/bin/podman rm ${REDIS_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${REDIS_SERVICE} \\
+    --network ${WOPR_NETWORK} \\
     -v ${REDIS_DATA_DIR}/data:/data:Z \\
     -v ${REDIS_DATA_DIR}/redis.conf:/usr/local/etc/redis/redis.conf:ro,Z \\
     -p 127.0.0.1:${REDIS_PORT}:6379 \\

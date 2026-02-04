@@ -200,6 +200,12 @@ step_install_core_stack() {
     wopr_log "INFO" "Installing Podman..."
     apt-get install -y -qq podman
 
+    # Create shared container network for inter-container DNS
+    if ! podman network exists wopr-network 2>/dev/null; then
+        wopr_log "INFO" "Creating wopr-network..."
+        podman network create --subnet 172.20.0.0/16 wopr-network
+    fi
+
     # Install Caddy
     wopr_log "INFO" "Installing Caddy..."
     apt-get install -y -qq debian-keyring debian-archive-keyring

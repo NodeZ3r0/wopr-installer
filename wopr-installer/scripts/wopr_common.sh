@@ -130,6 +130,7 @@ wopr_validate_resources() {
 WOPR_CONFIG_DIR="/etc/wopr"
 WOPR_DATA_DIR="/var/lib/wopr"
 WOPR_INSTALL_DIR="/opt/wopr"
+WOPR_NETWORK="wopr-network"
 
 wopr_setting_get() {
     local key="$1"

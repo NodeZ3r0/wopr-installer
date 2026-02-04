@@ -99,6 +99,7 @@ ExecStartPre=-/usr/bin/podman rm ${POSTGRESQL_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${POSTGRESQL_SERVICE} \\
+    --network ${WOPR_NETWORK} \\
     -v ${POSTGRESQL_DATA_DIR}/data:/var/lib/postgresql/data:Z \\
     -v ${POSTGRESQL_DATA_DIR}/init:/docker-entrypoint-initdb.d:ro,Z \\
     -e POSTGRES_USER=wopr \\

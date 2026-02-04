@@ -79,9 +79,9 @@ wopr_deploy_authentik() {
     cat > "${AUTHENTIK_DATA_DIR}/authentik.env" <<EOF
 # Authentik Configuration
 AUTHENTIK_SECRET_KEY=${secret_key}
-AUTHENTIK_REDIS__HOST=host.containers.internal
+AUTHENTIK_REDIS__HOST=wopr-redis
 AUTHENTIK_REDIS__PORT=6379
-AUTHENTIK_POSTGRESQL__HOST=host.containers.internal
+AUTHENTIK_POSTGRESQL__HOST=wopr-postgresql
 AUTHENTIK_POSTGRESQL__PORT=5432
 AUTHENTIK_POSTGRESQL__NAME=authentik
 AUTHENTIK_POSTGRESQL__USER=authentik
@@ -111,7 +111,7 @@ ExecStartPre=-/usr/bin/podman rm ${AUTHENTIK_SERVICE_SERVER}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${AUTHENTIK_SERVICE_SERVER} \\
-    --add-host=host.containers.internal:host-gateway \\
+    --network ${WOPR_NETWORK} \\
     --env-file ${AUTHENTIK_DATA_DIR}/authentik.env \\
     -v ${AUTHENTIK_DATA_DIR}/media:/media:Z \\
     -v ${AUTHENTIK_DATA_DIR}/templates:/templates:Z \\
@@ -144,7 +144,7 @@ ExecStartPre=-/usr/bin/podman rm ${AUTHENTIK_SERVICE_WORKER}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${AUTHENTIK_SERVICE_WORKER} \\
-    --add-host=host.containers.internal:host-gateway \\
+    --network ${WOPR_NETWORK} \\
     --env-file ${AUTHENTIK_DATA_DIR}/authentik.env \\
     -v ${AUTHENTIK_DATA_DIR}/media:/media:Z \\
     -v ${AUTHENTIK_DATA_DIR}/templates:/templates:Z \\

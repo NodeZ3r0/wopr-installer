@@ -53,6 +53,7 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-ollama \\
+    --network \${WOPR_NETWORK} \\
     -v ${data_dir}:/root/.ollama:Z \\
     -p 127.0.0.1:11434:11434 \\
     docker.io/ollama/ollama:latest
@@ -147,11 +148,12 @@ After=network.target wopr-postgresql.service
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-defcon-one \\
+    --network \${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     -v ${data_dir}/config.json:/app/config.json:ro \\
     -p 127.0.0.1:8081:8081 \\
     -e SECRET_KEY=${defcon_secret} \\
-    -e DATABASE_URL=postgresql://wopr:${pg_password}@host.containers.internal:5432/defcon_one \\
+    -e DATABASE_URL=postgresql://wopr:${pg_password}@wopr-postgresql:5432/defcon_one \\
     ghcr.io/wopr/defcon-one:latest
 Restart=always
 RestartSec=10
@@ -211,16 +213,16 @@ server:
   port: 8080
 
 database:
-  url: "postgresql://wopr:${pg_password}@host.containers.internal:5432/reactor"
+  url: "postgresql://wopr:${pg_password}@wopr-postgresql:5432/reactor"
 
 ollama:
-  endpoint: "http://host.containers.internal:11434"
+  endpoint: "http://wopr-ollama:11434"
   default_model: "codellama"
   timeout: 120
 
 defcon_one:
   enabled: true
-  endpoint: "http://host.containers.internal:8081"
+  endpoint: "http://wopr-defcon-one:8081"
   require_approval_for_production: true
 
 authentik:
@@ -260,6 +262,7 @@ After=network.target wopr-ollama.service wopr-defcon-one.service
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-reactor \\
+    --network \${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     -v ${data_dir}/config.yaml:/app/config.yaml:ro \\
     -p 127.0.0.1:8080:8080 \\

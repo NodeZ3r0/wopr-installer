@@ -78,16 +78,16 @@ ExecStartPre=-/usr/bin/podman rm ${NEXTCLOUD_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${NEXTCLOUD_SERVICE} \\
-    --add-host=host.containers.internal:host-gateway \\
+    --network \${WOPR_NETWORK} \\
     -v ${NEXTCLOUD_DATA_DIR}/html:/var/www/html:Z \\
     -v ${NEXTCLOUD_DATA_DIR}/data:/var/www/html/data:Z \\
     -v ${NEXTCLOUD_DATA_DIR}/config:/var/www/html/config:Z \\
     -v ${NEXTCLOUD_DATA_DIR}/apps:/var/www/html/custom_apps:Z \\
-    -e POSTGRES_HOST=host.containers.internal \\
+    -e POSTGRES_HOST=wopr-postgresql \\
     -e POSTGRES_DB=nextcloud \\
     -e POSTGRES_USER=nextcloud \\
     -e POSTGRES_PASSWORD=${db_password} \\
-    -e REDIS_HOST=host.containers.internal \\
+    -e REDIS_HOST=wopr-redis \\
     -e REDIS_HOST_PORT=${redis_port} \\
     -e NEXTCLOUD_ADMIN_USER=admin \\
     -e NEXTCLOUD_ADMIN_PASSWORD=${admin_password} \\

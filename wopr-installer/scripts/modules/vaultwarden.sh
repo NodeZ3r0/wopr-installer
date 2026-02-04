@@ -56,6 +56,7 @@ ExecStartPre=-/usr/bin/podman rm ${VAULTWARDEN_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${VAULTWARDEN_SERVICE} \\
+    --network \${WOPR_NETWORK} \\
     -v ${VAULTWARDEN_DATA_DIR}/data:/data:Z \\
     -e DOMAIN=https://vault.${domain} \\
     -e ADMIN_TOKEN=${admin_token} \\

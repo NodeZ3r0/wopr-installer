@@ -425,8 +425,8 @@ wopr_deploy_from_registry() {
         podman exec wopr-postgresql psql -U postgres -c \
             "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_name};" 2>/dev/null || true
 
-        env_flags="$env_flags -e DATABASE_URL=postgresql://${db_name}:${db_pass}@host.containers.internal:5432/${db_name}"
-        env_flags="$env_flags -e POSTGRES_HOST=host.containers.internal"
+        env_flags="$env_flags -e DATABASE_URL=postgresql://${db_name}:${db_pass}@wopr-postgresql:5432/${db_name}"
+        env_flags="$env_flags -e POSTGRES_HOST=wopr-postgresql"
         env_flags="$env_flags -e POSTGRES_DB=${db_name}"
         env_flags="$env_flags -e POSTGRES_USER=${db_name}"
         env_flags="$env_flags -e POSTGRES_PASSWORD=${db_pass}"
@@ -434,8 +434,8 @@ wopr_deploy_from_registry() {
 
     # Redis
     if echo "$deps" | grep -q "redis"; then
-        env_flags="$env_flags -e REDIS_URL=redis://host.containers.internal:6379"
-        env_flags="$env_flags -e REDIS_HOST=host.containers.internal"
+        env_flags="$env_flags -e REDIS_URL=redis://wopr-redis:6379"
+        env_flags="$env_flags -e REDIS_HOST=wopr-redis"
     fi
 
     # Common
@@ -470,7 +470,7 @@ ExecStartPre=-/usr/bin/podman rm ${service_name}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${service_name} \\
-    --add-host=host.containers.internal:host-gateway \\
+    --network \${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     ${env_flags} \\
     -p 127.0.0.1:${port}:${container_port} \\
