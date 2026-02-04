@@ -29,12 +29,13 @@ wopr_log() {
     mkdir -p /var/log/wopr
     echo "[$timestamp] [$level] $message" >> "$WOPR_LOG_FILE"
 
+    # Write to stderr so log output never contaminates command substitutions
     case "$level" in
-        INFO)  echo -e "${BLUE}[INFO]${NC} $message" ;;
-        OK)    echo -e "${GREEN}[OK]${NC} $message" ;;
-        WARN)  echo -e "${YELLOW}[WARN]${NC} $message" ;;
-        ERROR) echo -e "${RED}[ERROR]${NC} $message" ;;
-        *)     echo "[$level] $message" ;;
+        INFO)  echo -e "${BLUE}[INFO]${NC} $message" >&2 ;;
+        OK)    echo -e "${GREEN}[OK]${NC} $message" >&2 ;;
+        WARN)  echo -e "${YELLOW}[WARN]${NC} $message" >&2 ;;
+        ERROR) echo -e "${RED}[ERROR]${NC} $message" >&2 ;;
+        *)     echo "[$level] $message" >&2 ;;
     esac
 }
 

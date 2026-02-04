@@ -470,7 +470,7 @@ ExecStartPre=-/usr/bin/podman rm ${service_name}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${service_name} \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     ${env_flags} \\
     -p 127.0.0.1:${port}:${container_port} \\
