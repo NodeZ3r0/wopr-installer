@@ -1,6 +1,7 @@
 """Gunicorn configuration for WOPR Support Gateway."""
 
-bind = "127.0.0.1:8443"
+import os
+bind = os.environ.get("GUNICORN_BIND", "0.0.0.0:8443")
 workers = 2
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 120

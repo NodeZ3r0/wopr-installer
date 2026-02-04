@@ -33,6 +33,15 @@ app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(AuditMiddleware)
 
+# CORS — must be added at module level (before app startup)
+_config = SupportGatewayConfig.from_env()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_config.cors_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
@@ -51,14 +60,6 @@ async def startup():
     logging.basicConfig(
         level=getattr(logging, config.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-
-    # CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.cors_origins,
-        allow_methods=["GET", "POST"],
-        allow_headers=["*"],
     )
 
     # Database pool
