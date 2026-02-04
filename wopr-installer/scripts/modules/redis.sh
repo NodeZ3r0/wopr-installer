@@ -33,7 +33,9 @@ wopr_deploy_redis() {
     # Create Redis configuration
     cat > "${REDIS_DATA_DIR}/redis.conf" <<EOF
 # WOPR Redis Configuration
-bind 127.0.0.1
+# Bind to all interfaces INSIDE container — host-side exposure is
+# restricted to 127.0.0.1 via podman's -p flag
+bind 0.0.0.0
 port 6379
 daemonize no
 
@@ -46,8 +48,9 @@ appendfsync everysec
 maxmemory 256mb
 maxmemory-policy allkeys-lru
 
-# Security
-protected-mode yes
+# Security — protected-mode off because we bind 0.0.0.0 inside container
+# Access is already restricted to localhost by podman port mapping
+protected-mode no
 
 # Logging
 loglevel notice
@@ -86,15 +89,21 @@ EOF
     systemctl enable "$REDIS_SERVICE"
     systemctl start "$REDIS_SERVICE"
 
-    # Wait for Redis to be ready
+    # Wait for Redis to be ready (use redis-cli ping as primary check
+    # since podman port forwarding via netavark can lag behind)
     wopr_log "INFO" "Waiting for Redis to be ready..."
-    wopr_wait_for_port "127.0.0.1" "$REDIS_PORT" 30
+    local count=0
+    while [ "$count" -lt 30 ]; do
+        if podman exec "$REDIS_SERVICE" redis-cli ping 2>/dev/null | grep -q "PONG"; then
+            wopr_log "OK" "Redis is responding"
+            break
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
 
-    # Verify Redis is responding
-    if podman exec "$REDIS_SERVICE" redis-cli ping | grep -q "PONG"; then
-        wopr_log "OK" "Redis is responding"
-    else
-        wopr_log "ERROR" "Redis is not responding"
+    if [ "$count" -ge 30 ]; then
+        wopr_log "ERROR" "Redis is not responding after 30s"
         return 1
     fi
 

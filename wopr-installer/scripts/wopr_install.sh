@@ -189,6 +189,13 @@ step_install_core_stack() {
         uuid-runtime \
         netcat-openbsd
 
+    # Stop Docker if present — its iptables rules conflict with Podman's netavark
+    if systemctl is-active --quiet docker 2>/dev/null; then
+        wopr_log "INFO" "Stopping Docker (conflicts with Podman netavark)..."
+        systemctl stop docker docker.socket 2>/dev/null || true
+        systemctl disable docker docker.socket 2>/dev/null || true
+    fi
+
     # Install Podman
     wopr_log "INFO" "Installing Podman..."
     apt-get install -y -qq podman

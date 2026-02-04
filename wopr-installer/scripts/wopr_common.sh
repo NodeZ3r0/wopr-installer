@@ -861,14 +861,21 @@ wopr_wait_for_port() {
     local timeout="${3:-30}"
 
     local count=0
-    while ! nc -z "$host" "$port" 2>/dev/null; do
-        if [ "$count" -ge "$timeout" ]; then
-            wopr_die "Timeout waiting for $host:$port"
+    while [ "$count" -lt "$timeout" ]; do
+        # Try nc first, then bash /dev/tcp as fallback
+        if nc -z "$host" "$port" 2>/dev/null; then
+            wopr_log "OK" "Port $host:$port is ready"
+            return 0
+        fi
+        if (echo > "/dev/tcp/${host}/${port}") 2>/dev/null; then
+            wopr_log "OK" "Port $host:$port is ready (tcp check)"
+            return 0
         fi
         sleep 1
         count=$((count + 1))
     done
-    wopr_log "OK" "Port $host:$port is ready"
+    wopr_log "ERROR" "Timeout waiting for $host:$port"
+    return 1
 }
 
 wopr_download() {
