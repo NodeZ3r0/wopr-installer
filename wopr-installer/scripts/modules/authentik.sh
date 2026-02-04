@@ -118,7 +118,6 @@ ExecStart=/usr/bin/podman run --rm \\
     -v ${AUTHENTIK_DATA_DIR}/templates:/templates:Z \\
     -v ${AUTHENTIK_DATA_DIR}/certs:/certs:Z \\
     -p 127.0.0.1:${AUTHENTIK_PORT}:9000 \\
-    -p 127.0.0.1:9443:9443 \\
     ${AUTHENTIK_IMAGE} \\
     server
 
