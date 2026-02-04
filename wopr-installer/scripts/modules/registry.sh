@@ -61,7 +61,7 @@ declare -A _WOPR_REGISTRY=(
     ["reactor"]="docker.io/wopr/reactor:latest|8100|reactor|Reactor AI|postgresql redis"
     ["portainer"]="docker.io/portainer/portainer-ce:latest|9443|containers|Portainer|"
     ["n8n"]="docker.io/n8nio/n8n:latest|5678|auto|n8n Automation|postgresql"
-    ["plane"]="makeplane/plane-app:latest|3000|projects|Plane PM|postgresql redis"
+    ["plane"]="docker.io/makeplane/plane-app:latest|3000|projects|Plane PM|postgresql redis"
     ["docker-registry"]="docker.io/library/registry:2|5000|registry|Docker Registry|"
 
     # === AI ===
@@ -72,13 +72,13 @@ declare -A _WOPR_REGISTRY=(
     ["ghost"]="docker.io/library/ghost:5-alpine|2368|blog|Ghost Blog|"
     ["saleor"]="ghcr.io/saleor/saleor:latest|8000|shop|Saleor Store|postgresql redis"
     ["castopod"]="docker.io/castopod/castopod:latest|8000|podcast|Castopod|"
-    ["funkwhale"]="funkwhale/all-in-one:latest|5000|music|Funkwhale|postgresql"
-    ["peertube"]="chocobozzz/peertube:production-bookworm|9000|video|PeerTube|postgresql redis"
+    ["funkwhale"]="docker.io/funkwhale/all-in-one:latest|5000|music|Funkwhale|postgresql"
+    ["peertube"]="docker.io/chocobozzz/peertube:production-bookworm|9000|video|PeerTube|postgresql redis"
 
     # === BUSINESS ===
     ["espocrm"]="docker.io/espocrm/espocrm:latest|8080|crm|EspoCRM|"
     ["invoiceninja"]="docker.io/invoiceninja/invoiceninja:latest|8080|invoice|Invoice Ninja|"
-    ["kimai"]="kimai/kimai2:latest|8001|time|Kimai|"
+    ["kimai"]="docker.io/kimai/kimai2:latest|8001|time|Kimai|"
     ["calcom"]="docker.io/calcom/cal.com:latest|3000|schedule|Cal.com|postgresql"
     ["docuseal"]="docker.io/docuseal/docuseal:latest|3000|sign|DocuSeal|postgresql"
 
@@ -96,11 +96,11 @@ declare -A _WOPR_REGISTRY=(
     # === SECURITY / NETWORK ===
     ["defcon-one"]="docker.io/wopr/defcon-one:latest|8110|defcon|DEFCON ONE|postgresql redis"
     ["crowdsec"]="docker.io/crowdsecurity/crowdsec:latest|8180|crowdsec|CrowdSec|"
-    ["netbird"]="netbirdio/management:latest|33073|vpn|NetBird VPN|"
+    ["netbird"]="docker.io/netbirdio/management:latest|33073|vpn|NetBird VPN|"
     ["adguard"]="docker.io/adguard/adguardhome:latest|3000|dns|AdGuard Home|"
 
     # === NOTES (encrypted) ===
-    ["standardnotes"]="standardnotes/server:latest|3000|notes|Standard Notes|postgresql"
+    ["standardnotes"]="docker.io/standardnotes/server:latest|3000|notes|Standard Notes|postgresql"
 )
 
 # -----------------------------------------------
@@ -196,6 +196,27 @@ declare -A _WOPR_AUTH_MODE=(
     ["netbird"]="none"
     ["docker-registry"]="none"
     ["mailcow"]="none"
+)
+
+# -----------------------------------------------
+# Per-app command overrides
+# Some containers need a specific command/entrypoint
+# -----------------------------------------------
+
+declare -A _WOPR_APP_COMMAND=(
+    ["ntfy"]="serve --listen-http :8092"
+    ["crowdsec"]=""
+)
+
+# -----------------------------------------------
+# Per-app volume overrides
+# Default is -v $data_dir:/data:Z
+# Override with custom mount paths
+# -----------------------------------------------
+
+declare -A _WOPR_APP_VOLUMES=(
+    ["crowdsec"]="-v {data_dir}/data:/var/lib/crowdsec/data:Z -v {data_dir}/config:/etc/crowdsec:Z"
+    ["portainer"]="-v {data_dir}:/data:Z -v /run/podman/podman.sock:/var/run/docker.sock:ro"
 )
 
 # -----------------------------------------------
@@ -453,6 +474,23 @@ wopr_deploy_from_registry() {
         wopr_log "INFO" "  OIDC: injected env vars for $auth_mode auth"
     fi
 
+    # Resolve per-app volume overrides
+    local volume_flags="-v ${data_dir}:/data:Z"
+    if [ -n "${_WOPR_APP_VOLUMES[$module_id]+x}" ]; then
+        volume_flags="${_WOPR_APP_VOLUMES[$module_id]}"
+        volume_flags="${volume_flags//\{data_dir\}/${data_dir}}"
+        # Create any custom directories
+        for dir_path in $(echo "$volume_flags" | grep -oP '(?<=-v )[^:]+' ); do
+            mkdir -p "$dir_path"
+        done
+    fi
+
+    # Resolve per-app command overrides
+    local app_command=""
+    if [ -n "${_WOPR_APP_COMMAND[$module_id]+x}" ]; then
+        app_command="${_WOPR_APP_COMMAND[$module_id]}"
+    fi
+
     # Create systemd service
     cat > "/etc/systemd/system/${service_name}.service" <<SVCEOF
 [Unit]
@@ -471,10 +509,10 @@ ExecStartPre=-/usr/bin/podman rm ${service_name}
 ExecStart=/usr/bin/podman run --rm \\
     --name ${service_name} \\
     --network ${WOPR_NETWORK} \\
-    -v ${data_dir}:/data:Z \\
+    ${volume_flags} \\
     ${env_flags} \\
     -p 127.0.0.1:${port}:${container_port} \\
-    ${image}
+    ${image} ${app_command}
 
 ExecStop=/usr/bin/podman stop -t 10 ${service_name}
 

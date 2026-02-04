@@ -78,7 +78,7 @@ ExecStartPre=-/usr/bin/podman rm ${NEXTCLOUD_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${NEXTCLOUD_SERVICE} \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${NEXTCLOUD_DATA_DIR}/html:/var/www/html:Z \\
     -v ${NEXTCLOUD_DATA_DIR}/data:/var/www/html/data:Z \\
     -v ${NEXTCLOUD_DATA_DIR}/config:/var/www/html/config:Z \\

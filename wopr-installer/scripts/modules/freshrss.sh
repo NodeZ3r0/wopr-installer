@@ -57,7 +57,7 @@ ExecStartPre=-/usr/bin/podman rm ${FRESHRSS_SERVICE}
 
 ExecStart=/usr/bin/podman run --rm \\
     --name ${FRESHRSS_SERVICE} \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${FRESHRSS_DATA_DIR}/data:/var/www/FreshRSS/data:Z \\
     -v ${FRESHRSS_DATA_DIR}/extensions:/var/www/FreshRSS/extensions:Z \\
     -e TZ=America/New_York \\
