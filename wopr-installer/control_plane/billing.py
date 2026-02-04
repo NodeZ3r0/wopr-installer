@@ -235,11 +235,19 @@ class WOPRBilling:
             additional_users=json.dumps(additional_users or []),
         )
 
+        # Find or create Stripe customer (required for Accounts V2 test mode)
+        existing = stripe.Customer.list(email=email, limit=1)
+        if existing.data:
+            customer_id = existing.data[0].id
+        else:
+            customer = stripe.Customer.create(email=email, name=name)
+            customer_id = customer.id
+
         # Create Stripe checkout session
         session = stripe.checkout.Session.create(
             mode="subscription",
             payment_method_types=["card"],
-            customer_email=email,
+            customer=customer_id,
             line_items=[
                 {
                     "price": price_id,

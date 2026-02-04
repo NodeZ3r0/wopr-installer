@@ -15,7 +15,7 @@ from starlette.responses import JSONResponse
 
 from api.audit import AuditMiddleware
 from api.config import SupportGatewayConfig
-from api.routes import audit, breakglass, diagnostics, remediation
+from api.routes import ai, audit, breakglass, diagnostics, remediation
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,7 @@ app.include_router(diagnostics.router)
 app.include_router(remediation.router)
 app.include_router(breakglass.router)
 app.include_router(audit.router)
+app.include_router(ai.router)
 
 
 @app.get("/api/health")

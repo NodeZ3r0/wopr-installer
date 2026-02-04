@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wopr-audit"
+version = "0.1.0"
+description = "Reusable audit/logging module for WOPR ecosystem apps"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.0"]
+
+[project.optional-dependencies]
+postgres = ["asyncpg>=0.29"]
+sqlite = ["aiosqlite>=0.19"]
+fastapi = ["starlette"]
+flask = ["flask>=3.0"]
+hooks = ["httpx>=0.25"]
+all = ["wopr-audit[postgres,sqlite,fastapi,flask,hooks]"]

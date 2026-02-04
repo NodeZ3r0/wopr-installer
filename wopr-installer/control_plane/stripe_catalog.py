@@ -7,6 +7,9 @@
 # For development, this file contains the pricing structure which allows
 # the billing module to work before Stripe products are created.
 
+import json
+import os
+from pathlib import Path
 from typing import Dict, Optional, List
 
 # Stripe Product IDs (populated from live Stripe account)
@@ -160,6 +163,24 @@ STRIPE_PRICES: Dict[str, str] = {
     "writer_studio_t2_monthly": "price_1StoeT2ZMY5KYPjWuyhdxeAQ",
     "writer_studio_t3_monthly": "price_1StoeU2ZMY5KYPjWMKAyQWS9",
 }
+
+# Load test prices if STRIPE_PRICE_MODE=test
+if os.environ.get("STRIPE_PRICE_MODE", "live") == "test":
+    _test_price_file = Path(__file__).parent / "bundles" / "stripe_prices_test.json"
+    if _test_price_file.exists():
+        with open(_test_price_file) as _f:
+            _test_data = json.load(_f)
+        _test_prices: Dict[str, str] = {}
+        _tier_map = {"tier_1": "t1", "tier_2": "t2", "tier_3": "t3"}
+        # Map "smallbusiness" -> "small_business" to match catalog keys
+        _bundle_renames = {"smallbusiness": "small_business"}
+        for _btype in ("sovereign", "micro"):
+            for _bid, _bdata in _test_data.get(_btype, {}).items():
+                _catalog_bid = _bundle_renames.get(_bid, _bid)
+                for _tkey, _price_id in _bdata.get("prices", {}).items():
+                    _tier = _tier_map.get(_tkey, _tkey)
+                    _test_prices[f"{_catalog_bid}_{_tier}_monthly"] = _price_id
+        STRIPE_PRICES.update(_test_prices)
 
 # Bundle pricing in cents (updated Feb 2026 — aligned with actual VPS costs)
 BUNDLE_PRICING: Dict[str, Dict[str, int]] = {

@@ -8,7 +8,7 @@ import os
 import json
 import time
 
-GH_TOKEN = "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"
+GH_TOKEN = os.environ.get("GH_TOKEN", "")
 GH_USER = "NodeZ3r0"
 BASE_DIR = "/opt/wopr-modules"
 
@@ -25,7 +25,7 @@ MODULES = [
     {"id": "affine", "name": "AFFiNE", "desc": "Notion alternative knowledge base", "image": "ghcr.io/toeverything/affine-graphql:stable", "port": 3010, "sso": "oidc", "subdomain": "notes", "ram": 1024, "replaces": "Notion, Coda"},
     {"id": "linkwarden", "name": "Linkwarden", "desc": "Bookmark manager with archival", "image": "ghcr.io/linkwarden/linkwarden:latest", "port": 3000, "sso": "proxy", "subdomain": "links", "ram": 512, "replaces": "Pocket, Raindrop"},
     {"id": "standardnotes", "name": "Standard Notes", "desc": "Encrypted notes", "image": "standardnotes/server:latest", "port": 3000, "sso": "proxy", "subdomain": "notes", "ram": 512, "replaces": "Apple Notes, Evernote"},
-    {"id": "calcom", "name": "Cal.com", "desc": "Appointment scheduling", "image": "calcom/cal.com:latest", "port": 3000, "sso": "oidc", "subdomain": "cal", "ram": 512, "replaces": "Calendly"},
+    {"id": "calcom", "name": "Cal.com", "desc": "Appointment scheduling", "image": "calcom/cal.com:v6.1.11", "port": 3000, "sso": "oidc", "subdomain": "cal", "ram": 1024, "replaces": "Calendly"},
     {"id": "hedgedoc", "name": "HedgeDoc", "desc": "Collaborative markdown", "image": "quay.io/hedgedoc/hedgedoc:latest", "port": 3000, "sso": "oidc", "subdomain": "pad", "ram": 512, "replaces": "HackMD"},
     {"id": "stirling-pdf", "name": "Stirling PDF", "desc": "PDF tools suite", "image": "frooodle/s-pdf:latest", "port": 8080, "sso": "proxy", "subdomain": "pdf", "ram": 512, "replaces": "Adobe Acrobat"},
     {"id": "docuseal", "name": "DocuSeal", "desc": "Document signing", "image": "docuseal/docuseal:latest", "port": 3000, "sso": "oidc", "subdomain": "sign", "ram": 512, "replaces": "DocuSign"},
@@ -123,6 +123,12 @@ services:
       resources:
         limits:
           memory: {m["ram"]}M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:{m["port"]}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 volumes:
   {m["id"]}_data:

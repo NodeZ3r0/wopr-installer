@@ -1,0 +1,16 @@
+{
+  "name": "@wopr/audit",
+  "version": "0.1.0",
+  "description": "Reusable audit/logging module for WOPR ecosystem Node.js apps",
+  "main": "src/index.js",
+  "type": "module",
+  "dependencies": {},
+  "peerDependencies": {
+    "better-sqlite3": ">=11.0.0",
+    "express": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": { "optional": true },
+    "express": { "optional": true }
+  }
+}
