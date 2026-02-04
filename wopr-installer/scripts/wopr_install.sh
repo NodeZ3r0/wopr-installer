@@ -11,6 +11,7 @@
 #=================================================
 
 set -euo pipefail
+trap 'wopr_log "ERROR" "Installer failed at line $LINENO"; report_status "failed" "Installer error at line $LINENO"' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/wopr_common.sh"
@@ -609,6 +610,37 @@ step_finalize() {
     echo ""
     echo "============================================"
 
+    # If SSO setup was deferred, install a retry timer
+    if [ "$(wopr_setting_get 'sso_setup_pending' 2>/dev/null || echo '')" = "true" ]; then
+        wopr_log "INFO" "Installing SSO retry timer..."
+        cat > /etc/systemd/system/wopr-sso-retry.service << 'SVCEOF'
+[Unit]
+Description=WOPR SSO Setup Retry
+After=network-online.target wopr-authentik-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'source /opt/wopr/scripts/wopr_common.sh && source /opt/wopr/scripts/modules/authentik.sh && wopr_authentik_wait_ready 300 && wopr_authentik_setup_wopr_groups && wopr_setting_set sso_setup_pending false && systemctl disable wopr-sso-retry.timer'
+SVCEOF
+
+        cat > /etc/systemd/system/wopr-sso-retry.timer << 'SVCEOF'
+[Unit]
+Description=Retry WOPR SSO setup
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+SVCEOF
+
+        systemctl daemon-reload
+        systemctl enable --now wopr-sso-retry.timer
+        wopr_log "INFO" "SSO retry timer installed - will retry every 5 minutes"
+    fi
+
     wopr_log "OK" "WOPR installation complete!"
 }
 
@@ -645,9 +677,14 @@ main() {
     step_deploy_applications      # App modules from bootstrap.json
     step_configure_caddy          # Reverse proxy with all routes
     step_deploy_dashboard         # Dashboard UI
-    step_setup_sso                # Wire apps to Authentik
+    step_setup_sso || {            # Wire apps to Authentik (non-fatal)
+        wopr_log "WARN" "SSO setup incomplete - will retry on next boot"
+        wopr_setting_set "sso_setup_pending" "true"
+    }
     step_schedule_backups
-    step_deploy_mesh                # P2P mesh network agent
+    step_deploy_mesh || {          # P2P mesh network agent (non-fatal)
+        wopr_log "WARN" "Mesh deployment incomplete - can be retried later"
+    }
     step_register_update_agent
     step_finalize
 }

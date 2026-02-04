@@ -53,7 +53,7 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-ollama \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${data_dir}:/root/.ollama:Z \\
     -p 127.0.0.1:11434:11434 \\
     docker.io/ollama/ollama:latest
@@ -148,7 +148,7 @@ After=network.target wopr-postgresql.service
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-defcon-one \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     -v ${data_dir}/config.json:/app/config.json:ro \\
     -p 127.0.0.1:8081:8081 \\
@@ -262,7 +262,7 @@ After=network.target wopr-ollama.service wopr-defcon-one.service
 Type=simple
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-reactor \\
-    --network \${WOPR_NETWORK} \\
+    --network ${WOPR_NETWORK} \\
     -v ${data_dir}:/data:Z \\
     -v ${data_dir}/config.yaml:/app/config.yaml:ro \\
     -p 127.0.0.1:8080:8080 \\

@@ -499,8 +499,14 @@ wopr_authentik_wait_ready() {
     wopr_log "INFO" "Waiting for Authentik to be ready..."
 
     while [ "$count" -lt "$timeout" ]; do
-        if curl -s "http://127.0.0.1:9000/-/health/ready/" | grep -q "ok"; then
+        # Try container-direct first (avoids netavark port forwarding issues)
+        if podman exec wopr-authentik-server curl -s http://localhost:9000/-/health/ready/ 2>/dev/null | grep -q "ok"; then
             wopr_log "OK" "Authentik is ready"
+            return 0
+        fi
+        # Fallback to host port
+        if curl -s "http://127.0.0.1:9000/-/health/ready/" 2>/dev/null | grep -q "ok"; then
+            wopr_log "OK" "Authentik is ready (via host port)"
             return 0
         fi
         sleep 2
