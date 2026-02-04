@@ -116,7 +116,7 @@ declare -A _WOPR_PORTS=(
     ["mattermost"]="8065"  ["matrix-synapse"]="8008" ["element"]="8090" ["jitsi"]="8443"
     ["ntfy"]="8092"        ["mailcow"]="8093"    ["listmonk"]="9001"  ["chatwoot"]="3400"
     ["forgejo"]="3500"     ["woodpecker"]="8200"  ["code-server"]="8444" ["reactor"]="8100"
-    ["portainer"]="9443"   ["n8n"]="5678"        ["plane"]="3600"     ["docker-registry"]="5000"
+    ["portainer"]="9444"   ["n8n"]="5678"        ["plane"]="3600"     ["docker-registry"]="5000"
     ["openwebui"]="8300"   ["langfuse"]="3700"
     ["ghost"]="2368"       ["saleor"]="8400"     ["castopod"]="8401"  ["funkwhale"]="8402"
     ["peertube"]="9002"
@@ -217,6 +217,17 @@ declare -A _WOPR_APP_COMMAND=(
 declare -A _WOPR_APP_VOLUMES=(
     ["crowdsec"]="-v {data_dir}/data:/var/lib/crowdsec/data:Z -v {data_dir}/config:/etc/crowdsec:Z"
     ["portainer"]="-v {data_dir}:/data:Z -v /run/podman/podman.sock:/var/run/docker.sock:ro"
+)
+
+# -----------------------------------------------
+# Per-app DB env var overrides
+# Some apps need specific env var names for DB connection
+# Placeholders: {db_name} {db_pass} {db_host}
+# -----------------------------------------------
+
+declare -A _WOPR_DB_ENV=(
+    ["mattermost"]="MM_SQLSETTINGS_DRIVERNAME=postgres MM_SQLSETTINGS_DATASOURCE=postgres://{db_name}:{db_pass}@{db_host}:5432/{db_name}?sslmode=disable&connect_timeout=10"
+    ["outline"]="DATABASE_URL=postgres://{db_name}:{db_pass}@{db_host}:5432/{db_name}?sslmode=disable SECRET_KEY={admin_secret} UTILS_SECRET={admin_secret}"
 )
 
 # -----------------------------------------------
@@ -439,13 +450,28 @@ wopr_deploy_from_registry() {
         local db_pass=$(wopr_random_string 32)
         wopr_setting_set "${module_id//-/_}_db_password" "$db_pass"
 
-        podman exec wopr-postgresql psql -U postgres -c \
+        podman exec wopr-postgresql psql -U wopr -c \
             "CREATE DATABASE ${db_name};" 2>/dev/null || true
-        podman exec wopr-postgresql psql -U postgres -c \
+        podman exec wopr-postgresql psql -U wopr -c \
             "CREATE USER ${db_name} WITH PASSWORD '${db_pass}';" 2>/dev/null || true
-        podman exec wopr-postgresql psql -U postgres -c \
+        podman exec wopr-postgresql psql -U wopr -c \
             "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_name};" 2>/dev/null || true
+        # PG 15+ requires schema grants
+        podman exec wopr-postgresql psql -U wopr -d "${db_name}" -c \
+            "GRANT ALL ON SCHEMA public TO ${db_name};" 2>/dev/null || true
 
+        # Check for per-app DB env var overrides
+        if [ -n "${_WOPR_DB_ENV[$module_id]+x}" ]; then
+            local db_env="${_WOPR_DB_ENV[$module_id]}"
+            db_env="${db_env//\{db_name\}/${db_name}}"
+            db_env="${db_env//\{db_pass\}/${db_pass}}"
+            db_env="${db_env//\{db_host\}/wopr-postgresql}"
+            db_env="${db_env//\{admin_secret\}/${admin_secret}}"
+            for kv in $db_env; do
+                env_flags="$env_flags -e $kv"
+            done
+        fi
+        # Always set standard DB env vars as well
         env_flags="$env_flags -e DATABASE_URL=postgresql://${db_name}:${db_pass}@wopr-postgresql:5432/${db_name}"
         env_flags="$env_flags -e POSTGRES_HOST=wopr-postgresql"
         env_flags="$env_flags -e POSTGRES_DB=${db_name}"
