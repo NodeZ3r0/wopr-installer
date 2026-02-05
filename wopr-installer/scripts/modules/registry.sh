@@ -143,6 +143,7 @@ declare -A _WOPR_PORTS=(
     ["postgresql"]="5432"
     ["redis"]="6379"
     ["caddy"]="443"
+    ["dashboard-api"]="8090"     # WOPR Dashboard backend API
 
     # === IDENTITY & AUTH (9000-9099) ===
     ["authentik"]="9000"
@@ -154,17 +155,20 @@ declare -A _WOPR_PORTS=(
     ["ai-engine"]="8600"
     ["reactor"]="8600"           # alias for ai-engine
     ["defcon-one"]="8601"
+    ["defcon_one"]="8601"        # alias (underscore)
     ["support-plane"]="8602"
     ["deployment-queue"]="0"     # no HTTP port (internal daemon)
 
     # === ADMIN TOOLS (9400-9499) ===
     ["portainer"]="9444"
     ["code-server"]="8444"
+    ["code_server"]="8444"       # alias (underscore)
 
     # === MONITORING (3900-3999, 9090) ===
     ["grafana"]="3900"
     ["prometheus"]="9090"
     ["uptime-kuma"]="3001"
+    ["uptime_kuma"]="3001"       # alias (underscore)
     ["crowdsec"]="8180"
     ["plausible"]="8610"         # moved from 8600 to avoid ai-engine conflict
 
@@ -189,6 +193,7 @@ declare -A _WOPR_PORTS=(
     # === COMMUNICATION (8065, 8008, 8090-8099, 8443) ===
     ["mattermost"]="8065"
     ["matrix-synapse"]="8008"
+    ["matrix"]="8008"            # alias for matrix-synapse
     ["element"]="8090"
     ["jitsi"]="8443"
     ["ntfy"]="8092"
@@ -208,6 +213,7 @@ declare -A _WOPR_PORTS=(
 
     # === CREATOR / CMS (2368, 8400-8499) ===
     ["ghost"]="2368"
+    ["wordpress"]="8403"
     ["saleor"]="8400"
     ["castopod"]="8401"
     ["funkwhale"]="8402"
