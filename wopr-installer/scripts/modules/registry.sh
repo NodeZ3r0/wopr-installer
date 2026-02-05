@@ -58,7 +58,7 @@ declare -A _WOPR_REGISTRY=(
     ["forgejo"]="codeberg.org/forgejo/forgejo:latest|3000|git|Forgejo Git|postgresql"
     ["woodpecker"]="docker.io/woodpeckerci/woodpecker-server:latest|8000|ci|Woodpecker CI|postgresql"
     ["code-server"]="docker.io/linuxserver/code-server:latest|8443|code|VS Code|"
-    ["reactor"]="docker.io/wopr/reactor:latest|8100|reactor|Reactor AI|postgresql redis"
+    ["reactor"]="localhost/wopr-ai-engine:latest|8000|reactor|Reactor AI|ollama"
     ["portainer"]="docker.io/portainer/portainer-ce:latest|9443|containers|Portainer|"
     ["n8n"]="docker.io/n8nio/n8n:latest|5678|auto|n8n Automation|postgresql"
     ["plane"]="docker.io/makeplane/plane-app:latest|3000|projects|Plane PM|postgresql redis"
@@ -94,37 +94,144 @@ declare -A _WOPR_REGISTRY=(
     ["uptime-kuma"]="docker.io/louislam/uptime-kuma:latest|3001|status|Uptime Kuma|"
 
     # === SECURITY / NETWORK ===
-    ["defcon-one"]="docker.io/wopr/defcon-one:latest|8110|defcon|DEFCON ONE|postgresql redis"
     ["crowdsec"]="docker.io/crowdsecurity/crowdsec:latest|8180|crowdsec|CrowdSec|"
     ["netbird"]="docker.io/netbirdio/management:latest|33073|vpn|NetBird VPN|"
     ["adguard"]="docker.io/adguard/adguardhome:latest|3000|dns|AdGuard Home|"
+
+    # === OPS / CONTROL PLANE ===
+    # These are built from source, not pulled from registry
+    ["ollama"]="docker.io/ollama/ollama:latest|11434|_internal|Ollama LLM|"
+    ["ai-engine"]="localhost/wopr-ai-engine:latest|8000|reactor|Reactor AI Engine|ollama"
+    ["defcon-one"]="localhost/wopr-defcon-one:latest|8080|defcon|DEFCON ONE|"
+    ["support-plane"]="localhost/wopr-support-plane:latest|8443|support|Support Plane|postgresql"
+    ["deployment-queue"]="localhost/wopr-deployment-queue:latest|0|_internal|Deployment Queue|"
 
     # === NOTES (encrypted) ===
     ["standardnotes"]="docker.io/standardnotes/server:latest|3000|notes|Standard Notes|postgresql"
 )
 
 # -----------------------------------------------
-# Port allocation map (avoids collisions)
+# MASTER PORT ALLOCATION MAP
+# -----------------------------------------------
+# This is the SINGLE SOURCE OF TRUTH for all port assignments.
+# EVERY service MUST be listed here. NO exceptions.
+# Before adding a new service, check this list for conflicts!
+#
+# Port ranges:
+#   2000-2999: Media (immich, photoprism, ghost, etc)
+#   3000-3999: Web apps (grafana, outline, calcom, etc)
+#   5000-5999: Developer tools (registry, n8n)
+#   6000-6999: Books/docs (bookstack)
+#   8000-8099: Core apps (nextcloud, mattermost, matrix)
+#   8080-8099: HTTP apps
+#   8100-8199: Automation/security (crowdsec)
+#   8200-8299: CI/CD (woodpecker)
+#   8300-8399: AI (openwebui)
+#   8400-8499: Creator/CMS (saleor, castopod)
+#   8500-8599: Business apps (espocrm, invoice, kimai)
+#   8600-8699: OPS PLANE (ai-engine, defcon-one, support-plane)
+#   8700-8799: Reserved
+#   9000-9099: Identity/monitoring (authentik, prometheus, listmonk)
+#   9400-9499: Admin tools (portainer)
+#   9900-9999: Office (collabora)
+#   11000+: LLM/specialty (ollama)
+#   33000+: VPN (netbird)
 # -----------------------------------------------
 
 declare -A _WOPR_PORTS=(
-    ["postgresql"]="5432"  ["redis"]="6379"  ["authentik"]="9000"  ["caddy"]="443"
-    ["nextcloud"]="8080"   ["collabora"]="9980"  ["outline"]="3100"  ["vikunja"]="3456"
-    ["bookstack"]="6875"   ["hedgedoc"]="3200"   ["affine"]="3010"   ["nocodb"]="8085"
-    ["stirling-pdf"]="8086" ["paperless-ngx"]="8087" ["wallabag"]="8088" ["freshrss"]="8082"
-    ["linkwarden"]="3300"  ["vaultwarden"]="8081" ["passbolt"]="8089"
-    ["mattermost"]="8065"  ["matrix-synapse"]="8008" ["element"]="8090" ["jitsi"]="8443"
-    ["ntfy"]="8092"        ["mailcow"]="8093"    ["listmonk"]="9001"  ["chatwoot"]="3400"
-    ["forgejo"]="3500"     ["woodpecker"]="8200"  ["code-server"]="8444" ["reactor"]="8100"
-    ["portainer"]="9444"   ["n8n"]="5678"        ["plane"]="3600"     ["docker-registry"]="5000"
-    ["openwebui"]="8300"   ["langfuse"]="3700"
-    ["ghost"]="2368"       ["saleor"]="8400"     ["castopod"]="8401"  ["funkwhale"]="8402"
+    # === CORE INFRASTRUCTURE ===
+    ["postgresql"]="5432"
+    ["redis"]="6379"
+    ["caddy"]="443"
+
+    # === IDENTITY & AUTH (9000-9099) ===
+    ["authentik"]="9000"
+    ["listmonk"]="9001"
     ["peertube"]="9002"
-    ["espocrm"]="8500"     ["invoiceninja"]="8501" ["kimai"]="8502"  ["calcom"]="3800"
+
+    # === OPS/CONTROL PLANE (8600-8699) ===
+    ["ollama"]="11434"
+    ["ai-engine"]="8600"
+    ["reactor"]="8600"           # alias for ai-engine
+    ["defcon-one"]="8601"
+    ["support-plane"]="8602"
+    ["deployment-queue"]="0"     # no HTTP port (internal daemon)
+
+    # === ADMIN TOOLS (9400-9499) ===
+    ["portainer"]="9444"
+    ["code-server"]="8444"
+
+    # === MONITORING (3900-3999, 9090) ===
+    ["grafana"]="3900"
+    ["prometheus"]="9090"
+    ["uptime-kuma"]="3001"
+    ["crowdsec"]="8180"
+    ["plausible"]="8610"         # moved from 8600 to avoid ai-engine conflict
+
+    # === PRODUCTIVITY (8080-8089, 3100-3499) ===
+    ["nextcloud"]="8080"
+    ["outline"]="3100"
+    ["vikunja"]="3456"
+    ["bookstack"]="6875"
+    ["hedgedoc"]="3200"
+    ["affine"]="3010"
+    ["nocodb"]="8085"
+    ["stirling-pdf"]="8086"
+    ["paperless-ngx"]="8087"
+    ["wallabag"]="8088"
+    ["freshrss"]="8082"
+    ["linkwarden"]="3300"
+
+    # === SECURITY / PASSWORDS ===
+    ["vaultwarden"]="8081"
+    ["passbolt"]="8089"
+
+    # === COMMUNICATION (8065, 8008, 8090-8099, 8443) ===
+    ["mattermost"]="8065"
+    ["matrix-synapse"]="8008"
+    ["element"]="8090"
+    ["jitsi"]="8443"
+    ["ntfy"]="8092"
+    ["mailcow"]="8093"
+    ["chatwoot"]="3400"
+
+    # === DEVELOPER (3500-3699, 5000-5999, 8200-8299) ===
+    ["forgejo"]="3500"
+    ["woodpecker"]="8200"
+    ["n8n"]="5678"
+    ["plane"]="3600"
+    ["docker-registry"]="5000"
+
+    # === AI (8300-8399, 3700) ===
+    ["openwebui"]="8300"
+    ["langfuse"]="3700"
+
+    # === CREATOR / CMS (2368, 8400-8499) ===
+    ["ghost"]="2368"
+    ["saleor"]="8400"
+    ["castopod"]="8401"
+    ["funkwhale"]="8402"
+
+    # === BUSINESS (8500-8599, 3800-3899) ===
+    ["espocrm"]="8500"
+    ["invoiceninja"]="8501"
+    ["kimai"]="8502"
+    ["calcom"]="3800"
     ["docuseal"]="3801"
-    ["immich"]="2283"      ["jellyfin"]="8096"   ["photoprism"]="2342"
-    ["plausible"]="8600"   ["grafana"]="3900"    ["prometheus"]="9090" ["uptime-kuma"]="3001"
-    ["defcon-one"]="8110"  ["crowdsec"]="8180"   ["netbird"]="33073"  ["adguard"]="3002"
+
+    # === MEDIA (2283, 2342, 8096) ===
+    ["immich"]="2283"
+    ["jellyfin"]="8096"
+    ["photoprism"]="2342"
+
+    # === OFFICE (9980) ===
+    ["collabora"]="9980"
+
+    # === NETWORK / VPN (33000+) ===
+    ["netbird"]="33073"
+    ["adguard"]="3002"
+
+    # === NOTES ===
     ["standardnotes"]="3003"
 )
 
