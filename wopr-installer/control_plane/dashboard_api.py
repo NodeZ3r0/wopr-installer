@@ -19,9 +19,12 @@ FastAPI-based API that integrates:
 Updated: January 2026
 """
 
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 try:
     from fastapi import FastAPI, HTTPException, Request, Depends
@@ -738,8 +741,12 @@ def create_dashboard_app(
     # PROVISIONING ENDPOINTS
     # ----------------------------------------
 
-    # In-memory job storage (TODO: Replace with Redis/PostgreSQL)
-    _provisioning_jobs: Dict[str, Dict] = {}
+    # Use shared job store for cross-module access
+    from .job_store import get_job_store
+    job_store = get_job_store()
+
+    # Legacy alias for backwards compatibility with SSE endpoint
+    _provisioning_jobs = job_store._jobs
 
     @app.get("/api/v1/provisioning/{job_id}")
     async def get_provisioning_status(job_id: str):
@@ -765,55 +772,112 @@ def create_dashboard_app(
         """
         Server-Sent Events endpoint for real-time provisioning updates.
         Streams progress updates as the beacon is being set up.
+
+        Polls actual provisioning job status and maps to UI steps:
+        - Step 0: Payment received
+        - Step 1: Creating server (VPS provisioning)
+        - Step 2: Configuring DNS
+        - Step 3: Installing WOPR (modules)
+        - Step 4: Final configuration (SSO, mesh)
+        - Step 5: Complete
         """
         from fastapi.responses import StreamingResponse
         import asyncio
         import json
 
+        # Map provisioning states to UI steps
+        STATE_TO_STEP = {
+            "pending": 0,
+            "payment_received": 0,
+            "provisioning_vps": 1,
+            "waiting_for_vps": 1,
+            "configuring_dns": 2,
+            "deploying_wopr": 3,
+            "generating_docs": 4,
+            "sending_welcome": 4,
+            "completed": 5,
+            "failed": -1,
+        }
+
         async def event_generator():
-            """Generate SSE events for provisioning progress."""
-            # For demo/development, simulate provisioning steps
-            steps = [
-                {"step": 0, "progress": 5, "status": "in_progress"},   # Payment received
-                {"step": 1, "progress": 15, "status": "in_progress"},  # Creating server
-                {"step": 1, "progress": 30, "status": "in_progress"},
-                {"step": 2, "progress": 40, "status": "in_progress"},  # Configuring DNS
-                {"step": 2, "progress": 50, "status": "in_progress"},
-                {"step": 3, "progress": 60, "status": "in_progress"},  # Installing WOPR
-                {"step": 3, "progress": 70, "status": "in_progress"},
-                {"step": 3, "progress": 80, "status": "in_progress"},
-                {"step": 4, "progress": 90, "status": "in_progress"},  # Final config
-                {"step": 5, "progress": 100, "status": "complete",     # Ready!
-                 "beacon_url": "https://demo.wopr.systems",
-                 "dashboard_url": "https://demo.wopr.systems/dashboard"},
-            ]
+            """Generate SSE events by polling actual job status."""
+            max_polls = 300  # 5 minutes max (at 1 second intervals)
+            poll_count = 0
+            last_progress = -1
 
-            # Check if we have a real job
-            job = _provisioning_jobs.get(job_id)
+            while poll_count < max_polls:
+                poll_count += 1
 
-            if job and job.get("status") == "complete":
-                # Job already complete, send final state
-                data = {
-                    "step": 5,
-                    "progress": 100,
-                    "status": "complete",
-                    "beacon_url": f"https://{job.get('beacon_name', 'demo')}.wopr.systems",
-                    "dashboard_url": f"https://{job.get('beacon_name', 'demo')}.wopr.systems/dashboard",
+                # Get job from our store
+                job = _provisioning_jobs.get(job_id)
+
+                if not job:
+                    # Job not found - might still be initializing
+                    yield f"data: {json.dumps({'step': 0, 'progress': 0, 'status': 'initializing', 'message': 'Waiting for job to start...'})}\n\n"
+                    await asyncio.sleep(2)
+                    continue
+
+                # Extract current state
+                state = job.get("state", job.get("status", "pending"))
+                step = STATE_TO_STEP.get(state, 0)
+                beacon_name = job.get("beacon_name", "beacon")
+
+                # Calculate progress based on state and any progress info
+                if state == "completed":
+                    progress = 100
+                elif state == "failed":
+                    progress = job.get("progress", 0)
+                else:
+                    # Use module progress if available, otherwise estimate from step
+                    modules_completed = job.get("modules_completed", 0)
+                    modules_total = job.get("modules_total", 20)
+                    if modules_total > 0 and step == 3:
+                        # During module installation, use actual module progress
+                        base_progress = 40  # Steps 0-2 take ~40%
+                        module_progress = (modules_completed / modules_total) * 40
+                        progress = int(base_progress + module_progress)
+                    else:
+                        # Estimate based on step
+                        step_progress = {0: 5, 1: 20, 2: 40, 3: 60, 4: 90}
+                        progress = step_progress.get(step, 0)
+
+                # Build update payload
+                update = {
+                    "step": step,
+                    "progress": progress,
+                    "status": "complete" if state == "completed" else ("failed" if state == "failed" else "in_progress"),
+                    "state": state,
+                    "message": job.get("message", ""),
+                    "current_module": job.get("current_module", ""),
+                    "modules_completed": job.get("modules_completed", 0),
+                    "modules_total": job.get("modules_total", 0),
                 }
-                yield f"data: {json.dumps(data)}\n\n"
-                return
 
-            # Simulate progress (in production, this would poll actual job status)
-            for update in steps:
-                yield f"data: {json.dumps(update)}\n\n"
+                # Add final URLs if complete
+                if state == "completed":
+                    update["beacon_url"] = f"https://{beacon_name}.wopr.systems"
+                    update["dashboard_url"] = f"https://{beacon_name}.wopr.systems/dashboard"
+                    update["auth_url"] = f"https://auth.{beacon_name}.wopr.systems"
 
-                # Update stored job state
-                if job_id in _provisioning_jobs:
-                    _provisioning_jobs[job_id].update(update)
+                # Add error info if failed
+                if state == "failed":
+                    update["error"] = job.get("error_message", "Provisioning failed")
 
-                # Wait between updates (simulating real provisioning time)
-                if update["status"] != "complete":
-                    await asyncio.sleep(3)  # 3 seconds between updates
+                # Only send if progress changed (reduce spam)
+                if progress != last_progress or state in ("completed", "failed"):
+                    yield f"data: {json.dumps(update)}\n\n"
+                    last_progress = progress
+
+                # Stop if terminal state
+                if state in ("completed", "failed"):
+                    break
+
+                # Poll interval
+                await asyncio.sleep(1)
+
+            # Timeout - send final status
+            if poll_count >= max_polls:
+                yield f"data: {json.dumps({'step': -1, 'progress': 0, 'status': 'timeout', 'error': 'Provisioning status check timed out'})}\n\n"
 
         return StreamingResponse(
             event_generator(),
@@ -829,30 +893,61 @@ def create_dashboard_app(
     async def start_provisioning(job_id: str, request: Request):
         """
         Start provisioning a new beacon.
-        Called internally after successful payment.
+        Called internally after successful payment or by webhook handler.
         """
+        from fastapi import BackgroundTasks
         data = await request.json()
+
+        beacon_name = data.get("beacon_name", "")
+        customer_email = data.get("email", "")
+        customer_name = data.get("name", "")
+        bundle = data.get("bundle", "")
 
         # Create job record
         job = {
             "job_id": job_id,
-            "status": "pending",
+            "state": "payment_received",
+            "status": "in_progress",
             "step": 0,
-            "progress": 0,
-            "beacon_name": data.get("beacon_name", ""),
-            "bundle": data.get("bundle", ""),
-            "tier": data.get("tier", ""),
+            "progress": 5,
+            "beacon_name": beacon_name,
+            "bundle": bundle,
+            "tier": data.get("tier", "t1"),
             "provider": data.get("provider", "hetzner"),
-            "customer_email": data.get("email", ""),
+            "customer_email": customer_email,
+            "customer_name": customer_name,
             "created_at": datetime.now().isoformat(),
+            "message": "Payment received, starting provisioning...",
+            "modules_completed": 0,
+            "modules_total": 0,
         }
 
         _provisioning_jobs[job_id] = job
 
-        # TODO: Queue actual provisioning task (Celery, etc.)
-        # For now, the stream endpoint simulates progress
+        # Send provisioning started email immediately
+        try:
+            from .email_service import EmailService
+            email_svc = EmailService()
+            provisioning_url = f"https://provision.wopr.systems/{job_id}"
+            bundle_name = BUNDLE_INFO.get(bundle, {}).get("name", bundle)
 
-        return {"job_id": job_id, "status": "started"}
+            email_svc.send_provisioning_started(
+                to_email=customer_email,
+                name=customer_name or customer_email.split("@")[0],
+                beacon_name=beacon_name,
+                bundle_name=bundle_name,
+                job_id=job_id,
+                provisioning_url=provisioning_url,
+            )
+        except Exception as e:
+            # Log but don't fail provisioning if email fails
+            logger.warning(f"Failed to send provisioning email: {e}")
+
+        return {
+            "job_id": job_id,
+            "status": "started",
+            "provisioning_url": f"https://provision.wopr.systems/{job_id}",
+        }
 
     # ----------------------------------------
     # THEME ENDPOINTS

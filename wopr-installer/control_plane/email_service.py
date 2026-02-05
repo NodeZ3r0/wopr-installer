@@ -189,6 +189,95 @@ class EmailService:
         )
 
     # ==========================================
+    # PROVISIONING EMAIL
+    # ==========================================
+
+    def send_provisioning_started(
+        self,
+        to_email: str,
+        name: str,
+        beacon_name: str,
+        bundle_name: str,
+        job_id: str,
+        provisioning_url: str,
+    ) -> bool:
+        """
+        Send email immediately after payment with link to watch provisioning.
+
+        This email goes out BEFORE the beacon is ready, giving the user
+        a link they can use to watch progress or return to later.
+        """
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; margin: 0;">
+            <div style="max-width: 600px; margin: 0 auto; background: #111; border-radius: 12px; overflow: hidden; border: 1px solid #222;">
+                <div style="padding: 40px 30px; text-align: center; border-bottom: 2px solid #00ff41; background: linear-gradient(180deg, #0a0a0a 0%, #111 100%);">
+                    <div style="font-size: 36px; font-weight: 700; color: #00ff41; letter-spacing: 6px; text-shadow: 0 0 20px rgba(0,255,65,0.3);">WOPR</div>
+                    <div style="color: #666; font-size: 12px; margin-top: 8px; letter-spacing: 2px;">SOVEREIGN SUITE</div>
+                </div>
+
+                <div style="padding: 40px 30px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <span style="display: inline-block; background: rgba(0, 255, 65, 0.1); border: 1px solid #00ff41; color: #00ff41; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 500;">
+                            🚀 Payment Confirmed
+                        </span>
+                    </div>
+
+                    <h1 style="color: #fff; font-size: 28px; text-align: center; margin: 0 0 20px; font-weight: 600;">
+                        Your Beacon is Being Built
+                    </h1>
+
+                    <p style="color: #aaa; text-align: center; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
+                        Hi {name}, thanks for joining WOPR! We're now provisioning your personal server.
+                        This typically takes 3-5 minutes.
+                    </p>
+
+                    <div style="background: #0a0a0a; border: 1px solid #333; border-radius: 12px; padding: 25px; margin: 0 0 30px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="color: #666; padding: 8px 0; font-size: 14px;">Beacon Name</td>
+                                <td style="color: #fff; padding: 8px 0; font-size: 14px; text-align: right; font-weight: 600;">{beacon_name}.wopr.systems</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #666; padding: 8px 0; font-size: 14px;">Bundle</td>
+                                <td style="color: #00ff41; padding: 8px 0; font-size: 14px; text-align: right; font-weight: 600;">{bundle_name}</td>
+                            </tr>
+                            <tr>
+                                <td style="color: #666; padding: 8px 0; font-size: 14px;">Job ID</td>
+                                <td style="color: #888; padding: 8px 0; font-size: 12px; text-align: right; font-family: monospace;">{job_id[:16]}...</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="text-align: center; margin: 35px 0;">
+                        <a href="{provisioning_url}" style="display: inline-block; background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%); color: #000; text-decoration: none; padding: 18px 40px; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 15px rgba(0,255,65,0.3);">
+                            Watch Your Beacon Deploy →
+                        </a>
+                    </div>
+
+                    <p style="color: #666; font-size: 13px; text-align: center; margin: 30px 0 0;">
+                        Bookmark this link! You can return to it anytime to check your beacon's status.
+                    </p>
+                </div>
+
+                <div style="padding: 20px 30px; background: #0a0a0a; border-top: 1px solid #222; text-align: center;">
+                    <p style="color: #444; font-size: 12px; margin: 0;">
+                        Questions? Reply to this email or visit <a href="https://wopr.systems/support" style="color: #00ff41;">support</a>
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return self._send_email(
+            to_email=to_email,
+            subject=f"🚀 Your WOPR Beacon is Being Built - {beacon_name}",
+            html_content=html_content,
+        )
+
+    # ==========================================
     # TRIAL REMINDER EMAILS
     # ==========================================
 

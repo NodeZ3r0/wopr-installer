@@ -31,6 +31,7 @@ from .tiers import (
     get_sovereign_price,
     get_micro_price,
 )
+from ..job_store import get_job_store
 from .manifests import (
     BundleManifest,
     get_bundle,
@@ -209,11 +210,17 @@ class BeaconProvisioner:
         self,
         request: ProvisioningRequest,
         on_progress: Optional[ProgressCallback] = None,
+        job_id: Optional[str] = None,
     ) -> BeaconInstance:
         """
         Provision a complete Beacon instance.
 
         This is the main entry point called after payment is confirmed.
+
+        Args:
+            request: Provisioning parameters
+            on_progress: Optional callback for progress updates
+            job_id: Optional job ID for updating shared job store (for SSE streaming)
         """
         import secrets
 
@@ -239,40 +246,49 @@ class BeaconProvisioner:
 
         self.instances[beacon_id] = instance
 
+        # Store job_id in instance for later reference
+        if job_id:
+            instance.job_id = job_id
+
         try:
             # Step 1: Setup onboarding data
             await self._update_progress(
                 instance, ProvisioningStatus.ONBOARDING,
-                "Configuring user profile", 1, 6, on_progress
+                "Configuring user profile", 1, 6, on_progress, job_id
             )
             onboarding_state = await self._setup_onboarding(request)
 
             # Step 2: Provision core infrastructure
             await self._update_progress(
                 instance, ProvisioningStatus.PROVISIONING_INFRA,
-                "Deploying core infrastructure (Authentik, Caddy, Database)", 2, 6, on_progress
+                "Deploying core infrastructure (Authentik, Caddy, Database)", 2, 6, on_progress, job_id
             )
             await self._provision_infrastructure(instance, onboarding_state)
 
             # Step 3: Get modules to deploy
             await self._update_progress(
                 instance, ProvisioningStatus.DEPLOYING_MODULES,
-                "Preparing module deployment", 3, 6, on_progress
+                "Preparing module deployment", 3, 6, on_progress, job_id
             )
             modules_to_deploy = self._get_modules_to_deploy(request)
             instance.progress.modules_total = len(modules_to_deploy)
 
+            # Update job store with module count
+            if job_id:
+                job_store = get_job_store()
+                job_store.update_job(job_id, modules_total=len(modules_to_deploy))
+
             # Step 4: Deploy each module with SSO
             await self._update_progress(
                 instance, ProvisioningStatus.CONFIGURING_SSO,
-                "Deploying modules with SSO integration", 4, 6, on_progress
+                "Deploying modules with SSO integration", 4, 6, on_progress, job_id
             )
-            await self._deploy_modules(instance, modules_to_deploy, onboarding_state, on_progress)
+            await self._deploy_modules(instance, modules_to_deploy, onboarding_state, on_progress, job_id)
 
             # Step 5: Finalize
             await self._update_progress(
                 instance, ProvisioningStatus.FINALIZING,
-                "Running final configuration", 5, 6, on_progress
+                "Running final configuration", 5, 6, on_progress, job_id
             )
             await self._finalize_deployment(instance, onboarding_state)
 
@@ -287,6 +303,11 @@ class BeaconProvisioner:
             if on_progress:
                 await on_progress(instance.progress)
 
+            # Update shared job store with completion
+            if job_id:
+                job_store = get_job_store()
+                job_store.complete_job(job_id, request.domain, "")
+
             # Save instance state
             await self._save_instance(instance)
 
@@ -300,6 +321,11 @@ class BeaconProvisioner:
             if on_progress:
                 await on_progress(instance.progress)
 
+            # Update shared job store with failure
+            if job_id:
+                job_store = get_job_store()
+                job_store.fail_job(job_id, str(e))
+
             raise
 
     async def _update_progress(
@@ -310,8 +336,9 @@ class BeaconProvisioner:
         completed: int,
         total: int,
         callback: Optional[ProgressCallback],
+        job_id: Optional[str] = None,
     ):
-        """Update provisioning progress"""
+        """Update provisioning progress - both instance and shared job store"""
         instance.status = status
         instance.progress.status = status
         instance.progress.current_step = step
@@ -320,6 +347,24 @@ class BeaconProvisioner:
 
         if callback:
             await callback(instance.progress)
+
+        # Update shared job store for SSE streaming
+        if job_id:
+            job_store = get_job_store()
+            # Map ProvisioningStatus to job_store state
+            STATE_MAP = {
+                ProvisioningStatus.PENDING: "pending",
+                ProvisioningStatus.PAYMENT_CONFIRMED: "payment_received",
+                ProvisioningStatus.ONBOARDING: "payment_received",
+                ProvisioningStatus.PROVISIONING_INFRA: "provisioning_vps",
+                ProvisioningStatus.DEPLOYING_MODULES: "deploying_wopr",
+                ProvisioningStatus.CONFIGURING_SSO: "deploying_wopr",
+                ProvisioningStatus.FINALIZING: "generating_docs",
+                ProvisioningStatus.COMPLETE: "completed",
+                ProvisioningStatus.FAILED: "failed",
+            }
+            state = STATE_MAP.get(status, "pending")
+            job_store.set_state(job_id, state, message=step)
 
     async def _setup_onboarding(self, request: ProvisioningRequest) -> OnboardingState:
         """Create onboarding state from provisioning request"""
@@ -401,6 +446,7 @@ class BeaconProvisioner:
         modules: list[str],
         state: OnboardingState,
         on_progress: Optional[ProgressCallback],
+        job_id: Optional[str] = None,
     ):
         """Deploy selected modules with SSO integration"""
         from ..services.module_deployer import ModuleDeployer, DeploymentConfig
@@ -426,6 +472,16 @@ class BeaconProvisioner:
             if on_progress:
                 await on_progress(instance.progress)
 
+            # Update shared job store with module progress
+            if job_id:
+                job_store = get_job_store()
+                job_store.update_module_progress(
+                    job_id,
+                    current_module=module_id,
+                    modules_completed=i,
+                    modules_total=len(modules_to_deploy),
+                )
+
             result = await deployer.deploy_module(module_id)
 
             if result.success:
@@ -436,6 +492,16 @@ class BeaconProvisioner:
                 # Continue with other modules, don't fail completely
 
         instance.progress.modules_completed = len(modules_to_deploy)
+
+        # Final module progress update
+        if job_id:
+            job_store = get_job_store()
+            job_store.update_module_progress(
+                job_id,
+                current_module="",
+                modules_completed=len(modules_to_deploy),
+                modules_total=len(modules_to_deploy),
+            )
 
     async def _finalize_deployment(
         self,
@@ -514,18 +580,59 @@ async def handle_stripe_webhook(
     - display_name: "John Doe"
     """
     if event_type == "checkout.session.completed":
+        import secrets
         session = event_data["object"]
         metadata = session.get("metadata", {})
 
         # Parse bundle from checkout format (e.g., "sovereign-starter")
         checkout_bundle = metadata.get("bundle", "sovereign-starter")
         storage_tier = int(metadata.get("tier", "1"))
+        beacon_name = metadata.get("beacon_name", metadata.get("domain", "").split(".")[0])
+        customer_email = session.get("customer_email", "")
+        customer_name = metadata.get("customer_name", metadata.get("display_name", ""))
+
+        # Generate job ID for tracking
+        job_id = secrets.token_urlsafe(16)
+
+        # Create job in shared store immediately
+        job_store = get_job_store()
+        job_store.create_job(
+            job_id=job_id,
+            beacon_name=beacon_name,
+            bundle=checkout_bundle,
+            tier=f"t{storage_tier}",
+            customer_email=customer_email,
+            customer_name=customer_name,
+        )
+
+        # Send provisioning started email with watch link
+        try:
+            from ..email_service import EmailService
+            email_svc = EmailService()
+            provisioning_url = f"https://provision.wopr.systems/{job_id}"
+
+            # Get bundle name for email
+            bundle_parts = checkout_bundle.split("-", 1)
+            bundle_name = bundle_parts[1].replace("_", " ").title() if len(bundle_parts) > 1 else checkout_bundle
+
+            email_svc.send_provisioning_started(
+                to_email=customer_email,
+                name=customer_name or customer_email.split("@")[0],
+                beacon_name=beacon_name,
+                bundle_name=bundle_name,
+                job_id=job_id,
+                provisioning_url=provisioning_url,
+            )
+        except Exception as e:
+            # Log but don't fail if email fails
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to send provisioning email: {e}")
 
         # Create provisioning request from checkout params
         request = ProvisioningRequest.from_checkout_params(
             checkout_bundle=checkout_bundle,
             storage_tier=storage_tier,
-            user_email=session.get("customer_email", ""),
+            user_email=customer_email,
             domain=metadata.get("domain", ""),
             username=metadata.get("username", ""),
             display_name=metadata.get("display_name", ""),
@@ -533,8 +640,8 @@ async def handle_stripe_webhook(
             stripe_subscription_id=session.get("subscription"),
         )
 
-        # Start provisioning
-        return await provisioner.provision(request)
+        # Start provisioning with job_id for progress tracking
+        return await provisioner.provision(request, job_id=job_id)
 
     elif event_type == "customer.subscription.updated":
         # Handle tier upgrades/downgrades
