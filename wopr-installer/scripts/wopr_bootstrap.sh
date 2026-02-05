@@ -389,6 +389,9 @@ main() {
 
     mkdir -p /var/log/wopr
 
+    # Ensure all scripts are executable (git checkout can reset permissions)
+    chmod +x "${SCRIPT_DIR}"/*.sh "${SCRIPT_DIR}"/modules/*.sh 2>/dev/null || true
+
     # Install Ollama FIRST so AI can help debug any failures
     install_ollama_for_debug || true
 
