@@ -675,6 +675,13 @@ main() {
     step_human_confirmation
     step_deploy_infrastructure    # Core modules from bootstrap.json
     step_deploy_applications      # App modules from bootstrap.json
+
+    # Configure alerting if monitoring modules were deployed (ntfy required)
+    if [ "$(wopr_setting_get 'module_ntfy_installed' 2>/dev/null)" = "true" ]; then
+        wopr_log "INFO" "Configuring alerting stack (Prometheus → Alertmanager → ntfy)..."
+        wopr_configure_alerting || wopr_log "WARN" "Alerting configuration deferred"
+    fi
+
     step_configure_caddy          # Reverse proxy with all routes
     step_deploy_dashboard         # Dashboard UI
     step_setup_sso || {            # Wire apps to Authentik (non-fatal)
