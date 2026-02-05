@@ -506,6 +506,41 @@ MICRO_LEGAL = BundleManifest(
     ],
 )
 
+MICRO_DEFCON_ONE = BundleManifest(
+    bundle_type=BundleType.MICRO,
+    bundle_id=MicroBundleID.DEFCON_ONE.value,
+    name="DEFCON ONE",
+    tagline="Protected actions gateway - AI doesn't get root, people do",
+    modules=[
+        "defcon-one",     # DEFCON ONE approval dashboard
+        "support-plane",  # Zero-trust support gateway
+        "crowdsec",       # Threat intelligence
+        "netbird",        # Zero-trust VPN
+        "ntfy",           # Alert notifications
+        "grafana",        # Dashboards
+        "prometheus",     # Metrics
+        "uptime-kuma",    # Status monitoring
+    ],
+)
+
+MICRO_REACTOR_AI = BundleManifest(
+    bundle_type=BundleType.MICRO,
+    bundle_id=MicroBundleID.REACTOR_AI.value,
+    name="Reactor AI",
+    tagline="AI coding assistant with DEFCON ONE safety controls",
+    modules=[
+        "reactor",        # Reactor AI coding assistant
+        "defcon-one",     # DEFCON ONE approval dashboard
+        "openwebui",      # Chat UI for LLMs
+        "code-server",    # VS Code in browser
+        "forgejo",        # Git hosting
+        "ntfy",           # Alert notifications
+        "grafana",        # Dashboards
+        "prometheus",     # Metrics
+        # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
+    ],
+)
+
 
 # =============================================================================
 # Bundle Registries
@@ -539,6 +574,9 @@ MICRO_BUNDLES: dict[MicroBundleID, BundleManifest] = {
     MicroBundleID.EDUCATOR: MICRO_EDUCATOR,
     MicroBundleID.THERAPIST: MICRO_THERAPIST,
     MicroBundleID.LEGAL: MICRO_LEGAL,
+    # AI/Ops micro-bundles
+    MicroBundleID.DEFCON_ONE: MICRO_DEFCON_ONE,
+    MicroBundleID.REACTOR_AI: MICRO_REACTOR_AI,
 }
 
 

@@ -832,6 +832,100 @@ async def stream_provision_status(job_id: str):
     )
 
 
+# =============================================================================
+# Beacon Installation Status Callbacks (called by installer on VPS)
+# =============================================================================
+
+@app.post("/api/v1/provision/{job_id}/status")
+async def update_provision_status(job_id: str, request: Request):
+    """
+    Callback from beacon installer to update provisioning status.
+    Called by wopr_bootstrap.sh during installation.
+    """
+    orchestrator = get_orchestrator()
+    job = orchestrator.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    try:
+        data = await request.json()
+        status = data.get("status", "")
+        message = data.get("message", "")
+        retry_count = data.get("retry_count", 0)
+
+        logger.info(f"[{job_id}] Beacon status update: {status} - {message} (retry {retry_count})")
+
+        # Update job metadata with retry info
+        if not isinstance(job.metadata, dict):
+            job.metadata = {}
+        job.metadata["last_status"] = status
+        job.metadata["last_message"] = message
+        job.metadata["retry_count"] = retry_count
+        job.metadata["last_callback"] = datetime.now().isoformat()
+
+        # Map beacon status to orchestrator state
+        if status == "complete":
+            orchestrator._update_state(job, ProvisioningState.COMPLETED)
+        elif status == "failed":
+            orchestrator._update_state(job, ProvisioningState.FAILED, message)
+        elif status == "installing":
+            orchestrator._update_state(job, ProvisioningState.DEPLOYING_WOPR)
+
+        return {"received": True, "job_id": job_id}
+    except Exception as e:
+        logger.error(f"[{job_id}] Status update failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/v1/provision/{job_id}/support-ticket")
+async def create_support_ticket(job_id: str, request: Request):
+    """
+    Create a support ticket when installation fails after max retries.
+    Called by wopr_bootstrap.sh when all retry attempts are exhausted.
+    """
+    orchestrator = get_orchestrator()
+    job = orchestrator.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    try:
+        data = await request.json()
+        email = data.get("email", "stephen.falken@wopr.systems")
+        subject = data.get("subject", f"Installation Failed: {job_id}")
+        body = data.get("body", "")
+
+        logger.error(f"[{job_id}] Support ticket created: {subject}")
+
+        # Store ticket info in job metadata
+        if not isinstance(job.metadata, dict):
+            job.metadata = {}
+        job.metadata["support_ticket"] = {
+            "created_at": datetime.now().isoformat(),
+            "email": email,
+            "subject": subject,
+        }
+
+        # Try to send email via Mailgun if configured
+        try:
+            from control_plane.email import send_email
+            await send_email(
+                to=email,
+                subject=subject,
+                body=body,
+            )
+            logger.info(f"[{job_id}] Support ticket email sent to {email}")
+        except Exception as email_err:
+            logger.warning(f"[{job_id}] Failed to send support email: {email_err}")
+
+        # Update job state to failed
+        orchestrator._update_state(job, ProvisioningState.FAILED, "Max retries exceeded - support ticket created")
+
+        return {"received": True, "ticket_created": True, "job_id": job_id}
+    except Exception as e:
+        logger.error(f"[{job_id}] Support ticket creation failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/providers")
 async def list_providers():
     """List available VPS providers."""

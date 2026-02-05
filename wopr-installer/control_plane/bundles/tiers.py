@@ -117,6 +117,9 @@ class MicroBundleID(Enum):
     EDUCATOR = "educator"
     THERAPIST = "therapist"
     LEGAL = "legal"
+    # AI/Ops micro-bundles
+    DEFCON_ONE = "defcon_one"
+    REACTOR_AI = "reactor_ai"
 
 
 # =============================================================================
@@ -172,6 +175,9 @@ MICRO_PRICING: dict[MicroBundleID, BundlePricing] = {
     MicroBundleID.EDUCATOR: BundlePricing("$45.99", "$65.99", "$95.99"),
     MicroBundleID.THERAPIST: BundlePricing("$55.99", "$79.99", "$119.99"),
     MicroBundleID.LEGAL: BundlePricing("$55.99", "$79.99", "$119.99"),
+    # AI/Ops micro-bundles (8GB+ HIGH VPS required for AI)
+    MicroBundleID.DEFCON_ONE: BundlePricing("$45.99", "$65.99", "$95.99"),
+    MicroBundleID.REACTOR_AI: BundlePricing("$55.99", "$79.99", "$119.99"),
 }
 
 
