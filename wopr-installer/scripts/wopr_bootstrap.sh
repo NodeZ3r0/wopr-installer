@@ -262,14 +262,23 @@ run_installer() {
         # No AI fix available, try basic recovery steps
         log "INFO" "Attempting basic recovery before retry..."
 
-        # Kill stale processes
-        pkill -9 conmon 2>/dev/null || true
+        # Stop all wopr services cleanly
+        log "INFO" "Stopping all WOPR services..."
+        systemctl stop 'wopr-*' 2>/dev/null || true
 
-        # Restart failed services
+        # Kill stale conmon processes (containers stuck in "Stopping")
+        pkill -9 conmon 2>/dev/null || true
+        sleep 2
+
+        # Force remove ALL containers - clean slate for retry
+        log "INFO" "Removing all containers for clean retry..."
+        podman stop -a -t 5 2>/dev/null || true
+        podman rm -af 2>/dev/null || true
+
+        # Reset failed systemd units
         for svc in $(systemctl list-units --state=failed 'wopr-*' --no-legend 2>/dev/null | awk '{print $1}'); do
-            log "INFO" "Restarting failed service: $svc"
+            log "INFO" "Resetting failed service: $svc"
             systemctl reset-failed "$svc" 2>/dev/null || true
-            systemctl restart "$svc" 2>/dev/null || true
         done
 
         # Wait before retry
@@ -286,6 +295,88 @@ run_installer() {
 }
 
 #=================================================
+# OLLAMA INSTALLATION (needed for AI self-heal)
+#=================================================
+
+install_ollama_for_debug() {
+    log "INFO" "Installing Ollama for AI-assisted debugging..."
+
+    # Skip if already running
+    if curl -s http://127.0.0.1:11434/api/version > /dev/null 2>&1; then
+        log "OK" "Ollama already running"
+        return 0
+    fi
+
+    # Install podman if needed (should be there but just in case)
+    if ! command -v podman &> /dev/null; then
+        apt-get update -qq && apt-get install -y -qq podman >/dev/null 2>&1
+    fi
+
+    # Create data dir
+    mkdir -p /var/lib/wopr/ollama
+
+    # Create wopr-network if not exists
+    podman network exists wopr-network 2>/dev/null || \
+        podman network create wopr-network >/dev/null 2>&1
+
+    # Pull and run Ollama
+    log "INFO" "Pulling Ollama image..."
+    podman pull docker.io/ollama/ollama:latest >/dev/null 2>&1 || {
+        log "WARN" "Failed to pull Ollama - AI debug will be unavailable"
+        return 1
+    }
+
+    # Create systemd service for Ollama
+    cat > /etc/systemd/system/wopr-ollama.service << 'SVCEOF'
+[Unit]
+Description=WOPR Ollama (AI Debug)
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/podman stop -t 5 wopr-ollama
+ExecStartPre=-/usr/bin/podman rm -f wopr-ollama
+ExecStart=/usr/bin/podman run --rm \
+    --name wopr-ollama \
+    --network wopr-network \
+    -v /var/lib/wopr/ollama:/root/.ollama:Z \
+    -p 127.0.0.1:11434:11434 \
+    docker.io/ollama/ollama:latest
+ExecStop=/usr/bin/podman stop -t 5 wopr-ollama
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+    systemctl daemon-reload
+    systemctl enable wopr-ollama >/dev/null 2>&1
+    systemctl start wopr-ollama
+
+    # Wait for Ollama to be ready
+    log "INFO" "Waiting for Ollama to start..."
+    local count=0
+    while [ $count -lt 30 ]; do
+        if curl -s http://127.0.0.1:11434/api/version > /dev/null 2>&1; then
+            log "OK" "Ollama is ready"
+
+            # Pull a small model for debugging
+            log "INFO" "Pulling tinyllama model for AI debug..."
+            curl -s http://127.0.0.1:11434/api/pull -d '{"name":"tinyllama"}' >/dev/null 2>&1 &
+            # Don't wait - let it pull in background while installer runs
+
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+
+    log "WARN" "Ollama failed to start - AI debug will be unavailable"
+    return 1
+}
+
+#=================================================
 # ENTRY POINT
 #=================================================
 
@@ -295,6 +386,11 @@ main() {
         log "ERROR" "Bootstrap file not found: $BOOTSTRAP_FILE"
         exit 1
     fi
+
+    mkdir -p /var/log/wopr
+
+    # Install Ollama FIRST so AI can help debug any failures
+    install_ollama_for_debug || true
 
     run_installer
 }
