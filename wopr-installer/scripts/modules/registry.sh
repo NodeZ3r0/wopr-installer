@@ -91,6 +91,7 @@ declare -A _WOPR_REGISTRY=(
     ["plausible"]="ghcr.io/plausible/community-edition:latest|8000|analytics|Plausible|postgresql"
     ["grafana"]="docker.io/grafana/grafana-oss:latest|3000|grafana|Grafana|"
     ["prometheus"]="docker.io/prom/prometheus:latest|9090|prometheus|Prometheus|"
+    ["alertmanager"]="docker.io/prom/alertmanager:latest|9093|_internal|Alertmanager|prometheus"
     ["uptime-kuma"]="docker.io/louislam/uptime-kuma:latest|3001|status|Uptime Kuma|"
 
     # === SECURITY / NETWORK ===
@@ -167,6 +168,7 @@ declare -A _WOPR_PORTS=(
     # === MONITORING (3900-3999, 9090) ===
     ["grafana"]="3900"
     ["prometheus"]="9090"
+    ["alertmanager"]="9093"
     ["uptime-kuma"]="3001"
     ["uptime_kuma"]="3001"       # alias (underscore)
     ["crowdsec"]="8180"
@@ -685,4 +687,187 @@ SVCEOF
 
     wopr_log "OK" "$display_name deployed: https://${subdomain}.${domain} (auth=$auth_mode)"
     return 0
+}
+
+# -----------------------------------------------
+# ALERTING CONFIGURATION
+# Sets up Prometheus + Alertmanager + ntfy integration
+# Called after monitoring modules are deployed
+# -----------------------------------------------
+
+wopr_configure_alerting() {
+    wopr_log "INFO" "Configuring alerting stack (Prometheus + Alertmanager + ntfy)..."
+
+    local domain=$(wopr_setting_get "domain")
+    local prometheus_dir="${WOPR_DATA_DIR}/prometheus"
+
+    mkdir -p "$prometheus_dir/data"
+    chmod 777 "$prometheus_dir/data"
+
+    # Create Alertmanager config with ntfy webhook
+    cat > "$prometheus_dir/alertmanager.yml" << 'EOF'
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: ntfy
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+
+receivers:
+  - name: ntfy
+    webhook_configs:
+      - url: "http://wopr-ntfy:8092/wopr-alerts"
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+EOF
+
+    # Create Prometheus alert rules
+    cat > "$prometheus_dir/alert_rules.yml" << 'EOF'
+groups:
+  - name: wopr_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is DOWN"
+          description: "{{ $labels.instance }} has been down for 30 seconds"
+
+      - alert: HighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage (>90%)"
+
+      - alert: HighDisk
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage above 85%"
+
+      - alert: ContainerDown
+        expr: absent(container_last_seen{name=~"wopr-.*"}) or (time() - container_last_seen{name=~"wopr-.*"}) > 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.name }} is down"
+EOF
+
+    # Create Prometheus config
+    cat > "$prometheus_dir/prometheus.yml" << 'EOF'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["wopr-alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: caddy
+    static_configs:
+      - targets: ["wopr-caddy:2019"]
+EOF
+
+    # Deploy Alertmanager service
+    cat > /etc/systemd/system/wopr-alertmanager.service << 'EOF'
+[Unit]
+Description=WOPR Alertmanager
+After=network.target wopr-prometheus.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-alertmanager
+ExecStartPre=-/usr/bin/podman rm wopr-alertmanager
+
+ExecStart=/usr/bin/podman run --rm \
+    --name wopr-alertmanager \
+    --network wopr-network \
+    -v /var/lib/wopr/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro \
+    -p 127.0.0.1:9093:9093 \
+    docker.io/prom/alertmanager:latest
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-alertmanager
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Update Prometheus service to include alert rules
+    cat > /etc/systemd/system/wopr-prometheus.service << 'EOF'
+[Unit]
+Description=WOPR Prometheus
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-prometheus
+ExecStartPre=-/usr/bin/podman rm wopr-prometheus
+
+ExecStart=/usr/bin/podman run --rm \
+    --name wopr-prometheus \
+    --network wopr-network \
+    -v /var/lib/wopr/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+    -v /var/lib/wopr/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro \
+    -v /var/lib/wopr/prometheus/data:/prometheus:Z \
+    -p 127.0.0.1:9090:9090 \
+    docker.io/prom/prometheus:latest \
+    --config.file=/etc/prometheus/prometheus.yml \
+    --storage.tsdb.path=/prometheus
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-prometheus
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Pull and start services
+    wopr_container_pull "docker.io/prom/alertmanager:latest"
+
+    systemctl daemon-reload
+    systemctl enable wopr-alertmanager
+    systemctl restart wopr-prometheus
+    systemctl start wopr-alertmanager
+
+    # Wait for services
+    sleep 5
+    if wopr_wait_for_port "127.0.0.1" "9093" 60; then
+        wopr_log "OK" "Alertmanager running on port 9093"
+    else
+        wopr_log "WARN" "Alertmanager may still be starting"
+    fi
+
+    # Send test notification to ntfy
+    curl -s -X POST "http://127.0.0.1:8092/wopr-alerts" \
+        -H "Title: WOPR Alerting Configured" \
+        -H "Priority: high" \
+        -d "Prometheus + Alertmanager → ntfy pipeline active. You will receive service alerts here." \
+        > /dev/null 2>&1 || true
+
+    wopr_setting_set "alerting_configured" "true"
+    wopr_log "OK" "Alerting stack configured: Prometheus → Alertmanager → ntfy"
 }
