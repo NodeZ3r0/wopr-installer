@@ -101,62 +101,58 @@ wopr_deploy_defcon_one() {
     wopr_log "INFO" "Deploying DEFCON ONE..."
 
     local data_dir="${WOPR_DATA_DIR}/defcon-one"
+    local build_dir="/root/wopr-build"
     mkdir -p "$data_dir"
-    mkdir -p "$data_dir/audit"
+    mkdir -p /opt/wopr-deployment-queue/{pending,approved,deployed,failed}
 
     local domain=$(wopr_setting_get "domain")
-    local pg_password=$(wopr_setting_get "postgresql_password")
 
-    # Generate DEFCON ONE secret key
-    local defcon_secret=$(wopr_random_string 64)
-    wopr_setting_set "defcon_secret_key" "$defcon_secret"
+    # Clone or update source
+    if [ ! -d "$build_dir" ]; then
+        wopr_log "INFO" "Cloning WOPR source repository..."
+        git clone http://159.203.138.7:3001/wopr/wopr-installer.git "$build_dir" 2>&1 || {
+            wopr_log "ERROR" "Failed to clone WOPR repository"
+            return 1
+        }
+    else
+        wopr_log "INFO" "Updating WOPR source..."
+        (cd "$build_dir" && git pull origin main 2>&1) || true
+    fi
 
-    # Pull DEFCON ONE container
-    wopr_container_pull "ghcr.io/wopr/defcon-one:latest" || {
-        wopr_log "WARN" "DEFCON ONE container not available, using placeholder"
-        # Create placeholder for development
-        wopr_setting_set "defcon_one_installed" "placeholder"
-        return 0
-    }
-
-    # Create DEFCON ONE configuration
-    cat > "$data_dir/config.json" << EOF
-{
-    "environment": "production",
-    "protected_environments": ["production"],
-    "protected_branches": ["main", "master", "production", "release/*"],
-    "database_url": "postgresql://wopr:${pg_password}@localhost:5432/defcon_one",
-    "authentik_url": "https://auth.${domain}",
-    "audit_log_path": "/data/audit",
-    "require_approval_for": [
-        "git_push_protected",
-        "git_merge_protected",
-        "deploy_production",
-        "write_secret",
-        "infrastructure_change"
-    ]
-}
-EOF
+    # Build DEFCON ONE container image from source
+    wopr_log "INFO" "Building DEFCON ONE container image..."
+    if [ -d "$build_dir/wopr-approval-dashboard" ]; then
+        podman build -t localhost/wopr-defcon-one:latest "$build_dir/wopr-approval-dashboard" 2>&1 || {
+            wopr_log "ERROR" "Failed to build DEFCON ONE image"
+            return 1
+        }
+    else
+        wopr_log "ERROR" "DEFCON ONE source not found at $build_dir/wopr-approval-dashboard"
+        return 1
+    fi
 
     # Create systemd service
     cat > /etc/systemd/system/wopr-defcon-one.service << EOF
 [Unit]
-Description=WOPR DEFCON ONE Protected Actions Gateway
-After=network.target wopr-postgresql.service
+Description=WOPR DEFCON ONE Approval Dashboard
+After=network.target
 
 [Service]
 Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-defcon-one
+ExecStartPre=-/usr/bin/podman rm wopr-defcon-one
+
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-defcon-one \\
     --network ${WOPR_NETWORK} \\
-    -v ${data_dir}:/data:Z \\
-    -v ${data_dir}/config.json:/app/config.json:ro \\
-    -p 127.0.0.1:8081:8081 \\
-    -e SECRET_KEY=${defcon_secret} \\
-    -e DATABASE_URL=postgresql://wopr:${pg_password}@wopr-postgresql:5432/defcon_one \\
-    ghcr.io/wopr/defcon-one:latest
-Restart=always
-RestartSec=10
+    -v /opt/wopr-deployment-queue:/opt/wopr-deployment-queue:Z \\
+    -p 127.0.0.1:8601:8080 \\
+    localhost/wopr-defcon-one:latest
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-defcon-one
 
 [Install]
 WantedBy=multi-user.target
@@ -167,7 +163,7 @@ EOF
     systemctl start wopr-defcon-one || wopr_log "WARN" "DEFCON ONE service start deferred"
 
     # Configure Caddy route
-    wopr_caddy_add_route "defcon.${domain}" "http://127.0.0.1:8081"
+    wopr_caddy_add_route "defcon.${domain}" "http://127.0.0.1:8601"
 
     wopr_setting_set "defcon_one_installed" "true"
     wopr_setting_set "defcon_one_url" "https://defcon.${domain}"
@@ -177,116 +173,218 @@ EOF
 }
 
 #=================================================
-# DEPLOY REACTOR AI
+# DEPLOY REACTOR AI (AI Remediation Engine)
 #=================================================
 
 wopr_deploy_reactor_ai() {
-    wopr_log "INFO" "Deploying Reactor AI..."
+    wopr_log "INFO" "Deploying Reactor AI (Remediation Engine)..."
 
-    local data_dir="${WOPR_DATA_DIR}/reactor"
+    local data_dir="${WOPR_DATA_DIR}/ai-engine"
+    local build_dir="/root/wopr-build"
     mkdir -p "$data_dir"
-    mkdir -p "$data_dir/workspaces"
 
     local domain=$(wopr_setting_get "domain")
-    local pg_password=$(wopr_setting_get "postgresql_password")
-    local ollama_endpoint=$(wopr_setting_get "ollama_endpoint")
-    local defcon_url=$(wopr_setting_get "defcon_one_url")
 
-    # Generate Reactor secret key
-    local reactor_secret=$(wopr_random_string 64)
-    wopr_setting_set "reactor_secret_key" "$reactor_secret"
+    # Ensure source is available
+    if [ ! -d "$build_dir/ai-engine" ]; then
+        wopr_log "ERROR" "AI Engine source not found. Run DEFCON ONE deployment first."
+        return 1
+    fi
 
-    # Pull Reactor container
-    wopr_container_pull "ghcr.io/wopr/reactor:latest" || {
-        wopr_log "WARN" "Reactor container not available, using placeholder"
-        wopr_setting_set "reactor_installed" "placeholder"
-        return 0
+    # Build AI Engine container image from source
+    wopr_log "INFO" "Building Reactor AI (AI Engine) container image..."
+    podman build -t localhost/wopr-ai-engine:latest "$build_dir/ai-engine" 2>&1 || {
+        wopr_log "ERROR" "Failed to build AI Engine image"
+        return 1
     }
 
-    # Create Reactor configuration
-    cat > "$data_dir/config.yaml" << EOF
-# Reactor AI Configuration
-version: "1.0"
-
-server:
-  host: "0.0.0.0"
-  port: 8080
-
-database:
-  url: "postgresql://wopr:${pg_password}@wopr-postgresql:5432/reactor"
-
-ollama:
-  endpoint: "http://wopr-ollama:11434"
-  default_model: "codellama"
-  timeout: 120
-
-defcon_one:
-  enabled: true
-  endpoint: "http://wopr-defcon-one:8081"
-  require_approval_for_production: true
-
-authentik:
-  enabled: true
-  issuer: "https://auth.${domain}"
-
-workspaces:
-  base_path: "/data/workspaces"
-  max_per_user: 5
-
-# Two-Lane Execution Model
-execution:
-  lane_a:  # Unrestricted iteration
-    - code_generation
-    - local_edits
-    - feature_branching
-    - commits_to_non_protected
-    - test_execution
-    - dev_server
-    - staging_deploys
-  lane_b:  # Protected (requires DEFCON approval)
-    - merge_to_protected
-    - push_to_protected
-    - tag_release
-    - production_deploy
-    - secrets_mutation
-    - infrastructure_change
-EOF
-
     # Create systemd service
-    cat > /etc/systemd/system/wopr-reactor.service << EOF
+    cat > /etc/systemd/system/wopr-ai-engine.service << EOF
 [Unit]
-Description=WOPR Reactor AI Coding Assistant
-After=network.target wopr-ollama.service wopr-defcon-one.service
+Description=WOPR AI Remediation Engine (Reactor AI)
+After=network.target wopr-ollama.service wopr-postgresql.service
+Wants=wopr-ollama.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman run --rm \\
-    --name wopr-reactor \\
-    --network ${WOPR_NETWORK} \\
-    -v ${data_dir}:/data:Z \\
-    -v ${data_dir}/config.yaml:/app/config.yaml:ro \\
-    -p 127.0.0.1:8080:8080 \\
-    -e SECRET_KEY=${reactor_secret} \\
-    ghcr.io/wopr/reactor:latest
 Restart=always
 RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-ai-engine
+ExecStartPre=-/usr/bin/podman rm wopr-ai-engine
+
+ExecStart=/usr/bin/podman run --rm \\
+    --name wopr-ai-engine \\
+    --network ${WOPR_NETWORK} \\
+    -v ${data_dir}:/data:Z \\
+    -e OLLAMA_URL=http://wopr-ollama:11434 \\
+    -e OLLAMA_MODEL=phi3:mini \\
+    -e AI_ENGINE_DB=/data/ai_engine.db \\
+    -e SCAN_INTERVAL=300 \\
+    -p 127.0.0.1:8600:8000 \\
+    localhost/wopr-ai-engine:latest
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-ai-engine
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable wopr-reactor
-    systemctl start wopr-reactor || wopr_log "WARN" "Reactor service start deferred"
+    systemctl enable wopr-ai-engine
+    systemctl start wopr-ai-engine || wopr_log "WARN" "AI Engine service start deferred"
 
     # Configure Caddy route
-    wopr_caddy_add_route "reactor.${domain}" "http://127.0.0.1:8080"
+    wopr_caddy_add_route "reactor.${domain}" "http://127.0.0.1:8600"
 
     wopr_setting_set "reactor_installed" "true"
     wopr_setting_set "reactor_url" "https://reactor.${domain}"
 
-    wopr_defcon_log "REACTOR_DEPLOYED" "AI coding assistant active"
+    wopr_defcon_log "REACTOR_DEPLOYED" "AI remediation engine active"
     wopr_log "OK" "Reactor AI deployed successfully"
+}
+
+#=================================================
+# DEPLOY SUPPORT PLANE (Zero-Trust Support Gateway)
+#=================================================
+
+wopr_deploy_support_plane() {
+    wopr_log "INFO" "Deploying Support Plane..."
+
+    local build_dir="/root/wopr-build"
+    local domain=$(wopr_setting_get "domain")
+    local pg_password=$(wopr_setting_get "postgresql_password")
+
+    # Ensure source is available
+    if [ ! -d "$build_dir/wopr-support-plane" ]; then
+        wopr_log "ERROR" "Support Plane source not found"
+        return 1
+    fi
+
+    # Build Support Plane container image
+    wopr_log "INFO" "Building Support Plane container image..."
+    podman build -t localhost/wopr-support-plane:latest "$build_dir/wopr-support-plane" 2>&1 || {
+        wopr_log "ERROR" "Failed to build Support Plane image"
+        return 1
+    }
+
+    # Create database and user
+    local sp_pass=$(wopr_random_string 32)
+    wopr_setting_set "support_plane_db_password" "$sp_pass"
+
+    podman exec wopr-postgresql psql -U wopr -c "CREATE USER support_plane WITH PASSWORD '${sp_pass}'" 2>/dev/null || \
+    podman exec wopr-postgresql psql -U wopr -c "ALTER USER support_plane WITH PASSWORD '${sp_pass}'"
+
+    podman exec wopr-postgresql psql -U wopr -tc "SELECT 1 FROM pg_database WHERE datname='support_plane'" | grep -q 1 || {
+        podman exec wopr-postgresql psql -U wopr -c "CREATE DATABASE support_plane OWNER support_plane"
+        podman exec wopr-postgresql psql -U wopr -d support_plane -c "GRANT ALL ON SCHEMA public TO support_plane"
+    }
+
+    # Apply schema
+    if [ -f "$build_dir/wopr-support-plane/db/migrations/001_initial_schema.sql" ]; then
+        podman exec -i wopr-postgresql psql -U support_plane -d support_plane < "$build_dir/wopr-support-plane/db/migrations/001_initial_schema.sql" 2>/dev/null || true
+        podman exec -i wopr-postgresql psql -U support_plane -d support_plane < "$build_dir/wopr-support-plane/db/migrations/002_seed_remediation_actions.sql" 2>/dev/null || true
+    fi
+
+    # Create systemd service
+    cat > /etc/systemd/system/wopr-support-plane.service << EOF
+[Unit]
+Description=WOPR Support Gateway (Zero-Trust Support Plane)
+After=network.target wopr-postgresql.service
+Requires=wopr-postgresql.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-support-plane
+ExecStartPre=-/usr/bin/podman rm wopr-support-plane
+
+ExecStart=/usr/bin/podman run --rm \\
+    --name wopr-support-plane \\
+    --network ${WOPR_NETWORK} \\
+    -e DATABASE_URL=postgresql://support_plane:${sp_pass}@wopr-postgresql:5432/support_plane \\
+    -e SUPPORT_GW_HOST=0.0.0.0 \\
+    -e SUPPORT_GW_PORT=8443 \\
+    -e LOG_LEVEL=INFO \\
+    -p 127.0.0.1:8602:8443 \\
+    localhost/wopr-support-plane:latest
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-support-plane
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable wopr-support-plane
+    systemctl start wopr-support-plane || wopr_log "WARN" "Support Plane service start deferred"
+
+    # Configure Caddy route
+    wopr_caddy_add_route "support.${domain}" "http://127.0.0.1:8602"
+
+    wopr_setting_set "support_plane_installed" "true"
+    wopr_setting_set "support_plane_url" "https://support.${domain}"
+
+    wopr_log "OK" "Support Plane deployed successfully"
+}
+
+#=================================================
+# DEPLOY DEPLOYMENT QUEUE
+#=================================================
+
+wopr_deploy_deployment_queue() {
+    wopr_log "INFO" "Deploying Deployment Queue..."
+
+    local build_dir="/root/wopr-build"
+
+    # Ensure source is available
+    if [ ! -d "$build_dir/wopr-deployment-queue" ]; then
+        wopr_log "ERROR" "Deployment Queue source not found"
+        return 1
+    fi
+
+    # Build Deployment Queue container image
+    wopr_log "INFO" "Building Deployment Queue container image..."
+    podman build -t localhost/wopr-deployment-queue:latest "$build_dir/wopr-deployment-queue" 2>&1 || {
+        wopr_log "ERROR" "Failed to build Deployment Queue image"
+        return 1
+    }
+
+    # Create systemd service
+    cat > /etc/systemd/system/wopr-deployment-queue.service << EOF
+[Unit]
+Description=WOPR Deployment Queue Manager
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-deployment-queue
+ExecStartPre=-/usr/bin/podman rm wopr-deployment-queue
+
+ExecStart=/usr/bin/podman run --rm \\
+    --name wopr-deployment-queue \\
+    --network ${WOPR_NETWORK} \\
+    -v /opt/wopr-deployment-queue:/opt/wopr-deployment-queue:Z \\
+    localhost/wopr-deployment-queue:latest
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-deployment-queue
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable wopr-deployment-queue
+    systemctl start wopr-deployment-queue || wopr_log "WARN" "Deployment Queue service start deferred"
+
+    wopr_setting_set "deployment_queue_installed" "true"
+
+    wopr_log "OK" "Deployment Queue deployed successfully"
 }
 
 #=================================================
@@ -294,7 +392,7 @@ EOF
 #=================================================
 
 wopr_deploy_reactor_ai_bundle() {
-    wopr_log "INFO" "Deploying Reactor AI bundle (Ollama + DEFCON ONE + Reactor)..."
+    wopr_log "INFO" "Deploying WOPR Ops/Control Plane (Ollama + DEFCON ONE + Reactor + Support + Queue)..."
 
     # Check resources
     local cpu_count=$(nproc)
@@ -308,20 +406,21 @@ wopr_deploy_reactor_ai_bundle() {
         wopr_log "WARN" "Less than 8GB RAM detected. LLM performance may be limited."
     fi
 
-    # Deploy dependencies first
+    # Deploy in order: Ollama -> DEFCON ONE -> Reactor -> Support Plane -> Deployment Queue
     wopr_deploy_ollama
     wopr_deploy_defcon_one
-
-    # Deploy Reactor
     wopr_deploy_reactor_ai
+    wopr_deploy_support_plane
+    wopr_deploy_deployment_queue
 
     # Log completion
-    wopr_defcon_log "REACTOR_BUNDLE_COMPLETE" "cpu=$cpu_count,ram=${ram_gb}GB"
+    wopr_defcon_log "OPS_PLANE_COMPLETE" "cpu=$cpu_count,ram=${ram_gb}GB"
 
-    wopr_log "OK" "Reactor AI bundle deployment complete!"
+    wopr_log "OK" "WOPR Ops/Control Plane deployment complete!"
     echo ""
-    echo "  Reactor AI is now available at: https://reactor.$(wopr_setting_get domain)"
-    echo "  DEFCON ONE dashboard: https://defcon.$(wopr_setting_get domain)"
+    echo "  Reactor AI (remediation engine): https://reactor.$(wopr_setting_get domain)"
+    echo "  DEFCON ONE (approval dashboard): https://defcon.$(wopr_setting_get domain)"
+    echo "  Support Plane (zero-trust gateway): https://support.$(wopr_setting_get domain)"
     echo ""
     echo "  AI doesn't get root. People do."
     echo ""
