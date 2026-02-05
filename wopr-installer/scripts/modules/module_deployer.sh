@@ -54,7 +54,7 @@ declare -A MODULE_CATALOG=(
     # Creator
     ["ghost"]="Ghost Blog|creator|low|creator,professional|30"
     ["saleor"]="Saleor Store|creator|medium|creator,professional|30"
-    ["wordpress"]="WordPress|creator|low||30"
+    # NO WORDPRESS - security liability
 
     # Business
     ["espocrm"]="EspoCRM|business|low||30"

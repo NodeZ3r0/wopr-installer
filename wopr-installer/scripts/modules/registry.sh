@@ -213,7 +213,7 @@ declare -A _WOPR_PORTS=(
 
     # === CREATOR / CMS (2368, 8400-8499) ===
     ["ghost"]="2368"
-    ["wordpress"]="8403"
+    # NO WORDPRESS - security liability, hacker magnet
     ["saleor"]="8400"
     ["castopod"]="8401"
     ["funkwhale"]="8402"
