@@ -559,6 +559,10 @@ wopr_deploy_from_registry() {
     # Build environment variables
     local env_flags=""
 
+    # Generate admin secret early (needed for DB env var substitutions)
+    local admin_secret=$(wopr_random_string 32)
+    wopr_setting_set "${module_id//-/_}_admin_secret" "$admin_secret"
+
     # PostgreSQL
     if echo "$deps" | grep -q "postgresql"; then
         local db_name="${module_id//-/_}"
@@ -603,9 +607,6 @@ wopr_deploy_from_registry() {
     # Common
     env_flags="$env_flags -e BASE_URL=https://${subdomain}.${domain}"
     env_flags="$env_flags -e APP_URL=https://${subdomain}.${domain}"
-
-    local admin_secret=$(wopr_random_string 32)
-    wopr_setting_set "${module_id//-/_}_admin_secret" "$admin_secret"
     env_flags="$env_flags -e SECRET_KEY=${admin_secret}"
 
     # OIDC env vars (for oauth2 apps)
