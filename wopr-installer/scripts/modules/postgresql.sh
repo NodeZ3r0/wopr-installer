@@ -44,22 +44,49 @@ wopr_deploy_postgresql() {
 set -e
 
 # Create databases for WOPR applications
+# PostgreSQL 15+ requires explicit schema grants
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- Authentik database
     CREATE DATABASE authentik;
     CREATE USER authentik WITH ENCRYPTED PASSWORD '${AUTHENTIK_DB_PASSWORD}';
     GRANT ALL PRIVILEGES ON DATABASE authentik TO authentik;
+EOSQL
 
+# Connect to authentik DB to grant schema permissions (PG 15+)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "authentik" <<-EOSQL
+    GRANT ALL ON SCHEMA public TO authentik;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authentik;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authentik;
+EOSQL
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- Nextcloud database
     CREATE DATABASE nextcloud;
     CREATE USER nextcloud WITH ENCRYPTED PASSWORD '${NEXTCLOUD_DB_PASSWORD}';
     GRANT ALL PRIVILEGES ON DATABASE nextcloud TO nextcloud;
+EOSQL
 
-    -- FreshRSS database (optional, uses SQLite by default but can use PG)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "nextcloud" <<-EOSQL
+    GRANT ALL ON SCHEMA public TO nextcloud;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO nextcloud;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO nextcloud;
+EOSQL
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    -- FreshRSS database
     CREATE DATABASE freshrss;
     CREATE USER freshrss WITH ENCRYPTED PASSWORD '${FRESHRSS_DB_PASSWORD}';
     GRANT ALL PRIVILEGES ON DATABASE freshrss TO freshrss;
 EOSQL
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "freshrss" <<-EOSQL
+    GRANT ALL ON SCHEMA public TO freshrss;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO freshrss;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO freshrss;
+EOSQL
+
+echo "All WOPR databases initialized with PG 15+ schema grants"
 INITSCRIPT
 
     chmod +x "${POSTGRESQL_DATA_DIR}/init/init-wopr-dbs.sh"

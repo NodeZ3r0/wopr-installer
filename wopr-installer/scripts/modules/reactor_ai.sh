@@ -110,7 +110,7 @@ wopr_deploy_defcon_one() {
     # Clone or update source
     if [ ! -d "$build_dir" ]; then
         wopr_log "INFO" "Cloning WOPR source repository..."
-        git clone http://159.203.138.7:3001/wopr/wopr-installer.git "$build_dir" 2>&1 || {
+        git clone https://vault.wopr.systems/WOPRSystems/wopr-installer.git "$build_dir" 2>&1 || {
             wopr_log "ERROR" "Failed to clone WOPR repository"
             return 1
         }
