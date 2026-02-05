@@ -423,18 +423,29 @@ wopr_mesh_setup_federation() {
     local provider_client_secret=$(wopr_random_string 64)
     local redirect_uri="https://auth.${peer_domain}/source/oauth/callback/${source_slug}/"
 
+    # Get flow UUIDs for provider creation
+    local auth_flow_uuid=""
+    local invalidation_flow_uuid=""
+    local flows_response=$(wopr_authentik_api GET "/flows/instances/?slug=default-provider-authorization-implicit-consent")
+    auth_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+    flows_response=$(wopr_authentik_api GET "/flows/instances/?slug=default-provider-invalidation-flow")
+    invalidation_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+
     local provider_data=$(jq -n \
         --arg name "$provider_name" \
         --arg client_id "$provider_client_id" \
         --arg client_secret "$provider_client_secret" \
-        --arg redirect_uris "$redirect_uri" \
+        --arg redirect_uri "$redirect_uri" \
+        --arg auth_flow "$auth_flow_uuid" \
+        --arg inv_flow "$invalidation_flow_uuid" \
         '{
             "name": $name,
-            "authorization_flow": "default-provider-authorization-implicit-consent",
+            "authorization_flow": $auth_flow,
+            "invalidation_flow": $inv_flow,
             "client_type": "confidential",
             "client_id": $client_id,
             "client_secret": $client_secret,
-            "redirect_uris": $redirect_uris,
+            "redirect_uris": [{"matching_mode": "strict", "url": $redirect_uri}],
             "signing_key": null,
             "access_code_validity": "minutes=1",
             "access_token_validity": "minutes=5",

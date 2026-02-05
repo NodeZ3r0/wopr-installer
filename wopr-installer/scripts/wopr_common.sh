@@ -482,6 +482,7 @@ wopr_authentik_api() {
         -X "$method"
         -H "Authorization: Bearer ${token}"
         -H "Content-Type: application/json"
+        -H "Accept: application/json"
     )
 
     if [ -n "$data" ]; then
@@ -525,18 +526,44 @@ wopr_authentik_create_provider() {
     local redirect_uri="$3"
     local client_secret=$(wopr_random_string 64)
 
+    # First, get the default authorization and invalidation flow UUIDs
+    local auth_flow_uuid=""
+    local invalidation_flow_uuid=""
+
+    # Get authorization flow UUID (implicit consent)
+    local flows_response=$(wopr_authentik_api GET "/flows/instances/?slug=default-provider-authorization-implicit-consent")
+    auth_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+
+    # Get invalidation flow UUID
+    flows_response=$(wopr_authentik_api GET "/flows/instances/?slug=default-provider-invalidation-flow")
+    invalidation_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+
+    # If we can't find the flows, try default slugs
+    if [ -z "$auth_flow_uuid" ]; then
+        flows_response=$(wopr_authentik_api GET "/flows/instances/?designation=authorization")
+        auth_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+    fi
+    if [ -z "$invalidation_flow_uuid" ]; then
+        flows_response=$(wopr_authentik_api GET "/flows/instances/?designation=invalidation")
+        invalidation_flow_uuid=$(echo "$flows_response" | jq -r '.results[0].pk // empty')
+    fi
+
+    # Build provider data with correct redirect_uris format (array of objects)
     local provider_data=$(cat <<EOF
 {
     "name": "${name}",
-    "authorization_flow": "default-provider-authorization-implicit-consent",
+    "authorization_flow": "${auth_flow_uuid}",
+    "invalidation_flow": "${invalidation_flow_uuid}",
     "client_type": "confidential",
     "client_id": "${client_id}",
     "client_secret": "${client_secret}",
-    "redirect_uris": "${redirect_uri}",
+    "redirect_uris": [{"matching_mode": "strict", "url": "${redirect_uri}"}],
     "signing_key": null,
     "access_code_validity": "minutes=1",
     "access_token_validity": "minutes=5",
-    "refresh_token_validity": "days=30"
+    "refresh_token_validity": "days=30",
+    "sub_mode": "hashed_user_id",
+    "include_claims_in_id_token": true
 }
 EOF
 )
@@ -550,6 +577,18 @@ EOF
         wopr_setting_set "authentik_${client_id}_secret" "$client_secret"
         echo "$provider_pk"
     else
+        # Check if provider already exists
+        local error_msg=$(echo "$response" | jq -r '.client_id[0] // .name[0] // .detail // empty')
+        if echo "$error_msg" | grep -qi "already exists\|unique"; then
+            wopr_log "INFO" "Provider already exists: ${name}, looking up existing pk..."
+            local existing=$(wopr_authentik_api GET "/providers/oauth2/?client_id=${client_id}")
+            provider_pk=$(echo "$existing" | jq -r '.results[0].pk // empty')
+            if [ -n "$provider_pk" ]; then
+                wopr_log "OK" "Found existing provider: ${name} (pk=${provider_pk})"
+                echo "$provider_pk"
+                return 0
+            fi
+        fi
         wopr_log "ERROR" "Failed to create Authentik provider: ${name}"
         echo "$response" | jq -r '.detail // .non_field_errors // .' >&2
         return 1
