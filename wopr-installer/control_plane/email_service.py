@@ -57,6 +57,7 @@ class EmailService:
 
     def __init__(self, config: Optional[EmailConfig] = None):
         self.config = config or EmailConfig()
+        self.smtp_configured = self._check_smtp_config()
 
         # Initialize Jinja2 environment
         if Environment:
@@ -67,6 +68,17 @@ class EmailService:
         else:
             self.jinja_env = None
             logger.warning("Jinja2 not available - email templates won't work")
+
+    def _check_smtp_config(self) -> bool:
+        """Check if SMTP is properly configured."""
+        if not self.config.smtp_user or not self.config.smtp_password:
+            logger.warning(
+                "SMTP not configured! Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD "
+                "environment variables to enable email delivery."
+            )
+            return False
+        logger.info(f"SMTP configured: {self.config.smtp_host}:{self.config.smtp_port}")
+        return True
 
     def _render_template(self, template_name: str, context: Dict[str, Any]) -> str:
         """Render an email template with the given context."""
@@ -84,6 +96,13 @@ class EmailService:
         attachments: Optional[List[tuple]] = None,
     ) -> bool:
         """Send an email via SMTP."""
+        if not self.smtp_configured:
+            logger.error(
+                f"Cannot send email to {to_email} - SMTP not configured! "
+                f"Subject: {subject}"
+            )
+            return False
+
         try:
             # Create message
             msg = MIMEMultipart("alternative")

@@ -15,8 +15,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOOTSTRAP_FILE="/etc/wopr/bootstrap.json"
 WOPR_LOG="/var/log/wopr/installer.log"
 RETRY_LOG="/var/log/wopr/retry.log"
-MAX_RETRIES=5
+RETRIES_PER_MODEL=5
 SUPPORT_EMAIL="stephen.falken@wopr.systems"
+
+# AI models to try in order (smaller/faster first, then larger/smarter)
+# Tier 1: tinyllama (1.1B params) - fast, low memory
+# Tier 2: mistral (7B params) - good balance
+# Tier 3: phi3:medium (14B params) - most capable
+AI_MODELS=("tinyllama" "mistral" "phi3:medium")
+CURRENT_MODEL_INDEX=0
+CURRENT_MODEL="${AI_MODELS[0]}"
 
 #=================================================
 # HELPER FUNCTIONS
@@ -82,7 +90,7 @@ ai_analyze_failure() {
         return 1
     fi
 
-    log "INFO" "Analyzing failure with local AI..."
+    log "INFO" "Analyzing failure with AI model: ${CURRENT_MODEL}..."
 
     # Create prompt for AI analysis
     local prompt="You are a WOPR installer debugger. Analyze this error and suggest a fix.
@@ -94,19 +102,47 @@ Respond with ONLY a bash command or short script that might fix the issue.
 If unfixable, respond with: UNFIXABLE: <reason>
 Keep response under 500 chars."
 
-    # Call Ollama
+    # Call Ollama with current model
     local response=$(curl -s http://127.0.0.1:11434/api/generate \
-        -d "{\"model\": \"tinyllama\", \"prompt\": \"$prompt\", \"stream\": false}" \
+        -d "{\"model\": \"${CURRENT_MODEL}\", \"prompt\": \"$prompt\", \"stream\": false}" \
         2>/dev/null | jq -r '.response // empty' | head -c 500)
 
     if [ -n "$response" ] && ! echo "$response" | grep -q "^UNFIXABLE"; then
-        log "INFO" "AI suggested fix: $response"
+        log "INFO" "AI (${CURRENT_MODEL}) suggested fix: $response"
         echo "$response"
         return 0
     else
-        log "WARN" "AI could not suggest a fix: $response"
+        log "WARN" "AI (${CURRENT_MODEL}) could not suggest a fix: $response"
         return 1
     fi
+}
+
+switch_ai_model() {
+    CURRENT_MODEL_INDEX=$((CURRENT_MODEL_INDEX + 1))
+    if [ $CURRENT_MODEL_INDEX -ge ${#AI_MODELS[@]} ]; then
+        log "WARN" "No more AI models to try"
+        return 1
+    fi
+    CURRENT_MODEL="${AI_MODELS[$CURRENT_MODEL_INDEX]}"
+    log "INFO" "Switching to AI model: ${CURRENT_MODEL}"
+
+    # Pull the new model
+    log "INFO" "Pulling model ${CURRENT_MODEL}..."
+    curl -s http://127.0.0.1:11434/api/pull -d "{\"name\":\"${CURRENT_MODEL}\"}" >/dev/null 2>&1
+
+    # Wait for pull to complete (simple check)
+    local count=0
+    while [ $count -lt 120 ]; do
+        if curl -s http://127.0.0.1:11434/api/tags 2>/dev/null | grep -q "\"${CURRENT_MODEL}\""; then
+            log "OK" "Model ${CURRENT_MODEL} ready"
+            return 0
+        fi
+        sleep 5
+        count=$((count + 5))
+    done
+
+    log "WARN" "Model ${CURRENT_MODEL} may not be ready, continuing anyway"
+    return 0
 }
 
 attempt_ai_fix() {
@@ -221,39 +257,57 @@ Email: ${SUPPORT_EMAIL}" 2>/dev/null && {
 #=================================================
 
 run_installer() {
-    local retry_count=0
+    local total_retries=0
+    local model_retries=0
+    local max_total=$((RETRIES_PER_MODEL * ${#AI_MODELS[@]}))
 
     mkdir -p /var/log/wopr
 
-    log "INFO" "Starting WOPR bootstrap with self-healing (max $MAX_RETRIES retries)"
+    log "INFO" "Starting WOPR bootstrap with self-healing"
+    log "INFO" "Strategy: ${RETRIES_PER_MODEL} tries per model, ${#AI_MODELS[@]} models = ${max_total} max attempts"
+    report_status "installing" "Starting installation" "0"
 
-    while [ $retry_count -lt $MAX_RETRIES ]; do
-        retry_count=$((retry_count + 1))
+    while [ $total_retries -lt $max_total ]; do
+        total_retries=$((total_retries + 1))
+        model_retries=$((model_retries + 1))
 
-        log "INFO" "=== Installation attempt $retry_count of $MAX_RETRIES ==="
-        report_status "installing" "Attempt $retry_count of $MAX_RETRIES" "$retry_count"
+        log "INFO" "=== Attempt $total_retries (model: ${CURRENT_MODEL}, model try: $model_retries/$RETRIES_PER_MODEL) ==="
+        report_status "installing" "Attempt $total_retries - AI: ${CURRENT_MODEL}" "$total_retries"
 
         # Run the actual installer
         if "${SCRIPT_DIR}/wopr_install.sh" --non-interactive --confirm-all 2>&1 | tee -a "$WOPR_LOG"; then
-            log "OK" "Installation completed successfully on attempt $retry_count"
-            report_status "complete" "Installation successful" "$retry_count"
+            log "OK" "Installation completed successfully on attempt $total_retries"
+            report_status "complete" "Installation successful" "$total_retries"
             return 0
         fi
 
         local exit_code=$?
         log "ERROR" "Installation failed with exit code $exit_code"
-        report_status "retrying" "Attempt $retry_count failed, analyzing..." "$retry_count"
 
-        # Don't retry on last attempt
-        if [ $retry_count -ge $MAX_RETRIES ]; then
+        # Check if we should switch models
+        if [ $model_retries -ge $RETRIES_PER_MODEL ]; then
+            log "INFO" "Exhausted $RETRIES_PER_MODEL attempts with ${CURRENT_MODEL}"
+            if switch_ai_model; then
+                model_retries=0
+                report_status "retrying" "Switching to AI model: ${CURRENT_MODEL}" "$total_retries"
+            else
+                # No more models to try
+                break
+            fi
+        fi
+
+        # Don't retry if we've exhausted everything
+        if [ $total_retries -ge $max_total ]; then
             break
         fi
+
+        report_status "retrying" "Attempt $total_retries failed, AI analyzing..." "$total_retries"
 
         # Try AI-assisted debugging
         local ai_fix=""
         if ai_fix=$(ai_analyze_failure "$WOPR_LOG"); then
             if attempt_ai_fix "$ai_fix"; then
-                log "INFO" "AI fix applied, retrying installation..."
+                log "INFO" "AI fix applied (${CURRENT_MODEL}), retrying installation..."
                 sleep 5
                 continue
             fi
@@ -261,37 +315,41 @@ run_installer() {
 
         # No AI fix available, try basic recovery steps
         log "INFO" "Attempting basic recovery before retry..."
+        perform_basic_recovery
 
-        # Stop all wopr services cleanly
-        log "INFO" "Stopping all WOPR services..."
-        systemctl stop 'wopr-*' 2>/dev/null || true
-
-        # Kill stale conmon processes (containers stuck in "Stopping")
-        pkill -9 conmon 2>/dev/null || true
-        sleep 2
-
-        # Force remove ALL containers - clean slate for retry
-        log "INFO" "Removing all containers for clean retry..."
-        podman stop -a -t 5 2>/dev/null || true
-        podman rm -af 2>/dev/null || true
-
-        # Reset failed systemd units
-        for svc in $(systemctl list-units --state=failed 'wopr-*' --no-legend 2>/dev/null | awk '{print $1}'); do
-            log "INFO" "Resetting failed service: $svc"
-            systemctl reset-failed "$svc" 2>/dev/null || true
-        done
-
-        # Wait before retry
-        local wait_time=$((retry_count * 30))
+        # Wait before retry (shorter waits, we have more attempts now)
+        local wait_time=$((model_retries * 15))
         log "INFO" "Waiting ${wait_time}s before retry..."
         sleep "$wait_time"
     done
 
-    # All retries exhausted
-    report_status "failed" "Max retries exceeded" "$retry_count"
+    # All retries exhausted across all models
+    log "ERROR" "All $total_retries attempts exhausted across ${#AI_MODELS[@]} AI models"
+    report_status "failed" "All retries exhausted" "$total_retries"
     send_support_ticket
 
     return 1
+}
+
+perform_basic_recovery() {
+    # Stop all wopr services cleanly
+    log "INFO" "Stopping all WOPR services..."
+    systemctl stop 'wopr-*' 2>/dev/null || true
+
+    # Kill stale conmon processes (containers stuck in "Stopping")
+    pkill -9 conmon 2>/dev/null || true
+    sleep 2
+
+    # Force remove ALL containers - clean slate for retry
+    log "INFO" "Removing all containers for clean retry..."
+    podman stop -a -t 5 2>/dev/null || true
+    podman rm -af 2>/dev/null || true
+
+    # Reset failed systemd units
+    for svc in $(systemctl list-units --state=failed 'wopr-*' --no-legend 2>/dev/null | awk '{print $1}'); do
+        log "INFO" "Resetting failed service: $svc"
+        systemctl reset-failed "$svc" 2>/dev/null || true
+    done
 }
 
 #=================================================
