@@ -77,6 +77,139 @@ report_status() {
 }
 
 #=================================================
+# DEFCON ALERTING SYSTEM
+# Level 5: Normal (green)
+# Level 4: Minor issue (yellow)
+# Level 3: Service degradation (orange)
+# Level 2: Data at risk (red) - requires human approval
+# Level 1: Critical emergency (flashing red) - requires human approval
+#=================================================
+
+DEFCON_LEVEL=5
+
+defcon_alert() {
+    local level="$1"
+    local title="$2"
+    local message="$3"
+
+    DEFCON_LEVEL=$level
+    local severity=""
+    local color=""
+
+    case $level in
+        5) severity="NORMAL"; color="green" ;;
+        4) severity="ADVISORY"; color="yellow" ;;
+        3) severity="ELEVATED"; color="orange" ;;
+        2) severity="HIGH - DATA AT RISK"; color="red" ;;
+        1) severity="CRITICAL EMERGENCY"; color="red" ;;
+    esac
+
+    log "DEFCON" "=== DEFCON $level: $severity ==="
+    log "DEFCON" "$title"
+    log "DEFCON" "$message"
+
+    local orc_url=$(get_orchestrator_url)
+    local job_id=$(get_job_id)
+    local domain=$(get_domain)
+
+    # Send to orchestrator for email/SMS delivery
+    if [ -n "$orc_url" ] && [ -n "$job_id" ]; then
+        curl -sf -X POST "${orc_url}/api/v1/alerts/defcon" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"level\": $level,
+                \"severity\": \"$severity\",
+                \"title\": \"$title\",
+                \"message\": \"$message\",
+                \"domain\": \"$domain\",
+                \"job_id\": \"$job_id\",
+                \"timestamp\": \"$(date -Iseconds)\",
+                \"send_email\": true,
+                \"send_sms\": $([ $level -le 2 ] && echo 'true' || echo 'false')
+            }" 2>/dev/null || true
+    fi
+
+    # Also send via ntfy if available (immediate push notification)
+    if curl -s http://127.0.0.1:8092/health > /dev/null 2>&1; then
+        local priority="default"
+        [ $level -le 2 ] && priority="urgent"
+        [ $level -eq 1 ] && priority="max"
+
+        curl -s -X POST "http://127.0.0.1:8092/wopr-defcon" \
+            -H "Title: DEFCON $level: $title" \
+            -H "Priority: $priority" \
+            -H "Tags: warning,wopr,defcon$level" \
+            -d "$message" 2>/dev/null || true
+    fi
+}
+
+#=================================================
+# AI SAFETY GUARDRAILS
+# CRITICAL: AI must NEVER suggest commands that delete user data
+#=================================================
+
+# Patterns that are NEVER allowed in AI suggestions
+DANGEROUS_PATTERNS=(
+    "rm -rf"
+    "rm -r /"
+    "rm -fr"
+    "DROP DATABASE"
+    "DROP TABLE"
+    "TRUNCATE"
+    "DELETE FROM"
+    "podman volume rm"
+    "podman volume prune"
+    "docker volume rm"
+    "docker volume prune"
+    "dd if="
+    "mkfs"
+    "format"
+    "> /dev/"
+    "shred"
+    "wipefs"
+    ":(){:|:&};:"  # Fork bomb
+    "chmod -R 777 /"
+    "chown -R"
+    "passwd"
+    "userdel"
+    "deluser"
+    "rm -rf /var/lib"
+    "rm -rf /opt/wopr"
+    "systemctl disable wopr"
+)
+
+validate_ai_fix() {
+    local fix_script="$1"
+
+    # Check for dangerous patterns
+    for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+        if echo "$fix_script" | grep -qi "$pattern"; then
+            log "SECURITY" "BLOCKED: AI suggested dangerous command containing: $pattern"
+            defcon_alert 2 "AI Suggested Dangerous Command" \
+                "The AI self-healing system suggested a command that could delete user data.\n\nBlocked pattern: $pattern\n\nThis command was NOT executed. Human review required."
+            return 1
+        fi
+    done
+
+    # Additional checks for data-affecting commands
+    if echo "$fix_script" | grep -qiE '(remove|delete|drop|truncate|wipe|destroy|purge).*data'; then
+        log "SECURITY" "BLOCKED: AI suggestion references data deletion"
+        defcon_alert 2 "AI Suggested Data Deletion" \
+            "The AI suggested a command that mentions data deletion.\n\nCommand blocked for safety. Human review required."
+        return 1
+    fi
+
+    # Check for root filesystem operations
+    if echo "$fix_script" | grep -qE '(rm|mv|cp).*\s+/[^v/]'; then
+        log "WARN" "AI suggestion operates on root filesystem - requiring verification"
+        # Allow but log for review
+    fi
+
+    log "OK" "AI fix passed safety validation"
+    return 0
+}
+
+#=================================================
 # AI SELF-HEAL (uses local Ollama if available)
 #=================================================
 
@@ -92,14 +225,23 @@ ai_analyze_failure() {
 
     log "INFO" "Analyzing failure with AI model: ${CURRENT_MODEL}..."
 
-    # Create prompt for AI analysis
+    # Create prompt for AI analysis with SAFETY CONSTRAINTS
     local prompt="You are a WOPR installer debugger. Analyze this error and suggest a fix.
+
+CRITICAL SAFETY RULES - YOU MUST FOLLOW THESE:
+1. NEVER suggest commands that delete user data
+2. NEVER suggest DROP DATABASE, DROP TABLE, TRUNCATE, or DELETE FROM
+3. NEVER suggest rm -rf on data directories (/var/lib/*, /opt/wopr/*)
+4. NEVER suggest removing podman/docker volumes
+5. If data might be at risk, respond with: DATA_AT_RISK: <explanation>
+6. Only suggest safe recovery commands (restart services, fix permissions, create missing dirs)
 
 ERROR LOG:
 ${last_lines}
 
 Respond with ONLY a bash command or short script that might fix the issue.
 If unfixable, respond with: UNFIXABLE: <reason>
+If data is at risk, respond with: DATA_AT_RISK: <reason>
 Keep response under 500 chars."
 
     # Call Ollama with current model
@@ -107,12 +249,22 @@ Keep response under 500 chars."
         -d "{\"model\": \"${CURRENT_MODEL}\", \"prompt\": \"$prompt\", \"stream\": false}" \
         2>/dev/null | jq -r '.response // empty' | head -c 500)
 
-    if [ -n "$response" ] && ! echo "$response" | grep -q "^UNFIXABLE"; then
-        log "INFO" "AI (${CURRENT_MODEL}) suggested fix: $response"
-        echo "$response"
-        return 0
+    if [ -n "$response" ]; then
+        # Check for special responses
+        if echo "$response" | grep -q "^UNFIXABLE"; then
+            log "WARN" "AI (${CURRENT_MODEL}) says issue is unfixable: $response"
+            return 1
+        elif echo "$response" | grep -q "^DATA_AT_RISK"; then
+            log "SECURITY" "AI (${CURRENT_MODEL}) detected data at risk!"
+            echo "$response"  # Pass through for handling
+            return 0
+        else
+            log "INFO" "AI (${CURRENT_MODEL}) suggested fix: $response"
+            echo "$response"
+            return 0
+        fi
     else
-        log "WARN" "AI (${CURRENT_MODEL}) could not suggest a fix: $response"
+        log "WARN" "AI (${CURRENT_MODEL}) returned empty response"
         return 1
     fi
 }
@@ -152,18 +304,40 @@ attempt_ai_fix() {
         return 1
     fi
 
+    # Check for DATA_AT_RISK response
+    if echo "$fix_script" | grep -q "^DATA_AT_RISK"; then
+        local risk_reason=$(echo "$fix_script" | sed 's/DATA_AT_RISK: //')
+        log "SECURITY" "AI detected data at risk: $risk_reason"
+        defcon_alert 2 "Data At Risk Detected" \
+            "AI analysis detected a situation that may put user data at risk.\n\nReason: $risk_reason\n\nAutomated recovery paused. Human review required."
+        return 1
+    fi
+
+    log "INFO" "Validating AI-suggested fix for safety..."
+
+    # SAFETY CHECK: Validate the fix before executing
+    if ! validate_ai_fix "$fix_script"; then
+        log "SECURITY" "AI fix rejected by safety validator"
+        return 1
+    fi
+
     log "INFO" "Attempting AI-suggested fix..."
 
     # Save the fix script
     echo "$fix_script" > /tmp/wopr_ai_fix.sh
     chmod +x /tmp/wopr_ai_fix.sh
 
+    # Log what we're about to execute for audit
+    log "AUDIT" "Executing AI fix: $(head -c 200 /tmp/wopr_ai_fix.sh)"
+
     # Execute with timeout and capture output
     if timeout 60 bash /tmp/wopr_ai_fix.sh >> "$RETRY_LOG" 2>&1; then
         log "OK" "AI fix executed successfully"
+        defcon_alert 5 "AI Fix Applied" "Automated recovery successful on attempt $total_retries"
         return 0
     else
-        log "WARN" "AI fix failed"
+        log "WARN" "AI fix failed to resolve issue"
+        defcon_alert 4 "AI Fix Failed" "Automated fix attempt failed. Retrying with next strategy."
         return 1
     fi
 }
@@ -177,7 +351,11 @@ send_support_ticket() {
     local job_id=$(get_job_id)
     local orc_url=$(get_orchestrator_url)
 
-    log "ERROR" "Max retries ($MAX_RETRIES) exceeded. Creating support ticket..."
+    # DEFCON 1: Critical failure - all automated recovery failed
+    defcon_alert 1 "Installation Failed - All Recovery Attempts Exhausted" \
+        "Domain: $domain\nJob ID: $job_id\n\nAutomated self-healing exhausted all ${#AI_MODELS[@]} AI models with $RETRIES_PER_MODEL attempts each.\n\nIMEDIATE HUMAN INTERVENTION REQUIRED.\n\nThis alert triggers email AND SMS notification."
+
+    log "ERROR" "Max retries exceeded. Creating support ticket..."
 
     # Gather diagnostic info
     local diag_info=$(cat << DIAGEOF
