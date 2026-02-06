@@ -1661,6 +1661,223 @@ def create_dashboard_app(
 
         return usage
 
+    # ----------------------------------------
+    # STRIPE WEBHOOK ENDPOINT
+    # ----------------------------------------
+
+    @app.post("/api/v1/webhooks/stripe")
+    async def stripe_webhook(request: Request):
+        """
+        Handle Stripe webhook events.
+
+        This is the critical endpoint that receives payment confirmations
+        and triggers VPS provisioning.
+
+        Events handled:
+        - checkout.session.completed: New subscription -> trigger provisioning
+        - customer.subscription.updated: Plan changes
+        - customer.subscription.deleted: Cancellations
+        - invoice.payment_failed: Failed payments
+        """
+        import os
+
+        payload = await request.body()
+        sig_header = request.headers.get("stripe-signature")
+
+        try:
+            # Verify webhook signature
+            result = billing.process_webhook(payload, sig_header)
+
+            # If checkout completed, trigger VPS provisioning
+            if result.get("ready_to_provision"):
+                # Import VPS provisioner
+                from .vps_provisioner import VPSProvisioner, handle_stripe_checkout_completed
+
+                # Get Hetzner token from environment
+                hetzner_token = os.environ.get("HETZNER_API_TOKEN")
+                orchestrator_url = os.environ.get(
+                    "ORCHESTRATOR_URL",
+                    "https://api.wopr.systems"
+                )
+
+                if hetzner_token:
+                    provisioner = VPSProvisioner(
+                        hetzner_token=hetzner_token,
+                        orchestrator_url=orchestrator_url,
+                    )
+
+                    # Get the full session data for provisioning
+                    import stripe
+                    session = stripe.checkout.Session.retrieve(
+                        result.get("session_id", ""),
+                        expand=["customer_details"],
+                    )
+
+                    # Start VPS provisioning
+                    import asyncio
+                    provision_result = await handle_stripe_checkout_completed(
+                        session_data=session,
+                        provisioner=provisioner,
+                    )
+
+                    result["provision_result"] = provision_result
+                else:
+                    logger.warning("HETZNER_API_TOKEN not set, skipping VPS provisioning")
+                    result["provision_result"] = {"error": "VPS provisioning not configured"}
+
+            return {"status": "ok", "result": result}
+
+        except ValueError as e:
+            logger.error(f"Webhook signature verification failed: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Webhook processing error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ----------------------------------------
+    # INSTALLER CALLBACK ENDPOINT
+    # ----------------------------------------
+
+    @app.post("/api/v1/provision/{job_id}/status")
+    async def update_provision_status(job_id: str, request: Request):
+        """
+        Receive status updates from the installer running on the VPS.
+
+        The installer calls this endpoint to report progress as it
+        deploys modules. This updates the job store which feeds the
+        SSE stream to the user's browser.
+
+        Expected JSON body:
+        {
+            "status": "deploying_wopr",
+            "message": "Installing nextcloud...",
+            "step": 3,
+            "progress": 45,
+            "current_module": "nextcloud",
+            "modules_completed": 5,
+            "modules_total": 12
+        }
+        """
+        data = await request.json()
+
+        status = data.get("status", "")
+        message = data.get("message", "")
+
+        # Map installer status to job store state
+        status_map = {
+            "provisioning_vps": "provisioning_vps",
+            "waiting_for_vps": "waiting_for_vps",
+            "installing": "deploying_wopr",
+            "deploying": "deploying_wopr",
+            "deploying_wopr": "deploying_wopr",
+            "configuring_dns": "configuring_dns",
+            "configuring_sso": "deploying_wopr",
+            "generating_docs": "generating_docs",
+            "sending_welcome": "sending_welcome",
+            "complete": "completed",
+            "completed": "completed",
+            "failed": "failed",
+            "error": "failed",
+        }
+
+        state = status_map.get(status, status)
+
+        # Update job store
+        if state == "completed":
+            job_store.complete_job(
+                job_id,
+                beacon_name=data.get("beacon_name", ""),
+                instance_ip=data.get("instance_ip", ""),
+            )
+        elif state == "failed":
+            job_store.fail_job(job_id, message or "Provisioning failed")
+        else:
+            # Update progress
+            updates = {"state": state}
+            if message:
+                updates["message"] = message
+            if "step" in data:
+                updates["step"] = data["step"]
+            if "progress" in data:
+                updates["progress"] = data["progress"]
+            if "current_module" in data:
+                updates["current_module"] = data["current_module"]
+            if "modules_completed" in data and "modules_total" in data:
+                job_store.update_module_progress(
+                    job_id,
+                    data["current_module"],
+                    data["modules_completed"],
+                    data["modules_total"],
+                )
+            else:
+                job_store.update_job(job_id, **updates)
+
+        logger.info(f"Job {job_id} status update: {state} - {message}")
+
+        return {"status": "ok", "job_id": job_id, "state": state}
+
+    # ----------------------------------------
+    # PROVISION PAGE WITH SESSION LOOKUP
+    # ----------------------------------------
+
+    @app.get("/provision")
+    async def provision_from_session(session_id: Optional[str] = None):
+        """
+        Handle Stripe success redirect.
+
+        After Stripe checkout completes, the user is redirected here with
+        the session_id. We look up the session to find the job, then
+        redirect to the provisioning watch page.
+
+        Flow:
+        1. User completes Stripe checkout
+        2. Stripe redirects to /provision?session_id=cs_xxx
+        3. We look up the session metadata to find beacon_name
+        4. Redirect to /provision/{job_id}
+        """
+        from fastapi.responses import RedirectResponse
+
+        if not session_id:
+            # No session, show waiting page
+            return RedirectResponse(url="/provision/pending")
+
+        try:
+            import stripe
+
+            # Get session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+
+            # The job_id might be in our job store already (webhook may have fired)
+            # Look it up by beacon_name from metadata
+            metadata = session.metadata or {}
+            beacon_name = metadata.get("wopr_beacon_name", "")
+
+            if beacon_name:
+                # Find job by beacon name
+                jobs = job_store.list_jobs(limit=10)
+                for job in jobs:
+                    if job.get("beacon_name") == beacon_name:
+                        return RedirectResponse(url=f"/provision/{job['job_id']}")
+
+            # If job not found yet, create a placeholder
+            # (webhook might still be processing)
+            import secrets
+            job_id = secrets.token_urlsafe(16)
+            job_store.create_job(
+                job_id=job_id,
+                beacon_name=beacon_name or "pending",
+                bundle=metadata.get("wopr_bundle", ""),
+                tier=metadata.get("wopr_tier", "t1"),
+                customer_email=session.customer_email or "",
+                customer_name=metadata.get("wopr_customer_name", ""),
+            )
+
+            return RedirectResponse(url=f"/provision/{job_id}")
+
+        except Exception as e:
+            logger.error(f"Error looking up session {session_id}: {e}")
+            return RedirectResponse(url="/provision/error")
+
     return app
 
 
