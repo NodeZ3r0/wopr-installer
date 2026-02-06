@@ -87,6 +87,7 @@ class Beacon:
     # Billing
     stripe_subscription_id: Optional[str] = None
     billing_cycle: str = "monthly"  # monthly, yearly
+    stripe_mode: str = "test"  # "test" or "live" - per-beacon Stripe mode
 
     # Mesh network
     mesh_fingerprint: Optional[str] = None
@@ -143,6 +144,7 @@ class BeaconResponse(BaseModel):
     modules: List[str]
     provider: str
     region: str
+    stripe_mode: str = "test"
     mesh_fingerprint: Optional[str] = None
     mesh_peers: List[str] = []
     created_at: str

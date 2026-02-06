@@ -188,31 +188,56 @@ class WOPRBilling:
     - Creating checkout sessions
     - Processing webhooks
     - Managing subscriptions
+
+    Supports per-beacon Stripe mode (test/live) while sharing the same
+    WOPR Stripe account for all transactions.
     """
 
     def __init__(
         self,
-        stripe_secret_key: str,
-        stripe_webhook_secret: str,
+        test_secret_key: str,
+        live_secret_key: str,
+        test_webhook_secret: str,
+        live_webhook_secret: str,
         success_url: str,
         cancel_url: str,
+        default_mode: str = "test",
     ):
         """
-        Initialize billing.
+        Initialize billing with both test and live keys.
 
         Args:
-            stripe_secret_key: Stripe secret API key
-            stripe_webhook_secret: Webhook signing secret
+            test_secret_key: Stripe test secret API key
+            live_secret_key: Stripe live secret API key
+            test_webhook_secret: Test webhook signing secret
+            live_webhook_secret: Live webhook signing secret
             success_url: URL to redirect after successful payment
             cancel_url: URL to redirect if payment cancelled
+            default_mode: Default mode if not specified ("test" or "live")
         """
         if not STRIPE_AVAILABLE:
             raise ImportError("stripe package not installed. Run: pip install stripe")
 
-        stripe.api_key = stripe_secret_key
-        self.webhook_secret = stripe_webhook_secret
+        self.test_secret_key = test_secret_key
+        self.live_secret_key = live_secret_key
+        self.test_webhook_secret = test_webhook_secret
+        self.live_webhook_secret = live_webhook_secret
         self.success_url = success_url
         self.cancel_url = cancel_url
+        self.default_mode = default_mode
+
+        # Set default API key (can be overridden per-request)
+        stripe.api_key = self.get_secret_key(default_mode)
+
+    def get_secret_key(self, mode: str = None) -> str:
+        """Get the Stripe secret key for the specified mode."""
+        effective_mode = mode or self.default_mode
+        return self.live_secret_key if effective_mode == "live" else self.test_secret_key
+
+    def get_webhook_secret(self, mode: str = None) -> str:
+        """Get the webhook secret for the specified mode."""
+        effective_mode = mode or self.default_mode
+        return self.live_webhook_secret if effective_mode == "live" else self.test_webhook_secret
 
     def create_checkout_session(
         self,
@@ -228,6 +253,7 @@ class WOPRBilling:
         custom_domain: Optional[str] = None,
         referral_code: Optional[str] = None,
         additional_users: Optional[List[str]] = None,
+        stripe_mode: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create a Stripe Checkout Session for a WOPR subscription.
@@ -245,18 +271,25 @@ class WOPRBilling:
             custom_domain: Optional custom domain
             referral_code: Optional referral code
             additional_users: List of additional user emails (for family/business)
+            stripe_mode: Override Stripe mode ("test" or "live") for this session
 
         Returns:
             Dict with session_id and checkout_url
         """
+        # Determine effective Stripe mode
+        effective_mode = stripe_mode or self.default_mode
+
+        # Use the appropriate API key for this request
+        api_key = self.get_secret_key(effective_mode)
+
         # Validate bundle and tier
         if not is_valid_bundle(bundle):
             raise ValueError(f"Unknown bundle: {bundle}")
         if not is_valid_tier(tier):
             raise ValueError(f"Invalid tier: {tier}. Must be t1, t2, or t3")
 
-        # Get Stripe price ID
-        price_id = get_price_id(bundle, tier, billing_period)
+        # Get Stripe price ID for the effective mode
+        price_id = get_price_id(bundle, tier, billing_period, mode=effective_mode)
         if not price_id:
             raise ValueError(
                 f"No Stripe price configured for {bundle}/{tier}/{billing_period}. "
@@ -284,15 +317,17 @@ class WOPRBilling:
         )
 
         # Find or create Stripe customer (required for Accounts V2 test mode)
-        existing = stripe.Customer.list(email=email, limit=1)
+        # Use api_key parameter to support per-beacon mode switching
+        existing = stripe.Customer.list(email=email, limit=1, api_key=api_key)
         if existing.data:
             customer_id = existing.data[0].id
         else:
-            customer = stripe.Customer.create(email=email, name=name)
+            customer = stripe.Customer.create(email=email, name=name, api_key=api_key)
             customer_id = customer.id
 
-        # Create Stripe checkout session
+        # Create Stripe checkout session with per-beacon API key
         session = stripe.checkout.Session.create(
+            api_key=api_key,
             mode="subscription",
             payment_method_types=["card"],
             customer=customer_id,
@@ -323,12 +358,14 @@ class WOPRBilling:
             "price_monthly_cents": price_cents,
             "price_display": get_price_display(bundle, tier),
             "billing_period": billing_period,
+            "stripe_mode": effective_mode,
         }
 
     def verify_webhook_signature(
         self,
         payload: bytes,
         signature: str,
+        stripe_mode: Optional[str] = None,
     ) -> stripe.Event:
         """
         Verify webhook signature and return event.
@@ -336,6 +373,7 @@ class WOPRBilling:
         Args:
             payload: Raw request body
             signature: Stripe-Signature header
+            stripe_mode: Stripe mode to use for webhook secret ("test" or "live")
 
         Returns:
             Verified Stripe Event
@@ -343,11 +381,12 @@ class WOPRBilling:
         Raises:
             ValueError: If signature verification fails
         """
+        webhook_secret = self.get_webhook_secret(stripe_mode)
         try:
             event = stripe.Webhook.construct_event(
                 payload,
                 signature,
-                self.webhook_secret,
+                webhook_secret,
             )
             return event
         except stripe.error.SignatureVerificationError as e:
@@ -445,6 +484,7 @@ class WOPRBilling:
         self,
         payload: bytes,
         signature: str,
+        stripe_mode: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Process incoming Stripe webhook.
@@ -452,11 +492,12 @@ class WOPRBilling:
         Args:
             payload: Raw request body
             signature: Stripe-Signature header
+            stripe_mode: Stripe mode for webhook secret ("test" or "live")
 
         Returns:
             Dict with event handling result
         """
-        event = self.verify_webhook_signature(payload, signature)
+        event = self.verify_webhook_signature(payload, signature, stripe_mode)
 
         handlers = {
             "checkout.session.completed": lambda e: self.handle_checkout_completed(e.data.object),

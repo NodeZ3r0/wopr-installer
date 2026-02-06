@@ -1890,10 +1890,13 @@ def create_app_from_env():
     import os
 
     billing = WOPRBilling(
-        stripe_secret_key=os.environ["STRIPE_SECRET_KEY"],
-        stripe_webhook_secret=os.environ["STRIPE_WEBHOOK_SECRET"],
+        test_secret_key=os.environ.get("STRIPE_TEST_SECRET_KEY", os.environ.get("STRIPE_SECRET_KEY", "")),
+        live_secret_key=os.environ.get("STRIPE_LIVE_SECRET_KEY", ""),
+        test_webhook_secret=os.environ.get("STRIPE_TEST_WEBHOOK_SECRET", os.environ.get("STRIPE_WEBHOOK_SECRET", "")),
+        live_webhook_secret=os.environ.get("STRIPE_LIVE_WEBHOOK_SECRET", ""),
         success_url=os.environ.get("STRIPE_SUCCESS_URL", "https://wopr.systems/success"),
         cancel_url=os.environ.get("STRIPE_CANCEL_URL", "https://wopr.systems/cancel"),
+        default_mode=os.environ.get("STRIPE_DEFAULT_MODE", "test"),
     )
 
     trial_manager = TrialManager(

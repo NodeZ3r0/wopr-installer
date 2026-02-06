@@ -13,9 +13,27 @@ from dataclasses import dataclass, field
 
 @dataclass
 class StripeConfig:
-    secret_key: str = ""
-    webhook_secret: str = ""
-    price_mode: str = "test"  # "test" or "live"
+    """Stripe configuration with both test and live keys for per-beacon mode switching."""
+    test_secret_key: str = ""
+    live_secret_key: str = ""
+    test_webhook_secret: str = ""
+    live_webhook_secret: str = ""
+    default_mode: str = "test"  # Default mode for new beacons
+
+    def get_secret_key(self, mode: str = None) -> str:
+        """Get secret key for specified mode (or default)."""
+        effective_mode = mode or self.default_mode
+        return self.live_secret_key if effective_mode == "live" else self.test_secret_key
+
+    def get_webhook_secret(self, mode: str = None) -> str:
+        """Get webhook secret for specified mode (or default)."""
+        effective_mode = mode or self.default_mode
+        return self.live_webhook_secret if effective_mode == "live" else self.test_webhook_secret
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if at least one mode is configured."""
+        return bool(self.test_secret_key or self.live_secret_key)
 
 
 @dataclass
@@ -113,9 +131,11 @@ class WOPRConfig:
         """Load configuration from environment variables."""
         return cls(
             stripe=StripeConfig(
-                secret_key=os.environ.get("STRIPE_SECRET_KEY", ""),
-                webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
-                price_mode=os.environ.get("STRIPE_PRICE_MODE", "test"),
+                test_secret_key=os.environ.get("STRIPE_TEST_SECRET_KEY", os.environ.get("STRIPE_SECRET_KEY", "")),
+                live_secret_key=os.environ.get("STRIPE_LIVE_SECRET_KEY", ""),
+                test_webhook_secret=os.environ.get("STRIPE_TEST_WEBHOOK_SECRET", os.environ.get("STRIPE_WEBHOOK_SECRET", "")),
+                live_webhook_secret=os.environ.get("STRIPE_LIVE_WEBHOOK_SECRET", ""),
+                default_mode=os.environ.get("STRIPE_DEFAULT_MODE", os.environ.get("STRIPE_PRICE_MODE", "test")),
             ),
             cloudflare=CloudflareConfig(
                 api_token=os.environ.get("CLOUDFLARE_API_TOKEN", ""),
