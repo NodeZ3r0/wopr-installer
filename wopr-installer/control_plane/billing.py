@@ -83,6 +83,54 @@ class SubscriptionTier(Enum):
 
 
 @dataclass
+class PricingPlan:
+    """Pricing details for a subscription tier."""
+    price_monthly_usd: float
+    price_yearly_usd: float
+    features: List[str]
+
+
+# Pricing plans by subscription tier
+PRICING_PLANS: Dict[SubscriptionTier, PricingPlan] = {
+    SubscriptionTier.PERSONAL: PricingPlan(
+        price_monthly_usd=15.0,
+        price_yearly_usd=150.0,
+        features=["5 core apps", "50GB storage", "SSO", "Email support"],
+    ),
+    SubscriptionTier.CREATOR: PricingPlan(
+        price_monthly_usd=25.0,
+        price_yearly_usd=250.0,
+        features=["10 apps", "100GB storage", "SSO", "Priority support"],
+    ),
+    SubscriptionTier.DEVELOPER: PricingPlan(
+        price_monthly_usd=35.0,
+        price_yearly_usd=350.0,
+        features=["15 apps", "200GB storage", "SSO", "API access", "Priority support"],
+    ),
+    SubscriptionTier.PROFESSIONAL: PricingPlan(
+        price_monthly_usd=50.0,
+        price_yearly_usd=500.0,
+        features=["All apps", "500GB storage", "SSO", "API access", "Phone support"],
+    ),
+    SubscriptionTier.FAMILY: PricingPlan(
+        price_monthly_usd=45.0,
+        price_yearly_usd=450.0,
+        features=["All apps", "500GB storage", "5 users", "Family sharing"],
+    ),
+    SubscriptionTier.SMALL_BUSINESS: PricingPlan(
+        price_monthly_usd=99.0,
+        price_yearly_usd=990.0,
+        features=["All apps", "1TB storage", "10 users", "Business tools"],
+    ),
+    SubscriptionTier.ENTERPRISE: PricingPlan(
+        price_monthly_usd=249.0,
+        price_yearly_usd=2490.0,
+        features=["All apps", "Unlimited storage", "Unlimited users", "Dedicated support"],
+    ),
+}
+
+
+@dataclass
 class CheckoutMetadata:
     """Metadata attached to Stripe checkout session."""
     bundle: str
