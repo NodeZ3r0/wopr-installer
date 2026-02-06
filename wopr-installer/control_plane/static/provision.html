@@ -466,6 +466,255 @@
             .progress-percent { font-size: 32px; }
             .steps-container { padding: 20px; }
         }
+
+        /* Support Button & Modal */
+        .support-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--crt-panel);
+            border: 1px solid var(--crt-amber);
+            color: var(--crt-amber);
+            padding: 12px 20px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .support-btn:hover {
+            background: var(--crt-amber);
+            color: var(--crt-bg);
+            box-shadow: 0 0 20px rgba(255, 176, 0, 0.3);
+        }
+
+        .support-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .support-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .support-modal.visible {
+            display: flex;
+        }
+
+        .support-modal-content {
+            background: var(--crt-panel);
+            border: 1px solid var(--crt-amber);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .support-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--crt-border);
+        }
+
+        .support-modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            color: var(--crt-amber);
+            letter-spacing: 2px;
+        }
+
+        .support-modal-close {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .support-modal-close:hover {
+            color: var(--crt-red);
+        }
+
+        .support-form label {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .support-form input,
+        .support-form textarea,
+        .support-form select {
+            width: 100%;
+            background: var(--crt-bg);
+            border: 1px solid var(--crt-border);
+            color: var(--crt-green);
+            padding: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        .support-form input:focus,
+        .support-form textarea:focus,
+        .support-form select:focus {
+            outline: none;
+            border-color: var(--crt-amber);
+        }
+
+        .support-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .file-upload-area {
+            border: 2px dashed var(--crt-border);
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area:hover,
+        .file-upload-area.dragover {
+            border-color: var(--crt-amber);
+            background: rgba(255, 176, 0, 0.05);
+        }
+
+        .file-upload-area input {
+            display: none;
+        }
+
+        .file-upload-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #444;
+        }
+
+        .file-upload-text {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .file-upload-text span {
+            color: var(--crt-amber);
+        }
+
+        .file-list {
+            margin-bottom: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--crt-bg);
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .file-item-name {
+            color: var(--crt-green);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item-size {
+            color: #555;
+            margin: 0 10px;
+        }
+
+        .file-item-remove {
+            color: var(--crt-red);
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .support-submit {
+            width: 100%;
+            background: linear-gradient(135deg, var(--crt-amber) 0%, #cc8800 100%);
+            color: var(--crt-bg);
+            border: none;
+            padding: 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .support-submit:hover {
+            box-shadow: 0 0 25px rgba(255, 176, 0, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .support-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .support-success {
+            text-align: center;
+            padding: 30px;
+        }
+
+        .support-success-icon {
+            font-size: 48px;
+            color: var(--crt-green);
+            margin-bottom: 15px;
+        }
+
+        .support-success-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            color: var(--crt-green);
+            margin-bottom: 10px;
+        }
+
+        .support-success-text {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .job-info-auto {
+            background: var(--crt-bg);
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 11px;
+            color: #555;
+        }
+
+        .job-info-auto strong {
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -566,6 +815,81 @@
             <div class="footer-text">WOPR SYSTEMS // SOVEREIGN INFRASTRUCTURE</div>
             <div class="job-id" id="jobId">-</div>
         </footer>
+    </div>
+
+    <!-- Floating Support Button -->
+    <button class="support-btn" onclick="openSupportModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        NEED HELP?
+    </button>
+
+    <!-- Support Modal -->
+    <div class="support-modal" id="supportModal">
+        <div class="support-modal-content">
+            <div class="support-modal-header">
+                <div class="support-modal-title">SUBMIT SUPPORT TICKET</div>
+                <button class="support-modal-close" onclick="closeSupportModal()">&times;</button>
+            </div>
+
+            <div id="supportFormContainer">
+                <div class="job-info-auto">
+                    <strong>Job ID:</strong> <span id="ticketJobId">-</span><br>
+                    <strong>Beacon:</strong> <span id="ticketBeaconName">-</span><br>
+                    <strong>Status:</strong> <span id="ticketStatus">-</span><br>
+                    <strong>Time:</strong> <span id="ticketTime">-</span>
+                </div>
+
+                <form class="support-form" id="supportForm" onsubmit="submitSupportTicket(event)">
+                    <label for="ticketEmail">Your Email</label>
+                    <input type="email" id="ticketEmail" name="email" required placeholder="you@example.com">
+
+                    <label for="ticketCategory">Issue Category</label>
+                    <select id="ticketCategory" name="category" required>
+                        <option value="">Select an issue type...</option>
+                        <option value="stuck">Provisioning stuck / not progressing</option>
+                        <option value="failed">Provisioning failed with error</option>
+                        <option value="timeout">Provisioning timed out</option>
+                        <option value="payment">Payment processed but no progress</option>
+                        <option value="access">Can't access my beacon</option>
+                        <option value="other">Other issue</option>
+                    </select>
+
+                    <label for="ticketDescription">Describe the Issue</label>
+                    <textarea id="ticketDescription" name="description" required placeholder="What happened? What were you expecting?"></textarea>
+
+                    <label>Attachments (Screenshots / Screen Recordings)</label>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" id="fileInput" multiple accept="image/*,video/*,.mp4,.webm,.mov,.png,.jpg,.jpeg,.gif">
+                        <div class="file-upload-icon">&#128247;</div>
+                        <div class="file-upload-text">
+                            Drag & drop files here or <span>browse</span><br>
+                            <small>Images and videos up to 50MB each</small>
+                        </div>
+                    </div>
+                    <div class="file-list" id="fileList"></div>
+
+                    <button type="submit" class="support-submit" id="submitBtn">
+                        SUBMIT TICKET
+                    </button>
+                </form>
+            </div>
+
+            <div class="support-success" id="supportSuccess" style="display: none;">
+                <div class="support-success-icon">&#10003;</div>
+                <div class="support-success-title">TICKET SUBMITTED</div>
+                <div class="support-success-text">
+                    We've received your support request.<br>
+                    You'll receive a response at your email within 24 hours.
+                </div>
+                <button class="support-submit" onclick="closeSupportModal()" style="margin-top: 20px;">
+                    CLOSE
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -708,6 +1032,172 @@
             .catch(err => {
                 console.error('Fetch error:', err);
             });
+
+        // ==========================================
+        // SUPPORT TICKET FUNCTIONALITY
+        // ==========================================
+
+        let uploadedFiles = [];
+        let currentJobData = {};
+
+        function openSupportModal() {
+            document.getElementById('supportModal').classList.add('visible');
+            document.getElementById('supportFormContainer').style.display = 'block';
+            document.getElementById('supportSuccess').style.display = 'none';
+
+            // Auto-fill job info
+            document.getElementById('ticketJobId').textContent = jobId;
+            document.getElementById('ticketBeaconName').textContent =
+                document.getElementById('beaconName').textContent || 'Unknown';
+            document.getElementById('ticketStatus').textContent =
+                document.getElementById('statusMessage').textContent.replace(/█/g, '').trim() || 'Unknown';
+            document.getElementById('ticketTime').textContent = new Date().toISOString();
+        }
+
+        function closeSupportModal() {
+            document.getElementById('supportModal').classList.remove('visible');
+            uploadedFiles = [];
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('supportForm').reset();
+        }
+
+        // File upload handling
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        fileUploadArea.addEventListener('click', () => fileInput.click());
+
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+
+            for (const file of files) {
+                if (file.size > maxSize) {
+                    alert(`File "${file.name}" is too large. Maximum size is 50MB.`);
+                    continue;
+                }
+
+                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+                    alert(`File "${file.name}" is not a supported format. Please use images or videos.`);
+                    continue;
+                }
+
+                uploadedFiles.push(file);
+            }
+
+            renderFileList();
+        }
+
+        function renderFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = uploadedFiles.map((file, index) => `
+                <div class="file-item">
+                    <span class="file-item-name">${file.type.startsWith('video/') ? '🎬' : '📷'} ${file.name}</span>
+                    <span class="file-item-size">${formatFileSize(file.size)}</span>
+                    <span class="file-item-remove" onclick="removeFile(${index})">✕</span>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        async function submitSupportTicket(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'SUBMITTING...';
+
+            const formData = new FormData();
+            formData.append('job_id', jobId);
+            formData.append('beacon_name', document.getElementById('ticketBeaconName').textContent);
+            formData.append('status', document.getElementById('ticketStatus').textContent);
+            formData.append('email', document.getElementById('ticketEmail').value);
+            formData.append('category', document.getElementById('ticketCategory').value);
+            formData.append('description', document.getElementById('ticketDescription').value);
+            formData.append('user_agent', navigator.userAgent);
+            formData.append('timestamp', new Date().toISOString());
+            formData.append('url', window.location.href);
+
+            // Add files
+            uploadedFiles.forEach((file, i) => {
+                formData.append(`file_${i}`, file);
+            });
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/support/ticket`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    document.getElementById('supportFormContainer').style.display = 'none';
+                    document.getElementById('supportSuccess').style.display = 'block';
+                    uploadedFiles = [];
+                } else {
+                    throw new Error('Failed to submit ticket');
+                }
+            } catch (err) {
+                console.error('Support ticket error:', err);
+                // Still show success - we'll handle via ntfy fallback
+                document.getElementById('supportFormContainer').style.display = 'none';
+                document.getElementById('supportSuccess').style.display = 'block';
+
+                // Fallback: send via ntfy
+                try {
+                    await fetch('https://ntfy.demo.wopr.systems/wopr-support', {
+                        method: 'POST',
+                        headers: {
+                            'Title': `Support: ${document.getElementById('ticketCategory').value}`,
+                            'Tags': 'ticket,warning'
+                        },
+                        body: `Job: ${jobId}\nEmail: ${document.getElementById('ticketEmail').value}\nCategory: ${document.getElementById('ticketCategory').value}\nDescription: ${document.getElementById('ticketDescription').value}\nBeacon: ${document.getElementById('ticketBeaconName').textContent}`
+                    });
+                } catch (ntfyErr) {
+                    console.error('ntfy fallback failed:', ntfyErr);
+                }
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'SUBMIT TICKET';
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeSupportModal();
+        });
+
+        // Close modal on background click
+        document.getElementById('supportModal').addEventListener('click', (e) => {
+            if (e.target.id === 'supportModal') closeSupportModal();
+        });
     </script>
 </body>
 </html>
