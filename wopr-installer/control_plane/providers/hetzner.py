@@ -58,20 +58,33 @@ HETZNER_STATUS_MAP = {
 
 # Hetzner plan prices (EUR, approximate - check current pricing)
 # Format: plan_name -> monthly_eur
+# NOTE: Hetzner renamed plans in 2025 (cx22 -> cx23, cpx21 -> cpx22, etc.)
+# The provider_health.py service monitors for future API changes
 HETZNER_PRICES_EUR = {
-    "cx22": 3.79,
-    "cx32": 7.59,
-    "cx42": 14.99,
-    "cx52": 29.99,
-    "cpx11": 4.49,
-    "cpx21": 8.49,
-    "cpx31": 15.99,
-    "cpx41": 29.99,
-    "cpx51": 64.99,
+    # Shared vCPU Intel (CX series) - renamed in 2025
+    "cx23": 3.79,    # was cx22
+    "cx33": 7.59,    # was cx32
+    "cx43": 14.99,   # was cx42
+    "cx53": 29.99,   # was cx52
+    # Shared vCPU AMD (CPX series) - renamed in 2025
+    "cpx12": 4.49,   # was cpx11
+    "cpx22": 8.49,   # was cpx21
+    "cpx32": 15.99,  # was cpx31
+    "cpx42": 29.99,  # was cpx41
+    "cpx52": 64.99,  # was cpx51
+    "cpx62": 99.99,  # new
+    # ARM (CAX series) - Ampere
     "cax11": 3.79,
     "cax21": 6.49,
     "cax31": 12.49,
     "cax41": 23.99,
+    # Dedicated vCPU Intel (CCX series)
+    "ccx13": 15.99,
+    "ccx23": 29.99,
+    "ccx33": 59.99,
+    "ccx43": 119.99,
+    "ccx53": 239.99,
+    "ccx63": 359.99,
 }
 
 # EUR to USD conversion (approximate)
@@ -176,16 +189,17 @@ class HetznerProvider(WOPRProviderInterface):
         Get recommended Hetzner plan for a tier.
 
         Hetzner recommendations:
-        - LOW: CX22 (shared vCPU, great value)
-        - MEDIUM: CX32 or CPX21 (dedicated for better performance)
-        - HIGH: CX42 or CPX31
-        - VERY_HIGH: CX52 or CPX41
+        - LOW: CX23 (shared vCPU, great value)
+        - MEDIUM: CX33 or CPX22 (better performance)
+        - HIGH: CX43 or CPX32
+        - VERY_HIGH: CX53 or CPX42
         """
+        # NOTE: Plan IDs updated for 2025 (cx22 -> cx23, etc.)
         recommendations = {
-            ResourceTier.LOW: "cx22",
-            ResourceTier.MEDIUM: "cx32",
-            ResourceTier.HIGH: "cx42",
-            ResourceTier.VERY_HIGH: "cx52",
+            ResourceTier.LOW: "cx23",
+            ResourceTier.MEDIUM: "cx33",
+            ResourceTier.HIGH: "cx43",
+            ResourceTier.VERY_HIGH: "cx53",
         }
 
         rec_name = recommendations.get(tier)

@@ -2,28 +2,45 @@
 WOPR Vultr Provider Adapter
 ===========================
 
-Vultr integration via Apache Libcloud.
+██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗
+██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝
+██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
+╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
 
-Vultr offers:
-- 32+ datacenter locations worldwide
-- Competitive pricing starting at $2.50/mo
-- Fast provisioning
-- Good global coverage for mesh distribution
+DEPRECATED - NOT REGISTERED
 
-Requires: pip install apache-libcloud
+Vultr's Terms of Service contain a problematic clause granting them
+broad rights over content hosted on their servers. WOPR does not
+recommend or support Vultr for sovereign cloud deployments.
+
+See: https://www.vultr.com/legal/tos/ (Section 4 - Content)
+
+This file is kept for reference only. The provider is NOT registered
+and cannot be used. Use Hetzner, UpCloud, OVH, Linode, or other
+providers with more reasonable terms.
 """
 
+import warnings
 from typing import List, Optional
 from .libcloud_base import LibcloudBaseProvider, LIBCLOUD_AVAILABLE
 from .base import Plan, ProviderError
-from .registry import register_provider
+# NOTE: Deliberately NOT importing register_provider
 
 if LIBCLOUD_AVAILABLE:
     from libcloud.compute.types import Provider as LibcloudProvider
     from libcloud.compute.base import NodeImage
 
+# Issue deprecation warning if this module is imported
+warnings.warn(
+    "Vultr provider is deprecated due to problematic TOS. "
+    "Use Hetzner, UpCloud, OVH, or Linode instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-# Vultr pricing (approximate USD/month)
+# Vultr pricing (approximate USD/month) - KEPT FOR REFERENCE ONLY
 VULTR_PRICES = {
     "vc2-1c-1gb": 5.00,
     "vc2-1c-2gb": 10.00,
@@ -36,7 +53,7 @@ VULTR_PRICES = {
 }
 
 
-@register_provider
+# NOTE: @register_provider decorator REMOVED - provider is disabled
 class VultrProvider(LibcloudBaseProvider):
     """
     Vultr provider adapter.

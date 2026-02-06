@@ -34,10 +34,12 @@ logger = logging.getLogger(__name__)
 
 
 # Tier to Hetzner plan mapping
+# NOTE: Hetzner renamed plans in 2025 (cx22 -> cx23, cpx21 -> cpx22, etc.)
+# The provider_health.py service monitors for future changes
 TIER_TO_HETZNER_PLAN = {
-    "t1": "cpx21",   # 3 vCPU, 4GB RAM, 80GB - good for light bundles
-    "t2": "cpx31",   # 4 vCPU, 8GB RAM, 160GB - good for most bundles
-    "t3": "cpx41",   # 8 vCPU, 16GB RAM, 240GB - for heavy bundles
+    "t1": "cpx22",   # 2 vCPU, 4GB RAM - good for light bundles
+    "t2": "cpx32",   # 4 vCPU, 8GB RAM - good for most bundles
+    "t3": "cpx42",   # 8 vCPU, 16GB RAM - for heavy bundles
 }
 
 # Bundle to minimum tier (some bundles need more resources)
@@ -151,7 +153,7 @@ class VPSProvisioner:
             "customer_email": request.customer_email,
             "customer_name": request.customer_name,
             "orchestrator_url": self.orchestrator_url,
-            "provisioned_at": datetime.utcnow().isoformat(),
+            "provisioned_at": datetime.now().isoformat(),
             "core_modules": CORE_INFRASTRUCTURE,
             "app_modules": app_modules,
             "storage_gb": storage_tier.storage_gb,
