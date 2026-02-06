@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOPR // Beacon Provisioning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --crt-green: #00ff41;
+            --crt-green-dim: #00cc33;
+            --crt-green-dark: #003d10;
+            --crt-amber: #ffb000;
+            --crt-red: #ff3333;
+            --crt-bg: #0a0a0a;
+            --crt-panel: #111;
+            --crt-border: #1a1a1a;
+            --scanline-opacity: 0.03;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--crt-bg);
+            color: var(--crt-green);
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* CRT Scanlines Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, var(--scanline-opacity)),
+                rgba(0, 0, 0, var(--scanline-opacity)) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            z-index: 9999;
+        }
+
+        /* CRT Flicker */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: rgba(0, 255, 65, 0.01);
+            animation: flicker 0.15s infinite;
+            z-index: 9998;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 0.97; }
+            50% { opacity: 1; }
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 12px;
+            color: var(--crt-green);
+            text-shadow:
+                0 0 10px var(--crt-green),
+                0 0 20px var(--crt-green),
+                0 0 40px var(--crt-green-dim);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px var(--crt-green), 0 0 20px var(--crt-green), 0 0 40px var(--crt-green-dim); }
+            to { text-shadow: 0 0 15px var(--crt-green), 0 0 30px var(--crt-green), 0 0 60px var(--crt-green-dim); }
+        }
+
+        .subtitle {
+            font-size: 11px;
+            letter-spacing: 4px;
+            color: #444;
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        .beacon-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            color: var(--crt-green);
+            margin-top: 30px;
+            padding: 15px 30px;
+            border: 1px solid var(--crt-green-dark);
+            display: inline-block;
+            background: rgba(0, 255, 65, 0.03);
+            letter-spacing: 3px;
+        }
+
+        /* Progress Ring */
+        .progress-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 50px;
+        }
+
+        .progress-ring-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-bg {
+            fill: none;
+            stroke: var(--crt-border);
+            stroke-width: 8;
+        }
+
+        .progress-ring-fill {
+            fill: none;
+            stroke: var(--crt-green);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 565.48;
+            stroke-dashoffset: 565.48;
+            transition: stroke-dashoffset 0.5s ease;
+            filter: drop-shadow(0 0 10px var(--crt-green));
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .progress-percent {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--crt-green);
+            text-shadow: 0 0 20px var(--crt-green);
+        }
+
+        .progress-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Status Message */
+        .status-message {
+            font-size: 14px;
+            color: var(--crt-green-dim);
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 65, 0.05);
+            border-left: 2px solid var(--crt-green);
+            min-height: 40px;
+        }
+
+        .status-message.error {
+            color: var(--crt-red);
+            border-left-color: var(--crt-red);
+            background: rgba(255, 51, 51, 0.05);
+        }
+
+        /* Steps */
+        .steps-container {
+            background: var(--crt-panel);
+            border: 1px solid var(--crt-border);
+            padding: 30px;
+            flex-grow: 1;
+        }
+
+        .steps-header {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: #444;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--crt-border);
+            text-transform: uppercase;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            padding: 18px 0;
+            border-bottom: 1px solid var(--crt-border);
+            transition: all 0.3s ease;
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            font-size: 18px;
+            background: var(--crt-bg);
+            border: 2px solid var(--crt-border);
+            transition: all 0.3s ease;
+        }
+
+        .step.pending .step-icon {
+            color: #333;
+        }
+
+        .step.active .step-icon {
+            border-color: var(--crt-green);
+            color: var(--crt-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 65, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(0, 255, 65, 0.5); }
+        }
+
+        .step.complete .step-icon {
+            background: var(--crt-green);
+            border-color: var(--crt-green);
+            color: var(--crt-bg);
+        }
+
+        .step.error .step-icon {
+            border-color: var(--crt-red);
+            color: var(--crt-red);
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+        }
+
+        .step-content {
+            flex-grow: 1;
+        }
+
+        .step-title {
+            font-size: 15px;
+            color: #555;
+            transition: color 0.3s ease;
+        }
+
+        .step.active .step-title,
+        .step.complete .step-title {
+            color: var(--crt-green);
+        }
+
+        .step.error .step-title {
+            color: var(--crt-red);
+        }
+
+        .step-subtitle {
+            font-size: 12px;
+            color: #333;
+            margin-top: 4px;
+        }
+
+        .step.active .step-subtitle {
+            color: var(--crt-green-dim);
+        }
+
+        /* Module Progress */
+        .module-progress {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--crt-green-dim);
+        }
+
+        .module-bar {
+            height: 3px;
+            background: var(--crt-border);
+            margin-top: 6px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .module-bar-fill {
+            height: 100%;
+            background: var(--crt-green);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--crt-green);
+        }
+
+        /* Completion State */
+        .completion-panel {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: var(--crt-panel);
+            border: 1px solid var(--crt-green);
+            margin-top: 30px;
+        }
+
+        .completion-panel.visible {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .completion-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .completion-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            color: var(--crt-green);
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px var(--crt-green);
+        }
+
+        .completion-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .beacon-url {
+            display: inline-block;
+            padding: 15px 30px;
+            background: var(--crt-green);
+            color: var(--crt-bg);
+            text-decoration: none;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .beacon-url:hover {
+            box-shadow: 0 0 30px var(--crt-green);
+            transform: translateY(-2px);
+        }
+
+        /* Error State */
+        .error-panel {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: var(--crt-panel);
+            border: 1px solid var(--crt-red);
+            margin-top: 30px;
+        }
+
+        .error-panel.visible {
+            display: block;
+        }
+
+        .error-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            color: var(--crt-red);
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            color: #888;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .retry-btn {
+            padding: 12px 30px;
+            background: transparent;
+            border: 2px solid var(--crt-red);
+            color: var(--crt-red);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .retry-btn:hover {
+            background: var(--crt-red);
+            color: var(--crt-bg);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid var(--crt-border);
+        }
+
+        .footer-text {
+            font-size: 11px;
+            color: #333;
+            letter-spacing: 2px;
+        }
+
+        .job-id {
+            font-size: 10px;
+            color: #222;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        /* Terminal cursor blink */
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 18px;
+            background: var(--crt-green);
+            margin-left: 5px;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .logo { font-size: 32px; letter-spacing: 6px; }
+            .beacon-name { font-size: 18px; }
+            .progress-ring-container { width: 150px; height: 150px; }
+            .progress-percent { font-size: 32px; }
+            .steps-container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">WOPR</div>
+            <div class="subtitle">Beacon Provisioning System</div>
+            <div class="beacon-name" id="beaconName">Loading...</div>
+        </header>
+
+        <section class="progress-section">
+            <div class="progress-ring-container">
+                <svg class="progress-ring" width="200" height="200">
+                    <circle class="progress-ring-bg" cx="100" cy="100" r="90"/>
+                    <circle class="progress-ring-fill" id="progressRing" cx="100" cy="100" r="90"/>
+                </svg>
+                <div class="progress-text">
+                    <div class="progress-percent" id="progressPercent">0%</div>
+                    <div class="progress-label">Complete</div>
+                </div>
+            </div>
+            <div class="status-message" id="statusMessage">
+                Initializing<span class="cursor"></span>
+            </div>
+        </section>
+
+        <section class="steps-container">
+            <div class="steps-header">Deployment Sequence</div>
+
+            <div class="step pending" data-step="0" id="step0">
+                <div class="step-icon">$</div>
+                <div class="step-content">
+                    <div class="step-title">Payment Confirmed</div>
+                    <div class="step-subtitle">Stripe webhook received</div>
+                </div>
+            </div>
+
+            <div class="step pending" data-step="1" id="step1">
+                <div class="step-icon">&#9638;</div>
+                <div class="step-content">
+                    <div class="step-title">Creating Server</div>
+                    <div class="step-subtitle">Provisioning VPS infrastructure</div>
+                </div>
+            </div>
+
+            <div class="step pending" data-step="2" id="step2">
+                <div class="step-icon">&#8982;</div>
+                <div class="step-content">
+                    <div class="step-title">Configuring DNS</div>
+                    <div class="step-subtitle">Setting up domain records</div>
+                </div>
+            </div>
+
+            <div class="step pending" data-step="3" id="step3">
+                <div class="step-icon">&#9881;</div>
+                <div class="step-content">
+                    <div class="step-title">Installing WOPR</div>
+                    <div class="step-subtitle">Deploying application modules</div>
+                    <div class="module-progress" id="moduleProgress" style="display: none;">
+                        <span id="moduleName">-</span> (<span id="moduleCount">0/0</span>)
+                        <div class="module-bar"><div class="module-bar-fill" id="moduleBarFill" style="width: 0%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step pending" data-step="4" id="step4">
+                <div class="step-icon">&#9874;</div>
+                <div class="step-content">
+                    <div class="step-title">Final Configuration</div>
+                    <div class="step-subtitle">SSO integration & security hardening</div>
+                </div>
+            </div>
+
+            <div class="step pending" data-step="5" id="step5">
+                <div class="step-icon">&#10003;</div>
+                <div class="step-content">
+                    <div class="step-title">Ready!</div>
+                    <div class="step-subtitle">Your beacon is online</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="completion-panel" id="completionPanel">
+            <div class="completion-icon">&#9889;</div>
+            <div class="completion-title">BEACON ONLINE</div>
+            <div class="completion-subtitle">Your sovereign infrastructure is ready</div>
+            <a href="#" class="beacon-url" id="beaconUrl">LAUNCH DASHBOARD</a>
+        </div>
+
+        <div class="error-panel" id="errorPanel">
+            <div class="completion-icon">&#9888;</div>
+            <div class="error-title">PROVISIONING FAILED</div>
+            <div class="error-message" id="errorMessage">An error occurred during deployment</div>
+            <button class="retry-btn" onclick="location.reload()">RETRY CONNECTION</button>
+        </div>
+
+        <footer class="footer">
+            <div class="footer-text">WOPR SYSTEMS // SOVEREIGN INFRASTRUCTURE</div>
+            <div class="job-id" id="jobId">-</div>
+        </footer>
+    </div>
+
+    <script>
+        // Extract job ID from URL
+        const pathParts = window.location.pathname.split('/');
+        const jobId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+
+        document.getElementById('jobId').textContent = `JOB: ${jobId}`;
+
+        // Calculate circumference for progress ring
+        const circumference = 2 * Math.PI * 90;
+        const progressRing = document.getElementById('progressRing');
+        progressRing.style.strokeDasharray = circumference;
+        progressRing.style.strokeDashoffset = circumference;
+
+        function setProgress(percent) {
+            const offset = circumference - (percent / 100) * circumference;
+            progressRing.style.strokeDashoffset = offset;
+            document.getElementById('progressPercent').textContent = `${percent}%`;
+        }
+
+        function setStep(stepNum, status) {
+            // Reset all steps
+            for (let i = 0; i <= 5; i++) {
+                const step = document.getElementById(`step${i}`);
+                step.classList.remove('active', 'complete', 'error', 'pending');
+
+                if (i < stepNum) {
+                    step.classList.add('complete');
+                } else if (i === stepNum) {
+                    step.classList.add(status === 'error' ? 'error' : 'active');
+                } else {
+                    step.classList.add('pending');
+                }
+            }
+        }
+
+        function setMessage(msg, isError = false) {
+            const el = document.getElementById('statusMessage');
+            el.innerHTML = msg + (isError ? '' : '<span class="cursor"></span>');
+            el.classList.toggle('error', isError);
+        }
+
+        function updateModuleProgress(current, completed, total) {
+            const moduleProgress = document.getElementById('moduleProgress');
+            if (total > 0) {
+                moduleProgress.style.display = 'block';
+                document.getElementById('moduleName').textContent = current || 'Deploying...';
+                document.getElementById('moduleCount').textContent = `${completed}/${total}`;
+                document.getElementById('moduleBarFill').style.width = `${(completed / total) * 100}%`;
+            } else {
+                moduleProgress.style.display = 'none';
+            }
+        }
+
+        function showCompletion(beaconUrl, dashboardUrl) {
+            document.getElementById('completionPanel').classList.add('visible');
+            const urlEl = document.getElementById('beaconUrl');
+            urlEl.href = dashboardUrl || beaconUrl;
+            urlEl.textContent = 'LAUNCH DASHBOARD';
+        }
+
+        function showError(message) {
+            document.getElementById('errorPanel').classList.add('visible');
+            document.getElementById('errorMessage').textContent = message || 'An error occurred during deployment';
+        }
+
+        // SSE Connection
+        const API_BASE = window.location.origin.includes('localhost')
+            ? 'http://localhost:8000'
+            : window.location.origin;
+
+        const eventSource = new EventSource(`${API_BASE}/api/v1/provisioning/${jobId}/stream`);
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('SSE Update:', data);
+
+            // Update beacon name
+            if (data.beacon_name) {
+                document.getElementById('beaconName').textContent = `${data.beacon_name}.wopr.systems`;
+            }
+
+            // Update progress
+            setProgress(data.progress || 0);
+
+            // Update step
+            if (data.step !== undefined) {
+                setStep(data.step, data.status);
+            }
+
+            // Update message
+            if (data.message) {
+                setMessage(data.message, data.status === 'failed');
+            }
+
+            // Module progress
+            if (data.modules_total > 0) {
+                updateModuleProgress(
+                    data.current_module,
+                    data.modules_completed,
+                    data.modules_total
+                );
+            }
+
+            // Handle completion
+            if (data.status === 'complete') {
+                setProgress(100);
+                setStep(5, 'complete');
+                setMessage('Beacon deployment complete!');
+                showCompletion(data.beacon_url, data.dashboard_url);
+                eventSource.close();
+            }
+
+            // Handle failure
+            if (data.status === 'failed' || data.status === 'timeout') {
+                setMessage(data.error || 'Provisioning failed', true);
+                showError(data.error);
+                eventSource.close();
+            }
+        };
+
+        eventSource.onerror = function(event) {
+            console.error('SSE Error:', event);
+            // Don't immediately show error - might be temporary
+            setMessage('Connecting to provisioning server...', false);
+        };
+
+        // Fallback: fetch initial status
+        fetch(`${API_BASE}/api/v1/provisioning/${jobId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.beacon_name) {
+                    document.getElementById('beaconName').textContent = `${data.beacon_name}.wopr.systems`;
+                }
+                if (data.status === 'not_found') {
+                    setMessage('Waiting for provisioning to start...', false);
+                }
+            })
+            .catch(err => {
+                console.error('Fetch error:', err);
+            });
+    </script>
+</body>
+</html>

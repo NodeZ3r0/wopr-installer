@@ -329,11 +329,27 @@ def create_dashboard_app(
     # CORS for frontend
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://*.wopr.systems"],
+        allow_origins=[
+            "https://*.wopr.systems",
+            "https://provision.wopr.systems",
+            "https://orc.wopr.systems",
+            "http://localhost:3000",
+            "http://localhost:8000",
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Mount static files
+    from pathlib import Path
+    try:
+        from fastapi.staticfiles import StaticFiles
+        static_dir = Path(__file__).parent / "static"
+        if static_dir.exists():
+            app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    except ImportError:
+        pass  # StaticFiles not available
 
     service = DashboardService(billing, trial_manager, authentik)
 
@@ -748,22 +764,50 @@ def create_dashboard_app(
     # Legacy alias for backwards compatibility with SSE endpoint
     _provisioning_jobs = job_store._jobs
 
+    # Serve the provisioning watch page
+    @app.get("/provision/{job_id}")
+    @app.get("/setup/{job_id}")
+    async def serve_provision_page(job_id: str):
+        """Serve the provisioning watch page for a given job."""
+        from fastapi.responses import HTMLResponse
+        from pathlib import Path
+
+        # Load the provision.html template
+        static_dir = Path(__file__).parent / "static"
+        html_path = static_dir / "provision.html"
+
+        if html_path.exists():
+            html_content = html_path.read_text(encoding="utf-8")
+        else:
+            # Fallback minimal page if template not found
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>WOPR Provisioning</title></head>
+            <body style="background:#0a0a0a;color:#00ff41;font-family:monospace;padding:40px;text-align:center;">
+                <h1>WOPR</h1>
+                <p>Provisioning Job: {job_id}</p>
+                <p>Status page template not found. API endpoints available at:</p>
+                <p>/api/v1/provisioning/{job_id}</p>
+                <p>/api/v1/provisioning/{job_id}/stream</p>
+            </body>
+            </html>
+            """
+
+        return HTMLResponse(content=html_content)
+
     @app.get("/api/v1/provisioning/{job_id}")
     async def get_provisioning_status(job_id: str):
         """Get current status of a provisioning job."""
         job = _provisioning_jobs.get(job_id)
 
         if not job:
-            # For demo purposes, create a fake job if it doesn't exist
-            job = {
+            # Return not_found status - UI will show "waiting for provisioning"
+            return {
                 "job_id": job_id,
-                "status": "in_progress",
-                "step": 0,
-                "progress": 0,
-                "beacon_name": "demo",
-                "created_at": datetime.now().isoformat(),
+                "status": "not_found",
+                "message": "Job not found or not yet started",
             }
-            _provisioning_jobs[job_id] = job
 
         return job
 
