@@ -1,0 +1,25 @@
+# WOPR Provider Health Monitor Timer
+# ===================================
+#
+# Triggers provider health checks on schedule.
+# Checks for API drift, plan changes, etc.
+
+[Unit]
+Description=Run WOPR Provider Health Check
+Documentation=https://wopr.systems/docs/provider-health
+
+[Timer]
+# Run every 6 hours
+OnCalendar=*-*-* 00,06,12,18:00:00
+
+# Also run 5 minutes after boot (catch any changes during downtime)
+OnBootSec=5min
+
+# Randomize within 30 minute window to avoid thundering herd
+RandomizedDelaySec=1800
+
+# Persist timer across reboots
+Persistent=true
+
+[Install]
+WantedBy=timers.target

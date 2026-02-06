@@ -1,0 +1,33 @@
+# WOPR Provider Health Monitor (Quadlet)
+# =======================================
+#
+# Scheduled container that checks VPS provider APIs for drift.
+# Runs via wopr-provider-health.timer (not continuously)
+
+[Unit]
+Description=WOPR Provider Health Monitor
+Documentation=https://wopr.systems/docs/provider-health
+After=network-online.target
+
+[Container]
+ContainerName=wopr-provider-health
+Image=ghcr.io/woprsystems/control-plane:latest
+
+# Override command
+Exec=python -m control_plane.provider_health --check hetzner --report
+
+# Environment
+EnvironmentFile=/etc/wopr/orchestrator.env
+
+# Volumes for state persistence
+Volume=wopr-health-state:/var/lib/wopr/provider-health:Z
+
+# Logging
+LogDriver=journald
+
+[Service]
+Type=oneshot
+TimeoutStartSec=300
+
+# Don't restart - timer will trigger next run
+Restart=no

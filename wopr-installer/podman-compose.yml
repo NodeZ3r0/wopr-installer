@@ -1,0 +1,112 @@
+# WOPR Control Plane - Podman Compose
+# ====================================
+#
+# Runs the orchestrator stack for beacon provisioning.
+#
+# Usage:
+#   podman-compose up -d              # Start all services
+#   podman-compose logs -f orc        # Follow orchestrator logs
+#   podman-compose down               # Stop all services
+#
+# Environment:
+#   Copy .env.example to .env and fill in your secrets
+
+version: "3.8"
+
+services:
+  # ===========================================
+  # WOPR Orchestrator (Control Plane API)
+  # ===========================================
+  orc:
+    build:
+      context: .
+      dockerfile: containers/control-plane/Containerfile
+    container_name: wopr-orc
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - STRIPE_DEFAULT_MODE=${STRIPE_DEFAULT_MODE:-test}
+    volumes:
+      # Persistent job storage
+      - wopr-jobs:/var/lib/wopr/jobs
+      # Generated documents (PDFs)
+      - wopr-docs:/var/lib/wopr/documents
+      # Logs (optional - also goes to stdout)
+      - wopr-logs:/var/log/wopr
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "wopr.service=orchestrator"
+      - "wopr.description=Control plane API for beacon provisioning"
+    networks:
+      - wopr-internal
+
+  # ===========================================
+  # Provider Health Monitor (Scheduled)
+  # ===========================================
+  provider-health:
+    build:
+      context: .
+      dockerfile: containers/control-plane/Containerfile
+    container_name: wopr-provider-health
+    restart: "no"  # Runs on schedule, not continuously
+    env_file:
+      - .env
+    command: ["python", "-m", "control_plane.provider_health", "--check", "hetzner"]
+    volumes:
+      - wopr-health-state:/var/lib/wopr/provider-health
+    networks:
+      - wopr-internal
+    profiles:
+      - monitoring  # Only run with: podman-compose --profile monitoring up
+
+  # ===========================================
+  # Redis (Optional - for job queue/caching)
+  # ===========================================
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: wopr-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - wopr-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - wopr-internal
+    profiles:
+      - cache  # Only run with: podman-compose --profile cache up
+
+# ===========================================
+# NETWORKS
+# ===========================================
+networks:
+  wopr-internal:
+    driver: bridge
+
+# ===========================================
+# VOLUMES
+# ===========================================
+volumes:
+  wopr-jobs:
+    name: wopr-jobs
+  wopr-docs:
+    name: wopr-docs
+  wopr-logs:
+    name: wopr-logs
+  wopr-redis:
+    name: wopr-redis
+  wopr-health-state:
+    name: wopr-health-state
