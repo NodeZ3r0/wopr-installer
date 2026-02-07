@@ -51,14 +51,20 @@ After=network.target
 
 [Service]
 Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-ollama
+ExecStartPre=-/usr/bin/podman rm wopr-ollama
+
 ExecStart=/usr/bin/podman run --rm \\
     --name wopr-ollama \\
     --network ${WOPR_NETWORK} \\
-    -v ${data_dir}:/root/.ollama:Z \\
+    -v ${data_dir}:/root/.ollama \\
     -p 127.0.0.1:11434:11434 \\
-    docker.io/ollama/ollama:latest
-Restart=always
-RestartSec=10
+    docker.io/ollama/ollama:latest serve
+
+ExecStop=/usr/bin/podman stop -t 10 wopr-ollama
 
 [Install]
 WantedBy=multi-user.target
