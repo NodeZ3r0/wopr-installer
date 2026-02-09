@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local development
+.env
+.env.local
+*.db
+*.sqlite
+
+# Deployment configs (not needed in container)
+deploy/
+
+# Documentation
+*.md
+docs/
+
+# SSH CA (separate service)
+sshca/
