@@ -1008,17 +1008,22 @@ final_message: "WOPR Sovereign Suite installation complete after $UPTIME seconds
         
         Storage tier can upgrade but never downgrade the bundle requirement.
         """
-        # Bundle complexity tiers (minimum server size based on module count)
+        # Bundle complexity tiers (minimum server size based on module count and resource needs)
         BUNDLE_COMPLEXITY = {
-            # Sovereign Suites
-            "enterprise": 4,      # 48 modules -> VERY_HIGH
-            "professional": 3,    # 26 modules -> HIGH
-            "smallbusiness": 3,   # 25 modules -> HIGH
-            "developer": 2,       # 15 modules -> MEDIUM
-            "creator": 2,         # 13 modules -> MEDIUM
-            "family": 2,          # 12 modules -> MEDIUM
-            "starter": 1,         # 10 modules -> LOW
-            # Micro Bundles default to LOW unless storage tier says otherwise
+            # Sovereign Suites (verified module counts from manifests.py)
+            "enterprise": 4,      # 44 modules -> VERY_HIGH (cpx51, 32GB)
+            "professional": 3,    # 22 modules -> HIGH (cpx42, 16GB)
+            "smallbusiness": 3,   # 21 modules -> HIGH (cpx42, 16GB)
+            "developer": 2,       # 11 modules -> MEDIUM (cpx32, 8GB)
+            "creator": 2,         # 9 modules -> MEDIUM (cpx32, 8GB)
+            "family": 2,          # 8 modules -> MEDIUM (cpx32, 8GB)
+            "starter": 1,         # 6 modules -> LOW (cpx22, 4GB)
+            # Micro Bundles (resource-intensive ones need higher tiers)
+            "reactor_ai": 3,      # 8 modules, AI/ML workloads -> HIGH (cpx42, 16GB)
+            "video_creator": 2,   # 5 modules, video processing -> MEDIUM (cpx32, 8GB)
+            "photographer": 2,    # 5 modules, image processing -> MEDIUM (cpx32, 8GB)
+            "defcon_one": 2,      # 8 modules, security stack -> MEDIUM (cpx32, 8GB)
+            # All other micro bundles default to tier 1 (LOW, cpx22, 4GB)
         }
         
         # Get bundle complexity tier (default to 1 for micro bundles)
