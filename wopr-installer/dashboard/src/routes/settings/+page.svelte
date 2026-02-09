@@ -2,10 +2,11 @@
 	import { onMount, getContext } from 'svelte';
 	import { loading, error } from '$lib/stores.js';
 	import { notify } from '$lib/stores.js';
-	import { getInstanceStatus, getModules, updateTheme } from '$lib/api.js';
+	import { getInstanceStatus, getModules, getCloudflareStatus } from '$lib/api.js';
 	import ThemePresetCard from '$lib/components/ThemePresetCard.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import AppThemeToggle from '$lib/components/AppThemeToggle.svelte';
+	import DomainSearch from '$lib/components/DomainSearch.svelte';
 	import { getPresetList } from '$lib/themes/presets.js';
 
 	// Get theme context from ThemeProvider
@@ -19,6 +20,7 @@
 	let backupFrequency = 'daily';
 	let saving = false;
 	let savingTheme = false;
+	let cloudflareConfigured = false;
 
 	// Theme state
 	let showCustomColors = false;
@@ -34,13 +36,15 @@
 	onMount(async () => {
 		$loading = true;
 		try {
-			const [instanceData, modulesData] = await Promise.all([
+			const [instanceData, modulesData, cfStatus] = await Promise.all([
 				getInstanceStatus(),
-				getModules().catch(() => ({ modules: [] }))
+				getModules().catch(() => ({ modules: [] })),
+				getCloudflareStatus().catch(() => ({ configured: false }))
 			]);
 
 			instance = instanceData;
 			modules = modulesData.modules || [];
+			cloudflareConfigured = cfStatus.configured || false;
 			customDomain = instance.custom_domain || '';
 			adminEmail = instance.admin_email || '';
 			backupEnabled = instance.backup_enabled !== false;
@@ -271,48 +275,50 @@
 		<!-- Custom Domain -->
 		<section>
 			<h2>Custom Domain</h2>
-			<p class="text-muted">Use your own domain instead of the default wopr.systems subdomain</p>
-			<div class="card">
-				<div class="form-group">
-					<label for="custom-domain">Custom Domain</label>
-					<input
-						type="text"
-						id="custom-domain"
-						bind:value={customDomain}
-						placeholder="cloud.yourdomain.com"
-					/>
-					<p class="help-text">
-						Point your domain's DNS to <strong>{instance?.ip_address || 'your server IP'}</strong> before enabling.
-					</p>
+			<p class="text-muted">Bring Your Own Domain (BYOD) - Use your own domain instead of the default wopr.systems subdomain</p>
+			<div class="card custom-domain-card">
+				<div class="domain-summary">
+					<div class="domain-info">
+						<div class="domain-row">
+							<span class="label">Default Domain</span>
+							<span class="value mono">{instance?.domain || 'N/A'}</span>
+						</div>
+						{#if customDomain}
+							<div class="domain-row">
+								<span class="label">Custom Domain</span>
+								<span class="value mono">{customDomain}</span>
+								<span class="domain-status" class:active={instance?.custom_domain_status === 'active'} class:pending={instance?.custom_domain_status !== 'active'}>
+									{instance?.custom_domain_status === 'active' ? 'Active' : 'Pending'}
+								</span>
+							</div>
+						{/if}
+					</div>
+					<a href="/settings/domain" class="btn btn-secondary configure-domain-btn">
+						{customDomain ? 'Manage Domain' : 'Configure Custom Domain'}
+					</a>
 				</div>
 
-				{#if customDomain}
-					<div class="dns-instructions">
-						<h4>DNS Configuration Required</h4>
-						<p>Add the following DNS records to your domain:</p>
-						<table class="dns-table">
-							<thead>
-								<tr>
-									<th>Type</th>
-									<th>Name</th>
-									<th>Value</th>
-								</tr>
-							</thead>
-							<tbody>
-								<tr>
-									<td>A</td>
-									<td>@</td>
-									<td class="mono">{instance?.ip_address || 'SERVER_IP'}</td>
-								</tr>
-								<tr>
-									<td>A</td>
-									<td>*</td>
-									<td class="mono">{instance?.ip_address || 'SERVER_IP'}</td>
-								</tr>
-							</tbody>
-						</table>
+				{#if !customDomain}
+					<div class="domain-promo">
+						<p>
+							Point your own domain to your WOPR beacon. Configure DNS records, verify propagation,
+							and get automatic SSL certificates via Let's Encrypt.
+						</p>
+						<a href="/settings/domain" class="learn-more">Learn more about BYOD setup</a>
 					</div>
 				{/if}
+			</div>
+		</section>
+
+		<!-- Domain Registration -->
+		<section>
+			<h2>Register a Domain</h2>
+			<p class="text-muted">Purchase a domain through Cloudflare Registrar at wholesale prices</p>
+			<div class="card">
+				<DomainSearch
+					{cloudflareConfigured}
+					on:registered={(e) => notify(`Domain ${e.detail.domain} registered!`, 'success')}
+				/>
 			</div>
 		</section>
 
@@ -591,32 +597,78 @@
 		height: 18px;
 	}
 
-	.dns-instructions {
-		padding: 1rem;
-		background: var(--color-surface-hover);
-		border-radius: 8px;
+	/* Custom Domain Card */
+	.custom-domain-card {
+		background: var(--color-surface);
 	}
 
-	.dns-instructions h4 {
+	.domain-summary {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 1.5rem;
+	}
+
+	.domain-info {
+		flex: 1;
+	}
+
+	.domain-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.5rem 0;
+	}
+
+	.domain-row .label {
+		color: var(--color-text-muted);
+		min-width: 120px;
+	}
+
+	.domain-row .value {
+		font-weight: 500;
+	}
+
+	.domain-status {
+		padding: 0.2rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.domain-status.active {
+		background: rgba(0, 255, 65, 0.15);
+		color: #00ff41;
+	}
+
+	.domain-status.pending {
+		background: rgba(245, 158, 11, 0.15);
+		color: #f59e0b;
+	}
+
+	.configure-domain-btn {
+		white-space: nowrap;
+	}
+
+	.domain-promo {
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.domain-promo p {
+		color: var(--color-text-muted);
+		font-size: 0.9rem;
 		margin-bottom: 0.5rem;
 	}
 
-	.dns-table {
-		width: 100%;
-		margin-top: 1rem;
-		border-collapse: collapse;
+	.learn-more {
+		color: var(--color-primary);
+		font-size: 0.9rem;
 	}
 
-	.dns-table th,
-	.dns-table td {
-		padding: 0.5rem;
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.dns-table th {
-		color: var(--color-text-muted);
-		font-weight: 500;
+	.learn-more:hover {
+		text-decoration: underline;
 	}
 
 	.backup-status {

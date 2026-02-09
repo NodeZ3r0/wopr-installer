@@ -1,0 +1,27 @@
+# WOPR Support Gateway - AI Escalations Dashboard
+support.wopr.systems {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+
+    # Health check - public
+    @health {
+        path /api/health
+    }
+    handle @health {
+        reverse_proxy localhost:8443
+    }
+
+    # Everything else requires Authentik auth
+    handle {
+        import authentik-forward-auth
+        reverse_proxy localhost:8443 {
+            header_up -Accept-Encoding
+        }
+    }
+
+    log {
+        output file /var/log/caddy/support.access.log
+    }
+    import wopr-nav-inject
+}

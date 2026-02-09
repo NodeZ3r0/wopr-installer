@@ -1,0 +1,26 @@
+[Unit]
+Description=WOPR Support Gateway (FastAPI)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/opt/wopr-support-plane
+EnvironmentFile=/opt/wopr-support-plane/.env
+ExecStart=/opt/wopr-support-plane/venv/bin/gunicorn \
+    -k uvicorn.workers.UvicornWorker \
+    -w 2 \
+    -b 127.0.0.1:8443 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    api.main:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wopr-support-gateway
+
+[Install]
+WantedBy=multi-user.target

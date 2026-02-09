@@ -26,7 +26,7 @@
 				<li>
 					<a
 						href={item.href}
-						class:active={$page.url.pathname === item.href}
+						class:active={$page.url.pathname === item.href || $page.url.pathname.startsWith(item.href + '/')}
 					>
 						<span class="icon">{item.icon}</span>
 						{item.label}

@@ -1,0 +1,61 @@
+# WOPR Prometheus Configuration - NodeZ3r0 Secondary
+# Cross-scrapes all nodes in the Nebula mesh for redundancy
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: wopr-secondary
+    site: nodez3r0
+
+scrape_configs:
+  # ═══════════════════════════════════════════════════════════════
+  # PROMETHEUS SELF
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: nodez3r0-prometheus
+
+  # ═══════════════════════════════════════════════════════════════
+  # LOCAL NODE EXPORTER
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: 'node-nodez3r0'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          instance: nodez3r0
+          location: digitalocean
+          role: secondary
+
+  # ═══════════════════════════════════════════════════════════════
+  # HETZNER NODE EXPORTER (over Nebula)
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: 'node-hetzner'
+    static_configs:
+      - targets: ['${HETZNER_NEBULA_IP}:9100']
+        labels:
+          instance: hetzner
+          location: finland
+          role: primary
+
+  # ═══════════════════════════════════════════════════════════════
+  # HOME RIG NODE EXPORTER (over Nebula)
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: 'node-homerig'
+    static_configs:
+      - targets: ['${HOMERIG_NEBULA_IP}:9100']
+        labels:
+          instance: homerig
+          location: home
+          role: workstation
+
+  # ═══════════════════════════════════════════════════════════════
+  # LOCAL LOKI
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          instance: nodez3r0-loki

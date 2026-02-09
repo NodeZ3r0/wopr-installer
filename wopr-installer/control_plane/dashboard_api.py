@@ -1878,6 +1878,224 @@ def create_dashboard_app(
             logger.error(f"Error looking up session {session_id}: {e}")
             return RedirectResponse(url="/provision/error")
 
+    # ----------------------------------------
+    # CUSTOM DOMAIN (BYOD) ENDPOINTS
+    # ----------------------------------------
+
+    # In-memory custom domain storage (TODO: Replace with PostgreSQL)
+    _custom_domains: Dict[str, Dict] = {}
+
+    class CustomDomainRequest(BaseModel):
+        domain: str
+
+    @app.get("/api/v1/domain/custom")
+    async def get_custom_domain(user: Dict = Depends(get_current_user)):
+        """Get the user's custom domain configuration."""
+        customer_id = user["user_id"]
+        domain_config = _custom_domains.get(customer_id, {})
+
+        return {
+            "domain": domain_config.get("domain"),
+            "status": domain_config.get("status", "none"),
+            "verified_at": domain_config.get("verified_at"),
+            "created_at": domain_config.get("created_at"),
+        }
+
+    @app.post("/api/v1/domain/custom")
+    async def set_custom_domain(
+        request: CustomDomainRequest,
+        user: Dict = Depends(get_current_user),
+    ):
+        """
+        Set a custom domain for the user's beacon.
+
+        This saves the domain and sets status to 'pending',
+        awaiting DNS verification.
+        """
+        import re
+        from datetime import datetime
+
+        customer_id = user["user_id"]
+        domain = request.domain.lower().strip()
+
+        # Validate domain format
+        if not re.match(r'^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$', domain):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid domain format. Example: cloud.yourdomain.com",
+            )
+
+        # Check if domain is already taken by another user
+        for uid, config in _custom_domains.items():
+            if uid != customer_id and config.get("domain") == domain:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This domain is already in use by another user",
+                )
+
+        # Save the domain configuration
+        _custom_domains[customer_id] = {
+            "domain": domain,
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+            "verified_at": None,
+        }
+
+        # TODO: Store in database
+        # TODO: Update Caddy/reverse proxy configuration
+
+        return {
+            "success": True,
+            "domain": domain,
+            "status": "pending",
+            "message": "Domain saved. Please configure DNS and verify.",
+        }
+
+    @app.delete("/api/v1/domain/custom")
+    async def remove_custom_domain(user: Dict = Depends(get_current_user)):
+        """Remove the user's custom domain."""
+        customer_id = user["user_id"]
+
+        if customer_id in _custom_domains:
+            removed_domain = _custom_domains[customer_id].get("domain")
+            del _custom_domains[customer_id]
+
+            # TODO: Remove from database
+            # TODO: Remove SSL certificate
+            # TODO: Update Caddy/reverse proxy configuration
+
+            return {
+                "success": True,
+                "message": f"Domain {removed_domain} removed",
+            }
+
+        return {
+            "success": True,
+            "message": "No custom domain configured",
+        }
+
+    @app.post("/api/v1/domain/verify")
+    async def verify_custom_domain_dns(
+        request: CustomDomainRequest,
+        user: Dict = Depends(get_current_user),
+    ):
+        """
+        Verify DNS propagation for a custom domain.
+
+        Checks:
+        1. A record for @ points to the beacon's IP
+        2. Wildcard A record (*) points to the beacon's IP
+
+        Returns verification status and details.
+        """
+        import socket
+        from datetime import datetime
+
+        customer_id = user["user_id"]
+        domain = request.domain.lower().strip()
+
+        # Get the beacon's IP address
+        # TODO: Get from actual instance data
+        instance_id = "demo-instance"
+        status = service.get_instance_status(customer_id, instance_id)
+        expected_ip = status.get("ip_address", "")
+
+        # If we don't have the IP, try to get it from headers or config
+        if not expected_ip:
+            # Fallback: try to resolve the default domain
+            try:
+                default_domain = status.get("domain", "")
+                if default_domain:
+                    expected_ip = socket.gethostbyname(default_domain)
+            except Exception:
+                pass
+
+        if not expected_ip:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not determine beacon IP address",
+            )
+
+        # Verify DNS records
+        a_record_status = "missing"
+        wildcard_status = "missing"
+        a_record_ip = None
+        wildcard_ip = None
+        errors = []
+
+        # Check A record for root domain
+        try:
+            a_record_ip = socket.gethostbyname(domain)
+            if a_record_ip == expected_ip:
+                a_record_status = "verified"
+            else:
+                a_record_status = "wrong_ip"
+                errors.append(f"A record points to {a_record_ip}, expected {expected_ip}")
+        except socket.gaierror:
+            a_record_status = "missing"
+            errors.append(f"No A record found for {domain}")
+
+        # Check wildcard A record (test with a random subdomain)
+        test_subdomain = f"_wopr-verify.{domain}"
+        try:
+            wildcard_ip = socket.gethostbyname(test_subdomain)
+            if wildcard_ip == expected_ip:
+                wildcard_status = "verified"
+            else:
+                wildcard_status = "wrong_ip"
+                errors.append(f"Wildcard record points to {wildcard_ip}, expected {expected_ip}")
+        except socket.gaierror:
+            wildcard_status = "missing"
+            errors.append(f"No wildcard A record found for *.{domain}")
+
+        # Overall verification status
+        verified = (a_record_status == "verified" and wildcard_status == "verified")
+
+        # Update stored domain status
+        if customer_id in _custom_domains:
+            if verified:
+                _custom_domains[customer_id]["status"] = "active"
+                _custom_domains[customer_id]["verified_at"] = datetime.now().isoformat()
+
+                # TODO: Trigger SSL certificate provisioning via Let's Encrypt
+                # TODO: Update Caddy configuration to handle the custom domain
+
+            else:
+                _custom_domains[customer_id]["status"] = "pending"
+
+        return {
+            "verified": verified,
+            "domain": domain,
+            "expected_ip": expected_ip,
+            "a_record_status": a_record_status,
+            "a_record_ip": a_record_ip,
+            "wildcard_status": wildcard_status,
+            "wildcard_ip": wildcard_ip,
+            "errors": errors if not verified else [],
+            "message": "DNS verified successfully!" if verified else "DNS verification failed. Please check your records.",
+        }
+
+    @app.get("/api/v1/domain/status")
+    async def get_domain_status(user: Dict = Depends(get_current_user)):
+        """
+        Get comprehensive domain status including SSL certificate status.
+        """
+        customer_id = user["user_id"]
+        domain_config = _custom_domains.get(customer_id, {})
+
+        # Get instance info
+        instance_id = "demo-instance"
+        status = service.get_instance_status(customer_id, instance_id)
+
+        return {
+            "default_domain": status.get("domain"),
+            "custom_domain": domain_config.get("domain"),
+            "custom_domain_status": domain_config.get("status", "none"),
+            "ssl_status": "active" if domain_config.get("status") == "active" else "pending",
+            "ip_address": status.get("ip_address"),
+            "verified_at": domain_config.get("verified_at"),
+        }
+
     return app
 
 

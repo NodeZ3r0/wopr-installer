@@ -50,7 +50,8 @@ KNOWN_PATTERNS = [
         "error_pattern": "auth_failure",
     },
     {
-        "pattern": re.compile(r"(SSL|TLS|certificate)", re.I),
+        # Only match actual certificate errors, not just any mention of TLS/SSL
+        "pattern": re.compile(r"(certificate (expired|invalid|error)|SSL_ERROR|CERT_.*ERROR|x509:)", re.I),
         "tier": "tier2_suggest",
         "action": "check_certificates",
         "confidence": 0.75,
@@ -62,6 +63,20 @@ KNOWN_PATTERNS = [
         "action": "restart_service",
         "confidence": 0.6,
         "error_pattern": "timeout",
+    },
+    {
+        "pattern": re.compile(r"(forge not configured|WOODPECKER_.*not.*configured)", re.I),
+        "tier": "tier2_suggest",
+        "action": "configure_woodpecker_forge",
+        "confidence": 0.9,
+        "error_pattern": "woodpecker_forge_missing",
+    },
+    {
+        "pattern": re.compile(r"(failed to start|service failed|exit.code.[1-9])", re.I),
+        "tier": "tier1_auto",
+        "action": "restart_service",
+        "confidence": 0.7,
+        "error_pattern": "service_failed",
     },
 ]
 
@@ -117,7 +132,8 @@ def collect_journald_errors(minutes: int = 5) -> list[dict]:
     try:
         result = subprocess.run(
             ["journalctl", "--since", f"{minutes} min ago", "-p", "err",
-             "--no-pager", "-o", "json", "--output-fields=UNIT,MESSAGE,_PID"],
+             "--no-pager", "-o", "json",
+             "--output-fields=UNIT,_SYSTEMD_UNIT,SYSLOG_IDENTIFIER,CONTAINER_NAME,MESSAGE,_PID"],
             capture_output=True, text=True, timeout=10,
         )
         import json
@@ -126,7 +142,17 @@ def collect_journald_errors(minutes: int = 5) -> list[dict]:
                 continue
             try:
                 entry = json.loads(line)
-                unit = entry.get("UNIT", entry.get("_SYSTEMD_UNIT", "unknown"))
+                # Try multiple fields to identify the service
+                unit = (
+                    entry.get("UNIT") or
+                    entry.get("_SYSTEMD_UNIT") or
+                    entry.get("CONTAINER_NAME") or
+                    entry.get("SYSLOG_IDENTIFIER") or
+                    "unknown"
+                )
+                # Clean up service name (remove .service suffix if present)
+                if unit.endswith(".service"):
+                    unit = unit[:-8]
                 errors.append({
                     "service": unit,
                     "message": entry.get("MESSAGE", ""),

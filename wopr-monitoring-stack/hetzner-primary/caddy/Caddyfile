@@ -1,0 +1,163 @@
+# WOPR Monitoring Stack - Caddy Configuration
+# Reverse proxy for all monitoring services
+
+# Global options
+{
+    email admin@wopr.systems
+    admin off
+
+    # Enable metrics endpoint
+    servers {
+        metrics
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# GRAFANA
+# ═══════════════════════════════════════════════════════════════
+grafana.wopr.systems {
+    reverse_proxy grafana:3000
+
+    header {
+        # Security headers
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    log {
+        output file /var/log/caddy/grafana-access.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# PROMETHEUS (internal access only - add auth or restrict)
+# ═══════════════════════════════════════════════════════════════
+prometheus.wopr.systems {
+    # Basic auth for Prometheus
+    basicauth {
+        admin $2a$14$REPLACE_WITH_BCRYPT_HASH
+    }
+
+    reverse_proxy prometheus:9090
+
+    log {
+        output file /var/log/caddy/prometheus-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# LOKI (internal - Promtail pushes here)
+# ═══════════════════════════════════════════════════════════════
+loki.wopr.systems {
+    reverse_proxy loki:3100
+
+    # Restrict to Nebula IPs only
+    @nebula {
+        remote_ip 10.42.0.0/16
+    }
+    handle @nebula {
+        reverse_proxy loki:3100
+    }
+    respond "Forbidden" 403
+
+    log {
+        output file /var/log/caddy/loki-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# ALERTMANAGER
+# ═══════════════════════════════════════════════════════════════
+alertmanager.wopr.systems {
+    basicauth {
+        admin $2a$14$REPLACE_WITH_BCRYPT_HASH
+    }
+
+    reverse_proxy alertmanager:9093
+
+    log {
+        output file /var/log/caddy/alertmanager-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# NTFY - Push Notifications
+# ═══════════════════════════════════════════════════════════════
+ntfy.wopr.systems {
+    reverse_proxy ntfy:80
+
+    header {
+        # Required for ntfy web app
+        Access-Control-Allow-Origin *
+    }
+
+    log {
+        output file /var/log/caddy/ntfy-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# UMAMI - Web Analytics
+# ═══════════════════════════════════════════════════════════════
+umami.wopr.systems {
+    reverse_proxy umami:3000
+
+    log {
+        output file /var/log/caddy/umami-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# UPTIME KUMA
+# ═══════════════════════════════════════════════════════════════
+uptime.wopr.systems {
+    reverse_proxy uptime-kuma:3001
+
+    log {
+        output file /var/log/caddy/uptime-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# NTOPNG - Network Analysis
+# ═══════════════════════════════════════════════════════════════
+ntop.wopr.systems {
+    basicauth {
+        admin $2a$14$REPLACE_WITH_BCRYPT_HASH
+    }
+
+    reverse_proxy localhost:3003
+
+    log {
+        output file /var/log/caddy/ntop-access.log
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# DEFCON DASHBOARD - Custom Monitoring UI
+# ═══════════════════════════════════════════════════════════════
+defcon.wopr.systems {
+    reverse_proxy defcon-dashboard:8088
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+    }
+
+    log {
+        output file /var/log/caddy/defcon-access.log
+        format json
+    }
+}

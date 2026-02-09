@@ -110,3 +110,74 @@ export async function getThemeCSS() {
 export async function getThemeJSON() {
 	return fetchAPI('/themes/json');
 }
+
+// Domain Registration API (Cloudflare Registrar)
+export async function checkDomainAvailability(domain) {
+	return fetchAPI(`/domains/check/${encodeURIComponent(domain)}`);
+}
+
+export async function searchDomains(query, tlds = null) {
+	return fetchAPI('/domains/search', {
+		method: 'POST',
+		body: JSON.stringify({ query, tlds })
+	});
+}
+
+export async function getDomainPricing() {
+	return fetchAPI('/domains/pricing');
+}
+
+export async function registerDomain(registrationData) {
+	return fetchAPI('/domains/register', {
+		method: 'POST',
+		body: JSON.stringify(registrationData)
+	});
+}
+
+export async function listRegisteredDomains() {
+	return fetchAPI('/domains');
+}
+
+export async function getDomainDetails(domain) {
+	return fetchAPI(`/domains/${encodeURIComponent(domain)}`);
+}
+
+export async function updateDomainSettings(domain, settings) {
+	return fetchAPI(`/domains/${encodeURIComponent(domain)}`, {
+		method: 'PATCH',
+		body: JSON.stringify(settings)
+	});
+}
+
+export async function getCloudflareStatus() {
+	return fetchAPI('/domains/cloudflare-status');
+}
+
+// Custom Domain (BYOD) API
+export async function getCustomDomain() {
+	return fetchAPI('/domain/custom');
+}
+
+export async function setCustomDomain(domain) {
+	return fetchAPI('/domain/custom', {
+		method: 'POST',
+		body: JSON.stringify({ domain })
+	});
+}
+
+export async function removeCustomDomain() {
+	return fetchAPI('/domain/custom', {
+		method: 'DELETE'
+	});
+}
+
+export async function verifyCustomDomainDns(domain) {
+	return fetchAPI('/domain/verify', {
+		method: 'POST',
+		body: JSON.stringify({ domain })
+	});
+}
+
+export async function getDomainStatus() {
+	return fetchAPI('/domain/status');
+}

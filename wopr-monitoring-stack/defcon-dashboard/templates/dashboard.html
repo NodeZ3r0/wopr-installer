@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEFCON ONE - WOPR.SYSTEMS Multi-Server Monitoring</title>
+    <link rel="stylesheet" href="/static/css/crt.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="crt-container">
+        <!-- CRT Effects -->
+        <div class="scanlines"></div>
+        <div class="screen-flicker"></div>
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-star">&#9733;</div>
+                </div>
+                <div class="title-block">
+                    <h1 class="title glow">DEFCON ONE</h1>
+                    <p class="subtitle">WOPR.SYSTEMS MULTI-SERVER MONITORING</p>
+                </div>
+            </div>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="system">SYSTEM STATUS</button>
+                <button class="nav-tab" data-tab="support">SUPPORT PLANE</button>
+                <button class="nav-tab" data-tab="security">SECURITY</button>
+                <a href="https://grafana.wopr.systems" class="nav-tab external" target="_blank" title="Open Grafana">
+                    GRAFANA <span class="external-icon">&#8599;</span>
+                </a>
+            </nav>
+            <div class="header-right">
+                <div class="connection-status">
+                    <span class="status-led online"></span>
+                    <span>CONNECTED</span>
+                </div>
+                <div class="clock" id="clock">00:00:00</div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- System Status Tab -->
+            <div class="tab-content active" id="tab-system">
+                <!-- Metrics Row -->
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <h3 class="metric-label">CPU USAGE</h3>
+                        <div class="metric-value" id="cpu-value">--</div>
+                        <div class="metric-unit">PERCENT</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="cpu-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="metric-label">MEMORY</h3>
+                        <div class="metric-value" id="memory-value">--</div>
+                        <div class="metric-unit">PERCENT</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="memory-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="metric-label">DISK USAGE</h3>
+                        <div class="metric-value" id="disk-value">--</div>
+                        <div class="metric-unit">PERCENT</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="disk-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="metric-label">DEFCON LEVEL</h3>
+                        <div class="metric-value defcon-level" id="defcon-level">5</div>
+                        <div class="metric-unit" id="defcon-status">ALL SYSTEMS NOMINAL</div>
+                    </div>
+                </div>
+
+                <!-- Nodes Grid -->
+                <div class="nodes-section">
+                    <h2 class="section-title">NEBULA MESH NODES</h2>
+                    <div class="nodes-grid">
+                        <div class="node-card" data-node="hetzner">
+                            <div class="node-header">
+                                <span class="node-name">HETZNER FINLAND</span>
+                                <span class="node-status online">
+                                    <span class="status-led online"></span>
+                                    ONLINE
+                                </span>
+                            </div>
+                            <div class="node-stats">
+                                <div class="node-stat">
+                                    <span class="stat-label">CPU</span>
+                                    <span class="stat-value" id="hetzner-cpu">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">MEM</span>
+                                    <span class="stat-value" id="hetzner-mem">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">DISK</span>
+                                    <span class="stat-value" id="hetzner-disk">--</span>
+                                </div>
+                            </div>
+                            <div class="node-role">PRIMARY</div>
+                        </div>
+                        <div class="node-card" data-node="nodez3r0">
+                            <div class="node-header">
+                                <span class="node-name">NODEZ3R0 DO</span>
+                                <span class="node-status online">
+                                    <span class="status-led online"></span>
+                                    ONLINE
+                                </span>
+                            </div>
+                            <div class="node-stats">
+                                <div class="node-stat">
+                                    <span class="stat-label">CPU</span>
+                                    <span class="stat-value" id="nodez3r0-cpu">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">MEM</span>
+                                    <span class="stat-value" id="nodez3r0-mem">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">DISK</span>
+                                    <span class="stat-value" id="nodez3r0-disk">--</span>
+                                </div>
+                            </div>
+                            <div class="node-role">SECONDARY</div>
+                        </div>
+                        <div class="node-card" data-node="homerig">
+                            <div class="node-header">
+                                <span class="node-name">HOME RIG</span>
+                                <span class="node-status online">
+                                    <span class="status-led online"></span>
+                                    ONLINE
+                                </span>
+                            </div>
+                            <div class="node-stats">
+                                <div class="node-stat">
+                                    <span class="stat-label">CPU</span>
+                                    <span class="stat-value" id="homerig-cpu">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">MEM</span>
+                                    <span class="stat-value" id="homerig-mem">--</span>
+                                </div>
+                                <div class="node-stat">
+                                    <span class="stat-label">GPU</span>
+                                    <span class="stat-value" id="homerig-gpu">--</span>
+                                </div>
+                            </div>
+                            <div class="node-role">WORKSTATION</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts Section -->
+                <div class="alerts-section">
+                    <h2 class="section-title">ACTIVE ALERTS</h2>
+                    <div class="alerts-container" id="alerts-container">
+                        <div class="alert-item info">
+                            <span class="alert-icon">&#9432;</span>
+                            <span class="alert-message">No active alerts - All systems operational</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div class="tab-content" id="tab-security">
+                <!-- Security Metrics Row -->
+                <div class="metrics-row">
+                    <div class="metric-card security">
+                        <h3 class="metric-label red">FAIL2BAN</h3>
+                        <div class="metric-value green" id="fail2ban-bans">0</div>
+                        <div class="metric-unit red">ACTIVE BANS</div>
+                        <div class="metric-detail" id="fail2ban-detail">0 total bans / 0 jails</div>
+                    </div>
+                    <div class="metric-card security">
+                        <h3 class="metric-label red">FIREWALL</h3>
+                        <div class="metric-value green" id="firewall-blocks">0</div>
+                        <div class="metric-unit red">BLOCKED TODAY</div>
+                        <div class="metric-detail" id="firewall-detail">0 rules / Status: active</div>
+                    </div>
+                    <div class="metric-card security">
+                        <h3 class="metric-label red">SURICATA IDS/IPS</h3>
+                        <div class="metric-value green" id="suricata-alerts">0</div>
+                        <div class="metric-unit red">ALERTS TODAY</div>
+                        <div class="metric-detail" id="suricata-detail">0 high severity / Status: active</div>
+                    </div>
+                    <div class="metric-card security">
+                        <h3 class="metric-label red">THREAT CATEGORIES</h3>
+                        <div class="threat-list" id="threat-categories">
+                            <div class="threat-item">No threats detected</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Charts Row -->
+                <div class="charts-row">
+                    <div class="chart-card">
+                        <h3 class="chart-title red">BLOCKED / MIN</h3>
+                        <div class="mini-chart" id="blocked-chart">
+                            <canvas id="blocked-canvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3 class="chart-title red">IDS ALERTS / MIN</h3>
+                        <div class="mini-chart" id="ids-chart">
+                            <canvas id="ids-canvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3 class="chart-title red">HIGH SEVERITY</h3>
+                        <div class="severity-display" id="severity-display">
+                            <span class="severity-label">No data</span>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3 class="chart-title red">TOP BLOCKED IPs</h3>
+                        <div class="ip-list" id="top-blocked-ips">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Logs -->
+                <div class="logs-section">
+                    <div class="logs-tabs">
+                        <button class="log-tab active" data-log="fail2ban">FAIL2BAN</button>
+                        <button class="log-tab" data-log="suricata">SURICATA</button>
+                        <button class="log-tab" data-log="firewall">FIREWALL</button>
+                    </div>
+                    <div class="logs-container" id="security-logs">
+                        <div class="log-line">Loading logs...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Support Plane Tab -->
+            <div class="tab-content" id="tab-support">
+                <div class="support-grid">
+                    <div class="support-card">
+                        <h3>DIAGNOSTICS</h3>
+                        <p>Run system diagnostics across all nodes</p>
+                        <button class="btn" onclick="runDiagnostics()">RUN DIAGNOSTICS</button>
+                    </div>
+                    <div class="support-card">
+                        <h3>REMEDIATION</h3>
+                        <p>Execute remediation actions</p>
+                        <button class="btn" onclick="showRemediation()">VIEW ACTIONS</button>
+                    </div>
+                    <div class="support-card">
+                        <h3>BREAK GLASS</h3>
+                        <p>Emergency access procedures</p>
+                        <button class="btn warning" onclick="breakGlass()">INITIATE</button>
+                    </div>
+                    <div class="support-card">
+                        <h3>AUDIT LOG</h3>
+                        <p>View support plane audit trail</p>
+                        <button class="btn" onclick="showAuditLog()">VIEW LOGS</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- AI Assistant Button -->
+        <div class="ai-button" id="ai-button" title="AI Assistant">
+            AI
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>WOPR.SYSTEMS DEFCON ONE v1.0</span>
+            <span id="last-update">Last update: --</span>
+            <span>Grafana: <a href="https://grafana.wopr.systems" target="_blank">grafana.wopr.systems</a></span>
+        </footer>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

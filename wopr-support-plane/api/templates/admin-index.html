@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOPR Admin Suite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #eee;
+            --text-secondary: #888;
+            --accent-cyan: #00d9ff;
+            --accent-green: #00d97e;
+            --accent-red: #ff6b6b;
+            --accent-yellow: #f7b731;
+            --accent-purple: #533483;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .logo {
+            font-size: 64px;
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 217, 255, 0.5);
+        }
+
+        h1 {
+            font-size: 36px;
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+
+        .dashboards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .section-title {
+            grid-column: 1 / -1;
+            font-size: 14px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .dashboard-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 25px;
+            border: 1px solid var(--bg-tertiary);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 10px 40px rgba(0, 217, 255, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            color: var(--accent-cyan);
+        }
+
+        .card-port {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .card-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .status-complete { background: var(--accent-green); color: #000; }
+        .status-partial { background: var(--accent-yellow); color: #000; }
+        .status-api-only { background: var(--accent-purple); color: #fff; }
+
+        .audience {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+
+        .audience-staff { background: var(--accent-red); color: #fff; }
+        .audience-customer { background: var(--accent-cyan); color: #000; }
+
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">W</div>
+    <h1>WOPR Admin Suite</h1>
+    <p class="subtitle">Centralized Dashboard Hub</p>
+
+    <div class="dashboards">
+        <h2 class="section-title">WOPR Staff Dashboards</h2>
+
+        <a href="/escalations" class="dashboard-card">
+            <div class="card-header">
+                <div class="card-icon">AI</div>
+                <div>
+                    <div class="card-title">AI Escalations</div>
+                    <div class="card-port">This Server</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Review and approve/reject AI-recommended remediation actions.
+                Features AI-powered suggestions for each escalation.
+            </p>
+            <span class="card-status status-complete">Complete</span>
+            <span class="audience audience-staff">Staff</span>
+        </a>
+
+        <a href="https://defcon.wopr.systems" class="dashboard-card" target="_blank">
+            <div class="card-header">
+                <div class="card-icon">D1</div>
+                <div>
+                    <div class="card-title">DEFCON ONE</div>
+                    <div class="card-port">Port 8000</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Real-time multi-server monitoring with security metrics,
+                Suricata alerts, and DEFCON threat level calculation.
+            </p>
+            <span class="card-status status-complete">Complete</span>
+            <span class="audience audience-staff">Staff</span>
+        </a>
+
+        <a href="https://approvals.wopr.systems" class="dashboard-card" target="_blank">
+            <div class="card-header">
+                <div class="card-icon">OK</div>
+                <div>
+                    <div class="card-title">Deployment Approvals</div>
+                    <div class="card-port">Port 8080</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Review and approve/reject pending beacon deployments
+                from the deployment queue.
+            </p>
+            <span class="card-status status-complete">Complete</span>
+            <span class="audience audience-staff">Staff</span>
+        </a>
+
+        <div class="dashboard-card" style="cursor: default;">
+            <div class="card-header">
+                <div class="card-icon">SP</div>
+                <div>
+                    <div class="card-title">Support Gateway API</div>
+                    <div class="card-port">Port 8443</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Zero-trust support access for beacons. Breakglass access,
+                diagnostics, remediation, and audit trails. API only.
+            </p>
+            <span class="card-status status-api-only">API Only</span>
+            <span class="audience audience-staff">Staff</span>
+        </div>
+
+        <h2 class="section-title">Beacon Owner Dashboards</h2>
+
+        <a href="https://dash.wopr.systems" class="dashboard-card" target="_blank">
+            <div class="card-header">
+                <div class="card-icon">CP</div>
+                <div>
+                    <div class="card-title">Control Plane</div>
+                    <div class="card-port">SvelteKit + API 8001</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Customer-facing dashboard for beacon management, billing,
+                module marketplace, and custom domain setup.
+            </p>
+            <span class="card-status status-partial">Partial</span>
+            <span class="audience audience-customer">Customer</span>
+        </a>
+
+        <h2 class="section-title">Quick Actions</h2>
+
+        <a href="/api/v1/ai/status" class="dashboard-card">
+            <div class="card-header">
+                <div class="card-icon">ST</div>
+                <div>
+                    <div class="card-title">AI Engine Status</div>
+                    <div class="card-port">JSON API</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Check AI engine health, Ollama status, and recent analysis stats.
+            </p>
+        </a>
+
+        <a href="/api/v1/ai/history" class="dashboard-card">
+            <div class="card-header">
+                <div class="card-icon">HS</div>
+                <div>
+                    <div class="card-title">Analysis History</div>
+                    <div class="card-port">JSON API</div>
+                </div>
+            </div>
+            <p class="card-description">
+                View recent analysis cycle runs and their results.
+            </p>
+        </a>
+
+        <a href="/api/health" class="dashboard-card">
+            <div class="card-header">
+                <div class="card-icon">HK</div>
+                <div>
+                    <div class="card-title">Health Check</div>
+                    <div class="card-port">JSON API</div>
+                </div>
+            </div>
+            <p class="card-description">
+                Support Gateway health status and database connectivity.
+            </p>
+        </a>
+    </div>
+
+    <footer>
+        <p>WOPR Systems &copy; 2025</p>
+        <p style="margin-top: 10px;">
+            <a href="https://github.com/wopr-systems">GitHub</a> |
+            <a href="https://wopr.systems">Website</a>
+        </p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,116 @@
+# WOPR Promtail Configuration - Home Rig
+# Ships logs to BOTH Loki instances for full redundancy
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  # Ship to Hetzner primary
+  - url: http://${HETZNER_NEBULA_IP}:3100/loki/api/v1/push
+    tenant_id: wopr
+
+  # Ship to NodeZ3r0 secondary
+  - url: http://${NODEZ3R0_NEBULA_IP}:3100/loki/api/v1/push
+    tenant_id: wopr
+
+scrape_configs:
+  # ═══════════════════════════════════════════════════════════════
+  # SYSTEM LOGS
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          host: homerig
+          __path__: /var/log/syslog
+
+  - job_name: authlog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: authlog
+          host: homerig
+          __path__: /var/log/auth.log
+
+  - job_name: kernel
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: kernel
+          host: homerig
+          __path__: /var/log/kern.log
+
+  # ═══════════════════════════════════════════════════════════════
+  # DOCKER LOGS
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'job'
+      - replacement: 'homerig'
+        target_label: 'host'
+
+  # ═══════════════════════════════════════════════════════════════
+  # OLLAMA AI LOGS
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: ollama
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ollama
+          host: homerig
+          __path__: /var/log/ollama*.log
+
+  # Also capture from journald if using systemd
+  - job_name: ollama-journal
+    journal:
+      max_age: 12h
+      labels:
+        job: ollama
+        host: homerig
+    relabel_configs:
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'
+    pipeline_stages:
+      - match:
+          selector: '{unit="ollama.service"}'
+
+  # ═══════════════════════════════════════════════════════════════
+  # NEBULA VPN
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: nebula
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nebula
+          host: homerig
+          __path__: /var/log/nebula*.log
+
+  # ═══════════════════════════════════════════════════════════════
+  # GPU/CUDA LOGS (if applicable)
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: nvidia
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nvidia
+          host: homerig
+          __path__: /var/log/nvidia*.log

@@ -1,9 +1,18 @@
-"""WOPR Support Gateway - FastAPI application."""
+"""WOPR Support Gateway - FastAPI application.
+
+WOPR_MODE environment variable controls which routes are exposed:
+- lighthouse: Full admin dashboard + all API routes (default for nodez3r0)
+- beacon: Customer-facing support client only (no admin dashboard)
+"""
 
 import asyncio
 import logging
+import os
 
 import asyncpg
+
+# Determine mode: lighthouse (staff admin) or beacon (customer client)
+WOPR_MODE = os.environ.get("WOPR_MODE", "lighthouse")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
@@ -15,7 +24,7 @@ from starlette.responses import JSONResponse
 
 from api.audit import AuditMiddleware
 from api.config import SupportGatewayConfig
-from api.routes import ai, audit, breakglass, diagnostics, remediation
+from api.routes import ai, audit, beacons, breakglass, diagnostics, remediation
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +123,15 @@ app.include_router(remediation.router)
 app.include_router(breakglass.router)
 app.include_router(audit.router)
 app.include_router(ai.router)
+app.include_router(beacons.router)  # Multi-beacon registry
+
+# Admin dashboard only on lighthouse (WOPR staff)
+# Beacons get support-client routes only
+if WOPR_MODE == "lighthouse":
+    app.include_router(ai.dashboard_router)  # HTML dashboard at / and /escalations
+    logger.info("WOPR_MODE=lighthouse: Admin dashboard enabled")
+else:
+    logger.info("WOPR_MODE=beacon: Admin dashboard disabled (customer mode)")
 
 
 @app.get("/api/health")

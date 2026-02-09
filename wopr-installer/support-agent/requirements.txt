@@ -1,0 +1,14 @@
+# WOPR Support Agent Dependencies
+# Lightweight: Target <50MB RAM
+
+# Async HTTP client for brain communication
+aiohttp>=3.9.0,<4.0.0
+
+# Async file operations
+aiofiles>=23.0.0,<24.0.0
+
+# Type hints support (stdlib in Python 3.9+, but useful for older versions)
+typing-extensions>=4.0.0
+
+# Optional: For development/debugging
+# uvloop>=0.19.0  # Faster event loop (Linux only)

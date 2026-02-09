@@ -1,0 +1,193 @@
+# WOPR Alert Rules - DEFCON ONE Monitoring
+# Alert rules for Prometheus Alertmanager
+
+groups:
+  # ═══════════════════════════════════════════════════════════════
+  # DEFCON LEVEL ALERTS - Critical Infrastructure
+  # ═══════════════════════════════════════════════════════════════
+  - name: defcon_critical
+    rules:
+      # DEFCON 1 - Instance completely down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          defcon: "1"
+        annotations:
+          summary: "DEFCON 1: {{ $labels.instance }} is DOWN"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been unreachable for more than 2 minutes."
+          runbook: "Check if the host is powered on and network connectivity is available."
+
+      # DEFCON 1 - Filesystem critically full
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+        for: 5m
+        labels:
+          severity: critical
+          defcon: "1"
+        annotations:
+          summary: "DEFCON 1: Disk space CRITICAL on {{ $labels.instance }}"
+          description: "Root filesystem has less than 5% space remaining ({{ printf \"%.1f\" $value }}%)"
+          runbook: "Immediately free up disk space or expand the volume."
+
+      # DEFCON 1 - Out of memory
+      - alert: MemoryCritical
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+          defcon: "1"
+        annotations:
+          summary: "DEFCON 1: Memory CRITICAL on {{ $labels.instance }}"
+          description: "Memory usage is above 95% ({{ printf \"%.1f\" $value }}%)"
+          runbook: "Identify and terminate memory-hungry processes or add more RAM."
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEFCON LEVEL 2 - High Priority Warnings
+  # ═══════════════════════════════════════════════════════════════
+  - name: defcon_high
+    rules:
+      # DEFCON 2 - High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          defcon: "2"
+        annotations:
+          summary: "DEFCON 2: High CPU on {{ $labels.instance }}"
+          description: "CPU usage has been above 90% for 10 minutes ({{ printf \"%.1f\" $value }}%)"
+          runbook: "Check for runaway processes with top/htop."
+
+      # DEFCON 2 - Disk space warning
+      - alert: DiskSpaceWarning
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+          defcon: "2"
+        annotations:
+          summary: "DEFCON 2: Low disk space on {{ $labels.instance }}"
+          description: "Root filesystem has less than 15% space remaining ({{ printf \"%.1f\" $value }}%)"
+          runbook: "Plan to free up disk space or expand the volume soon."
+
+      # DEFCON 2 - High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          defcon: "2"
+        annotations:
+          summary: "DEFCON 2: High memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 85% for 10 minutes ({{ printf \"%.1f\" $value }}%)"
+          runbook: "Monitor memory-intensive processes and consider scaling."
+
+      # DEFCON 2 - High load average
+      - alert: HighLoadAverage
+        expr: node_load15 / count without(cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 2
+        for: 15m
+        labels:
+          severity: warning
+          defcon: "2"
+        annotations:
+          summary: "DEFCON 2: High load average on {{ $labels.instance }}"
+          description: "15-minute load average is {{ printf \"%.2f\" $value }} times the CPU count"
+          runbook: "System is overloaded. Check for resource contention."
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEFCON LEVEL 3 - Network & Connectivity
+  # ═══════════════════════════════════════════════════════════════
+  - name: defcon_network
+    rules:
+      # Network interface errors
+      - alert: NetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          defcon: "3"
+        annotations:
+          summary: "DEFCON 3: Network errors on {{ $labels.instance }}"
+          description: "Network interface {{ $labels.device }} is experiencing errors"
+          runbook: "Check physical network connections and interface configuration."
+
+      # High network traffic (potential DDoS or exfiltration)
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) + rate(node_network_transmit_bytes_total[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: info
+          defcon: "3"
+        annotations:
+          summary: "DEFCON 3: High network traffic on {{ $labels.instance }}"
+          description: "Network traffic exceeds 100MB/s on {{ $labels.device }}"
+          runbook: "Investigate traffic source - could be legitimate or suspicious."
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEFCON LEVEL 4 - Service Health
+  # ═══════════════════════════════════════════════════════════════
+  - name: defcon_services
+    rules:
+      # Prometheus target down
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+          defcon: "4"
+        annotations:
+          summary: "DEFCON 4: Prometheus target missing"
+          description: "A Prometheus target has disappeared: {{ $labels.job }} - {{ $labels.instance }}"
+
+      # Loki not receiving logs
+      - alert: LokiNoLogs
+        expr: sum(rate(loki_distributor_lines_received_total[5m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          defcon: "4"
+        annotations:
+          summary: "DEFCON 4: Loki not receiving logs"
+          description: "Loki has not received any log lines in the last 10 minutes"
+          runbook: "Check Promtail agents on all nodes."
+
+      # Alertmanager not processing alerts
+      - alert: AlertmanagerNotProcessing
+        expr: rate(alertmanager_notifications_total[5m]) == 0 and alertmanager_alerts > 0
+        for: 10m
+        labels:
+          severity: critical
+          defcon: "2"
+        annotations:
+          summary: "DEFCON 2: Alertmanager not sending notifications"
+          description: "Alertmanager has alerts but is not sending notifications"
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEFCON LEVEL 5 - Informational
+  # ═══════════════════════════════════════════════════════════════
+  - name: defcon_info
+    rules:
+      # System rebooted
+      - alert: HostRebooted
+        expr: (time() - node_boot_time_seconds) < 300
+        for: 0m
+        labels:
+          severity: info
+          defcon: "5"
+        annotations:
+          summary: "DEFCON 5: {{ $labels.instance }} was rebooted"
+          description: "Host {{ $labels.instance }} booted {{ printf \"%.0f\" $value }} seconds ago"
+
+      # Time out of sync
+      - alert: ClockSkew
+        expr: abs(node_timex_offset_seconds) > 0.1
+        for: 5m
+        labels:
+          severity: info
+          defcon: "5"
+        annotations:
+          summary: "DEFCON 5: Clock skew on {{ $labels.instance }}"
+          description: "System clock is {{ printf \"%.3f\" $value }} seconds out of sync"
+          runbook: "Check NTP configuration."

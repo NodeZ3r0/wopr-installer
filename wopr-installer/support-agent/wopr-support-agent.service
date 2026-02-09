@@ -1,0 +1,72 @@
+[Unit]
+Description=WOPR Support Agent - Host-level monitoring and remediation
+Documentation=https://wopr.dev/docs/support-agent
+After=network-online.target systemd-journald.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# Working directory
+WorkingDirectory=/opt/wopr/support-agent
+
+# Python environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+
+# WOPR Configuration (override in /etc/wopr/support-agent.env)
+EnvironmentFile=-/etc/wopr/support-agent.env
+
+# Main executable
+ExecStart=/opt/wopr/support-agent/venv/bin/python /opt/wopr/support-agent/wopr_support_agent.py
+
+# Restart policy - always restart unless stopped
+Restart=always
+RestartSec=10
+
+# Resource limits for lightweight operation (<50MB target)
+MemoryMax=100M
+MemoryHigh=50M
+CPUQuota=25%
+
+# Security hardening
+NoNewPrivileges=no
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Allow necessary capabilities for service management
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_NET_ADMIN CAP_KILL
+AmbientCapabilities=CAP_SYS_ADMIN CAP_NET_ADMIN CAP_KILL
+
+# Read-write paths needed for operation
+ReadWritePaths=/var/lib/wopr
+ReadWritePaths=/var/log/wopr
+ReadWritePaths=/tmp
+
+# Allow access to systemd and docker
+ReadOnlyPaths=/run/systemd
+ReadOnlyPaths=/var/run/docker.sock
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wopr-support-agent
+
+# Watchdog - agent must respond within 60 seconds
+WatchdogSec=60
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

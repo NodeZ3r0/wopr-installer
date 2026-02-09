@@ -1,0 +1,63 @@
+version: "3.8"
+
+# WOPR Monitoring Stack - Home Rig (Agents Only)
+# Exports metrics and logs to both Hetzner and NodeZ3r0
+
+services:
+
+  # ═══════════════════════════════════════════════════════════════
+  # NODE EXPORTER - System Metrics
+  # ═══════════════════════════════════════════════════════════════
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.netclass.ignored-devices=^(veth.*|docker.*|br-.*)$$'
+    volumes:
+      - '/:/host:ro,rslave'
+
+  # ═══════════════════════════════════════════════════════════════
+  # PROMTAIL - Log Shipper (to both Loki instances)
+  # ═══════════════════════════════════════════════════════════════
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+
+  # ═══════════════════════════════════════════════════════════════
+  # NVIDIA GPU EXPORTER (if you have NVIDIA GPU)
+  # ═══════════════════════════════════════════════════════════════
+  # Uncomment if you have an NVIDIA GPU
+  # nvidia-exporter:
+  #   image: utkuozdemir/nvidia_gpu_exporter:1.2.0
+  #   container_name: nvidia-exporter
+  #   restart: unless-stopped
+  #   runtime: nvidia
+  #   ports:
+  #     - "9835:9835"
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+
+  # ═══════════════════════════════════════════════════════════════
+  # DCGM EXPORTER (alternative NVIDIA metrics)
+  # ═══════════════════════════════════════════════════════════════
+  # dcgm-exporter:
+  #   image: nvidia/dcgm-exporter:3.3.0-3.2.0-ubuntu22.04
+  #   container_name: dcgm-exporter
+  #   restart: unless-stopped
+  #   runtime: nvidia
+  #   ports:
+  #     - "9400:9400"
+  #   cap_add:
+  #     - SYS_ADMIN

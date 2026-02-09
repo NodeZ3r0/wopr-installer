@@ -1,0 +1,32 @@
+# WOPR Grafana Datasources - NodeZ3r0 Secondary
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+
+  # Primary Prometheus (Hetzner) for cross-reference
+  - name: Prometheus-Primary
+    type: prometheus
+    access: proxy
+    url: http://${HETZNER_NEBULA_IP}:9090
+    editable: false
+
+  # Primary Loki (Hetzner) for cross-reference
+  - name: Loki-Primary
+    type: loki
+    access: proxy
+    url: http://${HETZNER_NEBULA_IP}:3100
+    editable: false

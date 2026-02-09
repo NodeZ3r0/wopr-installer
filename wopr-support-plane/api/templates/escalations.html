@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOPR AI Escalations</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #eee;
+            --text-secondary: #888;
+            --accent-cyan: #00d9ff;
+            --accent-green: #00d97e;
+            --accent-red: #ff6b6b;
+            --accent-yellow: #f7b731;
+            --accent-purple: #533483;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--accent-purple) 100%);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            color: var(--accent-cyan);
+            font-size: 28px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            color: var(--accent-cyan);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--bg-tertiary);
+            color: var(--text-primary);
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-cyan);
+        }
+
+        .escalations-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .escalation-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .escalation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--bg-tertiary);
+        }
+
+        .escalation-service {
+            font-size: 18px;
+            color: var(--accent-cyan);
+        }
+
+        .escalation-tier {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .tier-tier2_suggest { background: var(--accent-yellow); color: #000; }
+        .tier-tier3_escalate { background: var(--accent-red); color: #fff; }
+
+        .escalation-body {
+            padding: 20px;
+        }
+
+        .escalation-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            background: var(--bg-primary);
+            padding: 12px;
+            border-radius: 4px;
+        }
+
+        .meta-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .meta-value {
+            color: var(--accent-cyan);
+        }
+
+        .confidence-bar {
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .confidence-high { background: var(--accent-green); }
+        .confidence-medium { background: var(--accent-yellow); }
+        .confidence-low { background: var(--accent-red); }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .section-content {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .ai-suggestions {
+            background: linear-gradient(135deg, rgba(0, 217, 126, 0.1) 0%, rgba(0, 217, 255, 0.1) 100%);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .ai-suggestions h3 {
+            color: var(--accent-cyan);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ai-suggestions h3::before {
+            content: "AI";
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .suggestion {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .suggestion-rank {
+            background: var(--accent-purple);
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
+        }
+
+        .suggestion-confidence {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .suggestion-action {
+            font-weight: bold;
+            color: var(--accent-green);
+            margin-bottom: 4px;
+        }
+
+        .suggestion-rationale {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            padding-top: 20px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-approve {
+            background: var(--accent-green);
+            color: #000;
+        }
+
+        .btn-approve:hover {
+            background: #00ff99;
+            transform: translateY(-2px);
+        }
+
+        .btn-reject {
+            background: var(--accent-red);
+            color: #fff;
+        }
+
+        .btn-reject:hover {
+            background: #ff8888;
+            transform: translateY(-2px);
+        }
+
+        .btn-suggestion {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--accent-cyan);
+        }
+
+        .btn-suggestion:hover {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h2 {
+            color: var(--accent-green);
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--accent-cyan);
+        }
+
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast-success { background: var(--accent-green); color: #000; }
+        .toast-error { background: var(--accent-red); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .escalation-id {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>WOPR AI Escalations</h1>
+                <p style="color: var(--text-secondary); font-size: 12px; margin-top: 5px;">AI-Powered Remediation Dashboard</p>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="pending-count">-</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="approved-count">-</div>
+                    <div class="stat-label">Approved</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="rejected-count">-</div>
+                    <div class="stat-label">Rejected</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="filters">
+            <button class="filter-btn active" data-status="pending">Pending</button>
+            <button class="filter-btn" data-status="approved">Approved</button>
+            <button class="filter-btn" data-status="rejected">Rejected</button>
+            <button class="filter-btn" data-status="all">All</button>
+        </div>
+
+        <div class="escalations-grid" id="escalations">
+            <div class="loading">Loading escalations</div>
+        </div>
+    </div>
+
+    <script>
+        let currentStatus = 'pending';
+
+        async function loadEscalations(status = 'pending') {
+            const container = document.getElementById('escalations');
+            container.innerHTML = '<div class="loading">Loading escalations</div>';
+
+            try {
+                const url = status === 'all'
+                    ? '/api/v1/ai/escalations?limit=100'
+                    : `/api/v1/ai/escalations?status=${status}&limit=100`;
+
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('Failed to load');
+
+                const data = await resp.json();
+                renderEscalations(data.escalations || data);
+                updateStats();
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state"><h2>Error</h2><p>${err.message}</p></div>`;
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const [pending, approved, rejected] = await Promise.all([
+                    fetch('/api/v1/ai/escalations?status=pending&limit=1').then(r => r.json()),
+                    fetch('/api/v1/ai/escalations?status=approved&limit=1').then(r => r.json()),
+                    fetch('/api/v1/ai/escalations?status=rejected&limit=1').then(r => r.json()),
+                ]);
+
+                document.getElementById('pending-count').textContent = pending.total || pending.escalations?.length || 0;
+                document.getElementById('approved-count').textContent = approved.total || approved.escalations?.length || 0;
+                document.getElementById('rejected-count').textContent = rejected.total || rejected.escalations?.length || 0;
+            } catch (err) {
+                console.error('Failed to update stats:', err);
+            }
+        }
+
+        function renderEscalations(escalations) {
+            const container = document.getElementById('escalations');
+
+            if (!escalations || escalations.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h2>All Clear</h2>
+                        <p>No ${currentStatus} escalations at this time.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = escalations.map(esc => renderEscalationCard(esc)).join('');
+        }
+
+        function renderEscalationCard(esc) {
+            const confidenceClass = esc.confidence >= 0.8 ? 'high' : esc.confidence >= 0.6 ? 'medium' : 'low';
+            const confidencePercent = Math.round(esc.confidence * 100);
+
+            return `
+                <div class="escalation-card" data-id="${esc.id}">
+                    <div class="escalation-header">
+                        <div>
+                            <div class="escalation-service">${esc.service}</div>
+                            <div class="escalation-id">ID: ${esc.id}</div>
+                        </div>
+                        <span class="escalation-tier tier-${esc.tier}">${formatTier(esc.tier)}</span>
+                    </div>
+                    <div class="escalation-body">
+                        <div class="escalation-meta">
+                            <div class="meta-item">
+                                <div class="meta-label">Proposed Action</div>
+                                <div class="meta-value">${esc.proposed_action}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Confidence</div>
+                                <div class="meta-value">${confidencePercent}%</div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill confidence-${confidenceClass}" style="width: ${confidencePercent}%"></div>
+                                </div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Created</div>
+                                <div class="meta-value">${formatDate(esc.created_at)}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Status</div>
+                                <div class="meta-value">${esc.status}</div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">Error Summary</div>
+                            <div class="section-content">${escapeHtml(esc.error_summary)}</div>
+                        </div>
+
+                        <div class="ai-suggestions" id="suggestions-${esc.id}">
+                            <h3>AI Suggested Remediations</h3>
+                            <div class="suggestions-content">
+                                <button class="btn btn-suggestion" onclick="loadSuggestions('${esc.id}', '${esc.service}', '${escapeJs(esc.error_summary)}')">
+                                    Generate AI Suggestions
+                                </button>
+                            </div>
+                        </div>
+
+                        ${esc.status === 'pending' ? `
+                        <div class="actions">
+                            <button class="btn btn-approve" onclick="approveEscalation('${esc.id}')">
+                                APPROVE ACTION
+                            </button>
+                            <button class="btn btn-reject" onclick="rejectEscalation('${esc.id}')">
+                                REJECT
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadSuggestions(escId, service, errorSummary) {
+            const container = document.querySelector(`#suggestions-${escId} .suggestions-content`);
+            container.innerHTML = '<div class="loading">Generating AI suggestions</div>';
+
+            try {
+                const resp = await fetch('/api/v1/ai/suggest-remediation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service, error_summary: errorSummary })
+                });
+
+                if (!resp.ok) throw new Error('Failed to get suggestions');
+
+                const data = await resp.json();
+                renderSuggestions(container, data.suggestions, escId);
+            } catch (err) {
+                container.innerHTML = `<p style="color: var(--accent-red);">Failed to generate suggestions: ${err.message}</p>`;
+            }
+        }
+
+        function renderSuggestions(container, suggestions, escId) {
+            if (!suggestions || suggestions.length === 0) {
+                container.innerHTML = '<p>No suggestions available.</p>';
+                return;
+            }
+
+            container.innerHTML = suggestions.map((s, i) => `
+                <div class="suggestion">
+                    <div class="suggestion-header">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="suggestion-rank">${i + 1}</span>
+                            <span class="suggestion-action">${s.action}</span>
+                        </div>
+                        <span class="suggestion-confidence">${Math.round(s.confidence * 100)}% confidence</span>
+                    </div>
+                    <div class="suggestion-rationale">${escapeHtml(s.rationale)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function approveEscalation(id) {
+            if (!confirm('Approve this action? It will be executed automatically.')) return;
+
+            try {
+                const resp = await fetch(`/api/v1/ai/escalations/${id}/approve`, { method: 'POST' });
+                if (!resp.ok) throw new Error('Approval failed');
+
+                showToast('Escalation approved and action executed', 'success');
+                loadEscalations(currentStatus);
+            } catch (err) {
+                showToast(`Error: ${err.message}`, 'error');
+            }
+        }
+
+        async function rejectEscalation(id) {
+            if (!confirm('Reject this escalation?')) return;
+
+            try {
+                const resp = await fetch(`/api/v1/ai/escalations/${id}/reject`, { method: 'POST' });
+                if (!resp.ok) throw new Error('Rejection failed');
+
+                showToast('Escalation rejected', 'success');
+                loadEscalations(currentStatus);
+            } catch (err) {
+                showToast(`Error: ${err.message}`, 'error');
+            }
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function formatTier(tier) {
+            return {
+                'tier2_suggest': 'Tier 2 - Suggested',
+                'tier3_escalate': 'Tier 3 - Human Required'
+            }[tier] || tier;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const d = new Date(dateStr);
+            return d.toLocaleString();
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function escapeJs(str) {
+            if (!str) return '';
+            return str.replace(/['"\\]/g, '\\$&').replace(/\n/g, ' ');
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentStatus = btn.dataset.status;
+                loadEscalations(currentStatus);
+            });
+        });
+
+        // Initial load
+        loadEscalations('pending');
+    </script>
+</body>
+</html>

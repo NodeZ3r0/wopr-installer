@@ -1,0 +1,81 @@
+# WOPR Promtail Configuration - NodeZ3r0 Secondary
+# Ships logs to both local Loki AND Hetzner primary for redundancy
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  # Local Loki (secondary)
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: wopr
+
+  # Hetzner primary Loki (over Nebula) - for redundancy
+  - url: http://${HETZNER_NEBULA_IP}:3100/loki/api/v1/push
+    tenant_id: wopr
+
+scrape_configs:
+  # ═══════════════════════════════════════════════════════════════
+  # SYSTEM LOGS
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          host: nodez3r0
+          __path__: /var/log/syslog
+
+  - job_name: authlog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: authlog
+          host: nodez3r0
+          __path__: /var/log/auth.log
+
+  # ═══════════════════════════════════════════════════════════════
+  # DOCKER LOGS
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'job'
+      - replacement: 'nodez3r0'
+        target_label: 'host'
+
+  # ═══════════════════════════════════════════════════════════════
+  # FAIL2BAN
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: fail2ban
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: fail2ban
+          host: nodez3r0
+          __path__: /var/log/fail2ban.log
+
+  # ═══════════════════════════════════════════════════════════════
+  # NEBULA VPN
+  # ═══════════════════════════════════════════════════════════════
+  - job_name: nebula
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nebula
+          host: nodez3r0
+          __path__: /var/log/nebula*.log

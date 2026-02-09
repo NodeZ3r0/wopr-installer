@@ -8,6 +8,7 @@ from api.decision import analyze_with_llm
 from api.executor import execute_tier1_action
 from api.models import SafetyTier, AnalysisStatus
 from api.config import MAX_AUTO_ACTIONS_PER_HOUR, SCAN_INTERVAL_SECONDS
+from api.notifier import notify_escalation, notify_auto_fix_failure
 
 logger = logging.getLogger("ai_engine")
 
@@ -93,13 +94,26 @@ async def run_analysis_cycle() -> str:
                 if success:
                     auto_fixed += 1
                 else:
-                    # Auto-fix failed, escalate
-                    await _create_escalation(db, run_id, decision, service)
-                    escalated += 1
+                    # Auto-fix failed, escalate and notify
+                    esc_id, is_new = await _create_escalation(db, run_id, decision, service)
+                    if is_new:
+                        escalated += 1
+                        # Notify about auto-fix failure (only for new escalations)
+                        await notify_auto_fix_failure(service, decision.action, output)
             else:
-                # Tier 2 or Tier 3 — create escalation
-                await _create_escalation(db, run_id, decision, service)
-                escalated += 1
+                # Tier 2 or Tier 3 — create escalation and notify
+                esc_id, is_new = await _create_escalation(db, run_id, decision, service)
+                if is_new:
+                    escalated += 1
+                    # Send notification (only for NEW escalations, not duplicates)
+                    await notify_escalation(
+                        tier=decision.tier.value,
+                        service=service,
+                        error_summary=decision.reasoning,
+                        proposed_action=decision.action,
+                        confidence=decision.confidence,
+                        escalation_id=esc_id,
+                    )
 
         await db.commit()
 
@@ -124,13 +138,36 @@ async def run_analysis_cycle() -> str:
     return run_id
 
 
-async def _create_escalation(db, run_id, decision, service):
+async def _has_recent_pending_escalation(db, service: str, action: str) -> bool:
+    """Check if there's already a pending escalation for this service+action in the last 24 hours."""
+    cutoff = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+    row = await db.execute(
+        "SELECT id FROM escalations WHERE service = ? AND proposed_action = ? "
+        "AND status = 'pending' AND created_at > ? LIMIT 1",
+        (service, action, cutoff),
+    )
+    result = await row.fetchone()
+    return result is not None
+
+
+async def _create_escalation(db, run_id, decision, service) -> tuple[str, bool]:
+    """Create an escalation record and return (id, is_new).
+
+    Returns is_new=False if there's already a pending escalation for the same issue.
+    """
+    # Check for existing pending escalation
+    if await _has_recent_pending_escalation(db, service, decision.action):
+        logger.debug(f"Skipping duplicate escalation for {service}:{decision.action}")
+        return "", False
+
+    esc_id = str(uuid4())
     await db.execute(
         "INSERT INTO escalations (id, analysis_run_id, created_at, tier, service, "
         "error_summary, proposed_action, confidence, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (str(uuid4()), run_id, datetime.utcnow().isoformat(), decision.tier.value,
+        (esc_id, run_id, datetime.utcnow().isoformat(), decision.tier.value,
          service, decision.reasoning, decision.action, decision.confidence, "pending"),
     )
+    return esc_id, True
 
 
 async def _scan_loop():

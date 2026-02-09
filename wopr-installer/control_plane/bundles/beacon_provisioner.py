@@ -97,6 +97,9 @@ class BeaconInstance:
     deployed_modules: list[str] = field(default_factory=list)
     failed_modules: list[str] = field(default_factory=list)
 
+    # DNS record IDs (for cleanup on cancellation)
+    dns_record_ids: dict[str, str] = field(default_factory=dict)
+
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
     provisioned_at: Optional[datetime] = None
@@ -404,8 +407,11 @@ class BeaconProvisioner:
         instance: BeaconInstance,
         state: OnboardingState,
     ):
-        """Deploy core infrastructure (Authentik, Caddy, PostgreSQL, Redis)"""
+        """Deploy core infrastructure (Authentik, Caddy, PostgreSQL, Redis) and configure DNS"""
         from ..services.module_deployer import ModuleDeployer, DeploymentConfig
+
+        # Configure DNS records first (requires Cloudflare credentials and server IP)
+        await self._configure_dns(instance, state)
 
         config = DeploymentConfig(
             install_base_path=str(self.modules_path),
@@ -430,6 +436,74 @@ class BeaconProvisioner:
 
         # Set Authentik URL
         instance.authentik_url = f"https://auth.{state.infrastructure.domain}"
+
+    async def _configure_dns(
+        self,
+        instance: BeaconInstance,
+        state: OnboardingState,
+    ):
+        """
+        Configure DNS records via Cloudflare.
+
+        Creates:
+        - A record: {beacon}.wopr.systems -> server IP
+        - Wildcard A record: *.{beacon}.wopr.systems -> server IP
+
+        The wildcard record ensures all app subdomains (vault, git, ci, code,
+        reactor, containers, ai, db, auto, office, etc.) resolve correctly.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Check for required Cloudflare credentials
+        cf_token = state.infrastructure.cloudflare_api_token
+        cf_zone = state.infrastructure.cloudflare_zone_id
+        server_ip = state.infrastructure.server_ip
+
+        if not cf_token or not cf_zone:
+            logger.warning("Cloudflare credentials not provided, skipping DNS configuration")
+            return
+
+        if not server_ip:
+            logger.warning("Server IP not available, skipping DNS configuration")
+            return
+
+        try:
+            from ..services.cloudflare_dns import CloudflareDNS
+
+            dns = CloudflareDNS(api_token=cf_token, zone_id=cf_zone)
+            domain = state.infrastructure.domain
+
+            # Create main A record: {beacon}.wopr.systems -> IP
+            main_record_id = await dns.create_a_record(
+                name=domain,
+                ip=server_ip,
+                proxied=False,
+            )
+            logger.info(f"Created DNS A record: {domain} -> {server_ip}")
+
+            # Create wildcard A record: *.{beacon}.wopr.systems -> IP
+            # This enables all app subdomains (vault, git, ci, code, etc.)
+            wildcard_record_id = await dns.create_a_record(
+                name=f"*.{domain}",
+                ip=server_ip,
+                proxied=False,
+            )
+            logger.info(f"Created DNS wildcard record: *.{domain} -> {server_ip}")
+
+            # Store record IDs for potential cleanup on cancellation
+            if not hasattr(instance, 'dns_record_ids'):
+                instance.dns_record_ids = {}
+            instance.dns_record_ids = {
+                "a_record": main_record_id,
+                "wildcard_record": wildcard_record_id,
+            }
+
+        except ImportError:
+            logger.warning("cloudflare package not installed, skipping DNS configuration")
+        except Exception as e:
+            logger.error(f"DNS configuration failed: {e}")
+            # Not fatal - user can still access via IP or configure DNS manually
 
     def _get_modules_to_deploy(self, request: ProvisioningRequest) -> list[str]:
         """Get list of modules to deploy based on bundle"""
