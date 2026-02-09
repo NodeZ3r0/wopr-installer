@@ -1,7 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import SetupSlides from '$lib/components/SetupSlides.svelte';
 
 	const jobId = $page.params.job_id;
 
@@ -14,14 +14,16 @@
 	let instanceIp = '';
 	let customDomain = '';
 	let eventSource = null;
+	let currentModule = '';
 
+	// Steps with ASCII icons instead of emojis
 	const steps = [
-		{ id: 'payment', label: 'Payment Received', icon: '💳', description: 'Your payment has been confirmed' },
-		{ id: 'server', label: 'Creating Server', icon: '🖥️', description: 'Spinning up your cloud server' },
-		{ id: 'dns', label: 'Configuring DNS', icon: '🌐', description: 'Setting up your beacon domain' },
-		{ id: 'install', label: 'Installing WOPR', icon: '⚙️', description: 'Deploying your apps and services' },
-		{ id: 'configure', label: 'Final Configuration', icon: '🔧', description: 'Configuring accounts and permissions' },
-		{ id: 'ready', label: 'Ready!', icon: '🚀', description: 'Your Beacon is online' },
+		{ id: 'payment', label: 'Payment Received', icon: '[$]', description: 'Transaction verified' },
+		{ id: 'server', label: 'Creating Server', icon: '[#]', description: 'Spawning cloud instance' },
+		{ id: 'dns', label: 'Configuring DNS', icon: '[@]', description: 'Mapping your domain' },
+		{ id: 'install', label: 'Installing WOPR', icon: '[*]', description: 'Deploying modules' },
+		{ id: 'configure', label: 'Final Setup', icon: '[~]', description: 'Creating accounts' },
+		{ id: 'ready', label: 'Online', icon: '[>]', description: 'Beacon operational' },
 	];
 
 	onMount(() => {
@@ -36,8 +38,6 @@
 
 	function connectToStream() {
 		status = 'connecting';
-
-		// Connect to SSE endpoint for real-time updates
 		eventSource = new EventSource(`/api/v1/provisioning/${jobId}/stream`);
 
 		eventSource.onopen = () => {
@@ -56,7 +56,6 @@
 		eventSource.onerror = (e) => {
 			console.error('SSE error:', e);
 			status = 'error';
-			// Try to reconnect after 5 seconds
 			setTimeout(() => {
 				if (eventSource) eventSource.close();
 				connectToStream();
@@ -71,6 +70,10 @@
 
 		if (data.step !== undefined) {
 			currentStep = data.step;
+		}
+
+		if (data.current_module) {
+			currentModule = data.current_module;
 		}
 
 		if (data.status === 'complete') {
@@ -95,183 +98,313 @@
 		}
 	}
 
-	// Calculate the stroke-dashoffset for the progress ring
-	$: circumference = 2 * Math.PI * 120; // radius = 120
+	$: circumference = 2 * Math.PI * 54;
 	$: strokeDashoffset = circumference - (progress / 100) * circumference;
 </script>
 
 <svelte:head>
-	<title>Setting Up Your Beacon - WOPR</title>
+	<title>Deploying Beacon - WOPR</title>
 </svelte:head>
 
-<div class="setup-container">
-	<div class="setup-content">
-		<!-- WOPR Gear Progress Animation -->
-		<div class="gear-container">
-			<svg class="progress-ring" viewBox="0 0 280 280">
-				<!-- Background circle -->
-				<circle
-					class="progress-bg"
-					cx="140"
-					cy="140"
-					r="120"
-					fill="none"
-					stroke-width="12"
-				/>
-				<!-- Progress circle -->
-				<circle
-					class="progress-bar"
-					cx="140"
-					cy="140"
-					r="120"
-					fill="none"
-					stroke-width="12"
-					stroke-dasharray={circumference}
-					stroke-dashoffset={strokeDashoffset}
-					transform="rotate(-90 140 140)"
-				/>
-			</svg>
+<div class="setup-page">
+	<div class="scanlines-overlay"></div>
 
-			<!-- Gear icon in center -->
-			<div class="gear-icon" class:spinning={status !== 'complete' && status !== 'error'}>
-				<svg viewBox="0 0 24 24" fill="currentColor">
-					<path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z"/>
-				</svg>
-			</div>
-
-			<!-- Percentage display -->
-			<div class="progress-text">
-				<span class="percentage">{Math.round(progress)}%</span>
-			</div>
-		</div>
-
-		<!-- Status message -->
-		<h1 class="status-title">
+	<header class="page-header">
+		<div class="terminal-title">WOPR://beacon/deploy/{jobId}</div>
+		<div class="connection-status" class:connected={status === 'connected'} class:error={status === 'error'}>
 			{#if status === 'connecting'}
-				Connecting...
+				[CONNECTING...]
+			{:else if status === 'connected'}
+				[STREAM ACTIVE]
 			{:else if status === 'complete'}
-				Your Beacon is Ready!
+				[COMPLETE]
 			{:else if status === 'error'}
-				Setup Error
-			{:else}
-				Setting Up Your Beacon
+				[CONNECTION ERROR]
 			{/if}
-		</h1>
+		</div>
+	</header>
 
-		{#if status === 'error' && error}
-			<div class="error-message">
-				<p>{error}</p>
-				<button class="btn btn-secondary" on:click={() => window.location.reload()}>
-					Try Again
-				</button>
-			</div>
-		{/if}
-
-		<!-- Step progress -->
-		<div class="steps-container">
-			{#each steps as step, index}
-				<div
-					class="step"
-					class:completed={index < currentStep}
-					class:active={index === currentStep}
-					class:pending={index > currentStep}
-				>
-					<div class="step-icon">
-						{#if index < currentStep}
-							<span class="check">✓</span>
-						{:else}
-							<span>{step.icon}</span>
-						{/if}
+	<div class="setup-grid">
+		<!-- Left: Educational Slides -->
+		<div class="slides-panel">
+			{#if status !== 'complete'}
+				<SetupSlides {currentStep} {progress} />
+			{:else}
+				<div class="completion-panel">
+					<div class="ascii-beacon">
+<pre>
+      *
+     /|\
+    / | \
+   /  |  \
+  /___|___\
+     |||
+  ___|||___
+ |  WOPR  |
+ |_________|
+   BEACON
+   ONLINE
+</pre>
 					</div>
-					<div class="step-content">
-						<span class="step-label">{step.label}</span>
-						{#if index === currentStep}
-							<span class="step-description">{step.description}</span>
-						{/if}
-					</div>
-					{#if index === currentStep && status !== 'complete' && status !== 'error'}
-						<div class="step-spinner"></div>
-					{/if}
+					<h2 class="complete-title">DEPLOYMENT SUCCESSFUL</h2>
+					<p class="complete-subtitle">All systems nominal</p>
 				</div>
-			{/each}
+			{/if}
 		</div>
 
-		<!-- Completion actions -->
-		{#if status === 'complete'}
-			<div class="completion-section">
-				<div class="beacon-url">
-					<span class="url-label">Your Beacon:</span>
-					<a href={beaconUrl} target="_blank" class="url-link">{beaconUrl}</a>
-				</div>
+		<!-- Right: Progress Panel -->
+		<div class="progress-panel">
+			<div class="panel-header">
+				<span class="panel-title">DEPLOYMENT STATUS</span>
+			</div>
 
-				<div class="completion-actions">
-					<button class="btn btn-primary btn-large" on:click={goToDashboard}>
-						Open Your Dashboard
-						<span class="arrow">→</span>
+			<!-- Compact Progress Ring -->
+			<div class="progress-ring-container">
+				<svg class="progress-ring" viewBox="0 0 120 120">
+					<circle class="ring-bg" cx="60" cy="60" r="54" fill="none" stroke-width="6" />
+					<circle
+						class="ring-fill"
+						cx="60"
+						cy="60"
+						r="54"
+						fill="none"
+						stroke-width="6"
+						stroke-dasharray={circumference}
+						stroke-dashoffset={strokeDashoffset}
+						transform="rotate(-90 60 60)"
+					/>
+				</svg>
+				<div class="ring-text">
+					<span class="ring-percentage">{Math.round(progress)}%</span>
+				</div>
+			</div>
+
+			<!-- Step List -->
+			<div class="steps-list">
+				{#each steps as step, index}
+					<div
+						class="step-row"
+						class:completed={index < currentStep}
+						class:active={index === currentStep && status !== 'complete'}
+						class:pending={index > currentStep}
+						class:final={status === 'complete' && index === 5}
+					>
+						<span class="step-icon">
+							{#if index < currentStep || (status === 'complete' && index === 5)}
+								[OK]
+							{:else if index === currentStep && status !== 'complete'}
+								{step.icon}
+							{:else}
+								[--]
+							{/if}
+						</span>
+						<span class="step-label">{step.label}</span>
+						{#if index === currentStep && status !== 'complete' && status !== 'error'}
+							<span class="step-spinner">|</span>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Current Module -->
+			{#if currentModule && status !== 'complete'}
+				<div class="module-status">
+					<span class="module-label">Installing:</span>
+					<span class="module-name">{currentModule}</span>
+				</div>
+			{/if}
+
+			<!-- Error Display -->
+			{#if status === 'error' && error}
+				<div class="error-box">
+					<div class="error-header">[ERROR]</div>
+					<p class="error-text">{error}</p>
+					<button class="retry-btn" on:click={() => window.location.reload()}>
+						[RETRY]
 					</button>
 				</div>
+			{/if}
 
-				<div class="next-steps-hint">
-					<p>Check your email for login credentials and a getting started guide.</p>
+			<!-- Completion Actions -->
+			{#if status === 'complete'}
+				<div class="completion-box">
+					<div class="beacon-info">
+						<span class="info-label">BEACON URL:</span>
+						<a href={beaconUrl} target="_blank" class="beacon-link">{beaconUrl}</a>
+					</div>
+
+					<button class="dashboard-btn" on:click={goToDashboard}>
+						[[ OPEN DASHBOARD ]]
+					</button>
+
+					<p class="email-hint">Login credentials sent to your email</p>
+
+					{#if customDomain}
+						<div class="dns-box">
+							<div class="dns-header">CUSTOM DOMAIN: {customDomain}</div>
+							<div class="dns-record">
+								<span>Type: A</span>
+								<span>Value: {instanceIp}</span>
+								<span>TTL: 3600</span>
+							</div>
+						</div>
+					{:else if instanceIp}
+						<div class="dns-box">
+							<div class="dns-header">SERVER IP</div>
+							<div class="dns-value">{instanceIp}</div>
+						</div>
+					{/if}
 				</div>
+			{/if}
 
-				{#if customDomain}
-					<div class="custom-domain-section">
-						<h3>Custom Domain Setup</h3>
-						<p>To use <strong>{customDomain}</strong> with your beacon, point it to your server:</p>
-						<div class="dns-instructions">
-							<div class="dns-row"><span class="dns-label">Type:</span><span class="dns-value">A</span></div>
-							<div class="dns-row"><span class="dns-label">Name:</span><span class="dns-value">@ (or your subdomain)</span></div>
-							<div class="dns-row"><span class="dns-label">Value:</span><span class="dns-value">{instanceIp}</span></div>
-							<div class="dns-row"><span class="dns-label">TTL:</span><span class="dns-value">3600</span></div>
-						</div>
-						<p class="dns-note">Add this record at your domain registrar. DNS changes can take up to 48 hours to propagate. SSL will be provisioned automatically.</p>
-					</div>
-				{:else if instanceIp}
-					<div class="custom-domain-section">
-						<h3>Want to use your own domain?</h3>
-						<p>Point any domain to your server with a DNS A record to:</p>
-						<div class="dns-instructions">
-							<div class="dns-row"><span class="dns-label">IP Address:</span><span class="dns-value">{instanceIp}</span></div>
-						</div>
-						<p class="dns-note">Then activate it in your beacon's Settings &gt; Custom Domain page.</p>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<!-- Waiting message -->
-		{#if status !== 'complete' && status !== 'error'}
-			<div class="waiting-message">
-				<p>This usually takes 5-10 minutes. Feel free to grab a coffee!</p>
-				<p class="email-note">We'll also email you when it's ready.</p>
-			</div>
-		{/if}
+			<!-- Footer -->
+			{#if status !== 'complete' && status !== 'error'}
+				<div class="panel-footer">
+					<p>Estimated time: 5-10 minutes</p>
+					<p class="dim">Notification email on completion</p>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
 <style>
-	.setup-container {
+	/* Base CRT Theme */
+	.setup-page {
 		min-height: 100vh;
+		background: #050505;
+		color: #00ff41;
+		font-family: 'Courier New', 'Consolas', monospace;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.scanlines-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: repeating-linear-gradient(
+			0deg,
+			rgba(0, 0, 0, 0.15),
+			rgba(0, 0, 0, 0.15) 1px,
+			transparent 1px,
+			transparent 2px
+		);
+		pointer-events: none;
+		z-index: 100;
+	}
+
+	/* Header */
+	.page-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 2rem;
+		border-bottom: 1px solid #00ff4130;
+		background: #0a0a0a;
+	}
+
+	.terminal-title {
+		font-size: 0.9rem;
+		opacity: 0.7;
+	}
+
+	.connection-status {
+		font-size: 0.8rem;
+		padding: 0.25rem 0.5rem;
+		border: 1px solid #00ff4140;
+	}
+
+	.connection-status.connected {
+		color: #00ff41;
+		border-color: #00ff41;
+	}
+
+	.connection-status.error {
+		color: #ff4141;
+		border-color: #ff4141;
+	}
+
+	/* Grid Layout */
+	.setup-grid {
+		display: grid;
+		grid-template-columns: 1fr 380px;
+		min-height: calc(100vh - 60px);
+	}
+
+	@media (max-width: 900px) {
+		.setup-grid {
+			grid-template-columns: 1fr;
+		}
+		.slides-panel {
+			display: none;
+		}
+	}
+
+	/* Slides Panel */
+	.slides-panel {
+		padding: 2rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--theme-bg, #0a0a0a);
-		padding: 2rem;
 	}
 
-	.setup-content {
-		max-width: 600px;
-		width: 100%;
+	.completion-panel {
 		text-align: center;
 	}
 
-	/* Gear Progress Animation */
-	.gear-container {
+	.ascii-beacon {
+		color: #00ff41;
+		font-size: 0.9rem;
+		margin-bottom: 2rem;
+		text-shadow: 0 0 10px #00ff41;
+	}
+
+	.ascii-beacon pre {
+		margin: 0;
+		line-height: 1.2;
+	}
+
+	.complete-title {
+		font-size: 1.5rem;
+		margin: 0 0 0.5rem 0;
+		text-shadow: 0 0 20px #00ff41;
+	}
+
+	.complete-subtitle {
+		opacity: 0.7;
+		margin: 0;
+	}
+
+	/* Progress Panel */
+	.progress-panel {
+		background: #0a0a0a;
+		border-left: 1px solid #00ff4130;
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.panel-header {
+		border-bottom: 1px solid #00ff4140;
+		padding-bottom: 0.75rem;
+	}
+
+	.panel-title {
+		font-size: 0.85rem;
+		letter-spacing: 2px;
+		opacity: 0.8;
+	}
+
+	/* Progress Ring */
+	.progress-ring-container {
 		position: relative;
-		width: 280px;
-		height: 280px;
-		margin: 0 auto 2rem;
+		width: 120px;
+		height: 120px;
+		margin: 0 auto;
 	}
 
 	.progress-ring {
@@ -279,325 +412,232 @@
 		height: 100%;
 	}
 
-	.progress-bg {
-		stroke: var(--theme-border, #333);
+	.ring-bg {
+		stroke: #00ff4120;
 	}
 
-	.progress-bar {
-		stroke: var(--theme-primary, #00ff41);
+	.ring-fill {
+		stroke: #00ff41;
 		stroke-linecap: round;
 		transition: stroke-dashoffset 0.5s ease;
-		filter: drop-shadow(0 0 10px var(--theme-primary, #00ff41));
+		filter: drop-shadow(0 0 8px #00ff41);
 	}
 
-	.gear-icon {
+	.ring-text {
 		position: absolute;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		width: 80px;
-		height: 80px;
-		color: var(--theme-primary, #00ff41);
-		filter: drop-shadow(0 0 15px var(--theme-primary, #00ff41));
 	}
 
-	.gear-icon.spinning {
-		animation: spin 3s linear infinite;
-	}
-
-	@keyframes spin {
-		from { transform: translate(-50%, -50%) rotate(0deg); }
-		to { transform: translate(-50%, -50%) rotate(360deg); }
-	}
-
-	.gear-icon svg {
-		width: 100%;
-		height: 100%;
-	}
-
-	.progress-text {
-		position: absolute;
-		bottom: 30px;
-		left: 50%;
-		transform: translateX(-50%);
-	}
-
-	.percentage {
+	.ring-percentage {
 		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--theme-primary, #00ff41);
-		text-shadow: 0 0 10px var(--theme-primary, #00ff41);
-	}
-
-	/* Status title */
-	.status-title {
-		font-size: 2rem;
-		color: var(--theme-text, #e0e0e0);
-		margin-bottom: 2rem;
-	}
-
-	/* Error message */
-	.error-message {
-		background: var(--theme-error-subtle, rgba(239, 68, 68, 0.1));
-		border: 1px solid var(--theme-error, #ef4444);
-		border-radius: var(--theme-radius, 8px);
-		padding: 1.5rem;
-		margin-bottom: 2rem;
-	}
-
-	.error-message p {
-		color: var(--theme-error, #ef4444);
-		margin-bottom: 1rem;
+		font-weight: bold;
+		text-shadow: 0 0 10px #00ff41;
 	}
 
 	/* Steps */
-	.steps-container {
-		text-align: left;
-		background: var(--theme-surface, #1a1a1a);
-		border: 1px solid var(--theme-border, #333);
-		border-radius: var(--theme-radius, 8px);
-		padding: 1.5rem;
-		margin-bottom: 2rem;
-	}
-
-	.step {
+	.steps-list {
 		display: flex;
-		align-items: flex-start;
-		gap: 1rem;
-		padding: 0.75rem 0;
-		opacity: 0.4;
-		transition: opacity 0.3s;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 
-	.step.completed,
-	.step.active {
-		opacity: 1;
+	.step-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem;
+		font-size: 0.85rem;
+		border: 1px solid transparent;
+		transition: all 0.2s;
 	}
 
-	.step:not(:last-child) {
-		border-bottom: 1px solid var(--theme-border, #333);
+	.step-row.pending {
+		opacity: 0.3;
+	}
+
+	.step-row.active {
+		background: #00ff4110;
+		border-color: #00ff4140;
+	}
+
+	.step-row.completed .step-icon,
+	.step-row.final .step-icon {
+		color: #00ff41;
+	}
+
+	.step-row.active .step-icon {
+		color: #ffff00;
+		animation: blink 1s infinite;
+	}
+
+	@keyframes blink {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.5; }
 	}
 
 	.step-icon {
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.25rem;
-		flex-shrink: 0;
-	}
-
-	.step.completed .step-icon {
-		background: var(--theme-success, #22c55e);
-		color: #fff;
-		border-radius: 50%;
-		font-size: 0.9rem;
-	}
-
-	.step-content {
-		flex: 1;
+		font-family: inherit;
+		min-width: 40px;
 	}
 
 	.step-label {
-		display: block;
-		font-weight: 600;
-		color: var(--theme-text, #e0e0e0);
-	}
-
-	.step.completed .step-label {
-		color: var(--theme-success, #22c55e);
-	}
-
-	.step.active .step-label {
-		color: var(--theme-primary, #00ff41);
-	}
-
-	.step-description {
-		display: block;
-		font-size: 0.85rem;
-		color: var(--theme-text-muted, #888);
-		margin-top: 0.25rem;
+		flex: 1;
 	}
 
 	.step-spinner {
-		width: 20px;
-		height: 20px;
-		border: 2px solid var(--theme-border, #333);
-		border-top-color: var(--theme-primary, #00ff41);
-		border-radius: 50%;
-		animation: spinner 0.8s linear infinite;
+		animation: spin-char 0.2s steps(4) infinite;
 	}
 
-	@keyframes spinner {
-		to { transform: rotate(360deg); }
+	@keyframes spin-char {
+		0% { content: '|'; }
+		25% { content: '/'; }
+		50% { content: '-'; }
+		75% { content: '\\'; }
 	}
 
-	/* Completion section */
-	.completion-section {
-		animation: fadeIn 0.5s ease;
-	}
-
-	@keyframes fadeIn {
-		from { opacity: 0; transform: translateY(20px); }
-		to { opacity: 1; transform: translateY(0); }
-	}
-
-	.beacon-url {
-		background: var(--theme-surface, #1a1a1a);
-		border: 1px solid var(--theme-primary, #00ff41);
-		border-radius: var(--theme-radius, 8px);
-		padding: 1.25rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.url-label {
-		display: block;
-		font-size: 0.85rem;
-		color: var(--theme-text-muted, #888);
-		margin-bottom: 0.5rem;
-	}
-
-	.url-link {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--theme-primary, #00ff41);
-		text-decoration: none;
-	}
-
-	.url-link:hover {
-		text-decoration: underline;
-	}
-
-	.completion-actions {
-		margin-bottom: 1.5rem;
-	}
-
-	.next-steps-hint {
-		color: var(--theme-text-muted, #888);
-		font-size: 0.9rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.custom-domain-section {
-		text-align: left;
-		background: var(--theme-surface, #1a1a1a);
-		border: 1px solid var(--theme-border, #333);
-		border-radius: var(--theme-radius, 8px);
-		padding: 1.5rem;
-		margin-top: 1.5rem;
-	}
-
-	.custom-domain-section h3 {
-		color: var(--theme-text, #e0e0e0);
-		margin-bottom: 0.75rem;
-	}
-
-	.custom-domain-section p {
-		color: var(--theme-text-muted, #888);
-		font-size: 0.9rem;
-		margin-bottom: 0.75rem;
-	}
-
-	.dns-instructions {
-		background: var(--theme-bg, #0a0a0a);
-		border: 1px solid var(--theme-border, #333);
-		border-radius: 4px;
-		padding: 1rem;
-		margin-bottom: 0.75rem;
-		font-family: monospace;
-	}
-
-	.dns-row {
-		display: flex;
-		gap: 1rem;
-		padding: 0.25rem 0;
-	}
-
-	.dns-label {
-		color: var(--theme-text-muted, #888);
-		min-width: 80px;
-	}
-
-	.dns-value {
-		color: var(--theme-primary, #00ff41);
-		font-weight: 600;
-	}
-
-	.dns-note {
+	/* Module Status */
+	.module-status {
+		background: #00ff4110;
+		border: 1px solid #00ff4130;
+		padding: 0.75rem;
 		font-size: 0.8rem;
-		color: var(--theme-text-muted, #666);
 	}
 
-	/* Waiting message */
-	.waiting-message {
-		color: var(--theme-text-muted, #888);
+	.module-label {
+		opacity: 0.7;
 	}
 
-	.waiting-message p {
+	.module-name {
+		color: #00ffff;
+	}
+
+	/* Error Box */
+	.error-box {
+		background: #ff414110;
+		border: 1px solid #ff4141;
+		padding: 1rem;
+	}
+
+	.error-header {
+		color: #ff4141;
+		font-weight: bold;
 		margin-bottom: 0.5rem;
 	}
 
-	.email-note {
+	.error-text {
+		color: #ff8888;
 		font-size: 0.85rem;
+		margin: 0 0 1rem 0;
 	}
 
-	/* Buttons */
-	.btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.875rem 1.5rem;
-		border-radius: var(--theme-radius, 8px);
-		font-weight: 600;
-		font-size: 1rem;
-		border: none;
+	.retry-btn {
+		background: transparent;
+		border: 1px solid #ff4141;
+		color: #ff4141;
+		padding: 0.5rem 1rem;
+		font-family: inherit;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
-	.btn-primary {
-		background: var(--theme-primary, #00ff41);
-		color: var(--theme-text-on-primary, #000);
+	.retry-btn:hover {
+		background: #ff414120;
 	}
 
-	.btn-primary:hover {
-		filter: brightness(1.1);
-		box-shadow: 0 0 20px var(--theme-primary, #00ff41);
+	/* Completion Box */
+	.completion-box {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 	}
 
-	.btn-secondary {
-		background: var(--theme-surface, #1a1a1a);
-		color: var(--theme-text, #e0e0e0);
-		border: 1px solid var(--theme-border, #333);
+	.beacon-info {
+		background: #00ff4110;
+		border: 1px solid #00ff41;
+		padding: 1rem;
 	}
 
-	.btn-secondary:hover {
-		background: var(--theme-surface-hover, #252525);
+	.info-label {
+		display: block;
+		font-size: 0.75rem;
+		opacity: 0.7;
+		margin-bottom: 0.5rem;
 	}
 
-	.btn-large {
-		padding: 1rem 2rem;
-		font-size: 1.1rem;
+	.beacon-link {
+		color: #00ffff;
+		text-decoration: none;
+		word-break: break-all;
 	}
 
-	.arrow {
-		font-size: 1.2rem;
+	.beacon-link:hover {
+		text-decoration: underline;
 	}
 
-	@media (max-width: 480px) {
-		.gear-container {
-			width: 220px;
-			height: 220px;
-		}
+	.dashboard-btn {
+		background: #00ff41;
+		border: none;
+		color: #000;
+		padding: 1rem;
+		font-family: inherit;
+		font-size: 1rem;
+		font-weight: bold;
+		cursor: pointer;
+		transition: all 0.2s;
+		text-align: center;
+	}
 
-		.gear-icon {
-			width: 60px;
-			height: 60px;
-		}
+	.dashboard-btn:hover {
+		box-shadow: 0 0 20px #00ff41;
+	}
 
-		.status-title {
-			font-size: 1.5rem;
-		}
+	.email-hint {
+		text-align: center;
+		font-size: 0.8rem;
+		opacity: 0.6;
+		margin: 0;
+	}
+
+	.dns-box {
+		background: #0a0a0a;
+		border: 1px solid #00ff4140;
+		padding: 1rem;
+		font-size: 0.8rem;
+	}
+
+	.dns-header {
+		opacity: 0.7;
+		margin-bottom: 0.5rem;
+	}
+
+	.dns-record {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		color: #00ffff;
+	}
+
+	.dns-value {
+		color: #00ffff;
+		font-size: 1rem;
+	}
+
+	/* Footer */
+	.panel-footer {
+		margin-top: auto;
+		padding-top: 1rem;
+		border-top: 1px solid #00ff4130;
+		font-size: 0.8rem;
+		text-align: center;
+	}
+
+	.panel-footer p {
+		margin: 0.25rem 0;
+	}
+
+	.dim {
+		opacity: 0.5;
 	}
 </style>
