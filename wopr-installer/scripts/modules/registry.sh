@@ -104,7 +104,8 @@ declare -A _WOPR_REGISTRY=(
     ["ollama"]="docker.io/ollama/ollama:latest|11434|_internal|Ollama LLM|"
     ["ai-engine"]="localhost/wopr-ai-engine:latest|8000|reactor|Reactor AI Engine|ollama"
     ["defcon-one"]="localhost/wopr-defcon-one:latest|8080|defcon|DEFCON ONE|"
-    ["support-plane"]="localhost/wopr-support-plane:latest|8443|support|Support Plane|postgresql"
+    ["support-client"]="localhost/wopr-support-client:latest|8444|support|Support Client|"
+    # NOTE: wopr-admin (staff escalations dashboard) is lighthouse-only, not deployed via installer
     ["deployment-queue"]="localhost/wopr-deployment-queue:latest|0|_internal|Deployment Queue|"
 
     # === NOTES (encrypted) ===
@@ -130,7 +131,7 @@ declare -A _WOPR_REGISTRY=(
 #   8300-8399: AI (openwebui)
 #   8400-8499: Creator/CMS (saleor, castopod)
 #   8500-8599: Business apps (espocrm, invoice, kimai)
-#   8600-8699: OPS PLANE (ai-engine, defcon-one, support-plane)
+#   8600-8699: OPS PLANE (ai-engine, defcon-one)
 #   8700-8799: Reserved
 #   9000-9099: Identity/monitoring (authentik, prometheus, listmonk)
 #   9400-9499: Admin tools (portainer)
@@ -157,7 +158,7 @@ declare -A _WOPR_PORTS=(
     ["reactor"]="8600"           # alias for ai-engine
     ["defcon-one"]="8601"
     ["defcon_one"]="8601"        # alias (underscore)
-    ["support-plane"]="8602"
+    ["support-client"]="8444"
     ["deployment-queue"]="0"     # no HTTP port (internal daemon)
 
     # === ADMIN TOOLS (9400-9499) ===

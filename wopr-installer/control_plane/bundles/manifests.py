@@ -146,7 +146,7 @@ SOVEREIGN_PROFESSIONAL = BundleManifest(
         "defcon-one",     # DEFCON ONE security gateway
         "crowdsec",       # Threat intelligence
         "netbird",        # Zero-trust VPN
-        "support-plane",  # Zero-trust remote support
+        "support-client",  # Zero-trust remote support (receive WOPR staff support)
         # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
     ],
 )
@@ -195,7 +195,7 @@ SOVEREIGN_SMALL_BUSINESS = BundleManifest(
         # ollama available as $14.99/mo addon
         "crowdsec",
         "netbird",
-        "support-plane",  # Zero-trust remote support
+        "support-client",  # Zero-trust remote support (receive WOPR staff support)
         # DevOps
         "portainer",
         "grafana",
@@ -254,7 +254,7 @@ SOVEREIGN_ENTERPRISE = BundleManifest(
         "crowdsec",
         "netbird",
         "passbolt",
-        "support-plane",  # Zero-trust remote support
+        "support-client",  # Zero-trust remote support (receive WOPR staff support)
         # Analytics
         "grafana",
         "prometheus",
@@ -513,7 +513,7 @@ MICRO_DEFCON_ONE = BundleManifest(
     tagline="Protected actions gateway - AI doesn't get root, people do",
     modules=[
         "defcon-one",     # DEFCON ONE approval dashboard
-        "support-plane",  # Zero-trust support gateway
+        "support-client",  # Zero-trust support (receive WOPR staff support)
         "crowdsec",       # Threat intelligence
         "netbird",        # Zero-trust VPN
         "ntfy",           # Alert notifications

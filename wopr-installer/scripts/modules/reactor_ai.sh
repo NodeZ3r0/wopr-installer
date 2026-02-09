@@ -254,86 +254,68 @@ EOF
 # DEPLOY SUPPORT PLANE (Zero-Trust Support Gateway)
 #=================================================
 
-wopr_deploy_support_plane() {
-    wopr_log "INFO" "Deploying Support Plane..."
+wopr_deploy_support_client() {
+    # Support Client - allows beacon to receive WOPR staff support
+    # NOTE: Admin escalations dashboard is LIGHTHOUSE-ONLY (not deployed here)
+    wopr_log "INFO" "Deploying Support Client (beacon-side)..."
 
     local build_dir="/root/wopr-build"
     local domain=$(wopr_setting_get "domain")
-    local pg_password=$(wopr_setting_get "postgresql_password")
 
     # Ensure source is available
     if [ ! -d "$build_dir/wopr-support-plane" ]; then
-        wopr_log "ERROR" "Support Plane source not found"
+        wopr_log "ERROR" "Support Client source not found"
         return 1
     fi
 
-    # Build Support Plane container image
-    wopr_log "INFO" "Building Support Plane container image..."
-    podman build -t localhost/wopr-support-plane:latest "$build_dir/wopr-support-plane" 2>&1 || {
-        wopr_log "ERROR" "Failed to build Support Plane image"
+    # Build Support Client container image (uses support-plane codebase with WOPR_MODE=beacon)
+    wopr_log "INFO" "Building Support Client container image..."
+    podman build -t localhost/wopr-support-client:latest "$build_dir/wopr-support-plane" 2>&1 || {
+        wopr_log "ERROR" "Failed to build Support Client image"
         return 1
     }
 
-    # Create database and user
-    local sp_pass=$(wopr_random_string 32)
-    wopr_setting_set "support_plane_db_password" "$sp_pass"
-
-    podman exec wopr-postgresql psql -U wopr -c "CREATE USER support_plane WITH PASSWORD '${sp_pass}'" 2>/dev/null || \
-    podman exec wopr-postgresql psql -U wopr -c "ALTER USER support_plane WITH PASSWORD '${sp_pass}'"
-
-    podman exec wopr-postgresql psql -U wopr -tc "SELECT 1 FROM pg_database WHERE datname='support_plane'" | grep -q 1 || {
-        podman exec wopr-postgresql psql -U wopr -c "CREATE DATABASE support_plane OWNER support_plane"
-        podman exec wopr-postgresql psql -U wopr -d support_plane -c "GRANT ALL ON SCHEMA public TO support_plane"
-    }
-
-    # Apply schema
-    if [ -f "$build_dir/wopr-support-plane/db/migrations/001_initial_schema.sql" ]; then
-        podman exec -i wopr-postgresql psql -U support_plane -d support_plane < "$build_dir/wopr-support-plane/db/migrations/001_initial_schema.sql" 2>/dev/null || true
-        podman exec -i wopr-postgresql psql -U support_plane -d support_plane < "$build_dir/wopr-support-plane/db/migrations/002_seed_remediation_actions.sql" 2>/dev/null || true
-    fi
-
-    # Create systemd service
-    cat > /etc/systemd/system/wopr-support-plane.service << EOF
+    # Create systemd service (no database needed for client-only mode)
+    cat > /etc/systemd/system/wopr-support-client.service << EOF
 [Unit]
-Description=WOPR Support Gateway (Zero-Trust Support Plane)
-After=network.target wopr-postgresql.service
-Requires=wopr-postgresql.service
+Description=WOPR Support Client (Receive Staff Support)
+After=network.target
 
 [Service]
 Type=simple
 Restart=always
 RestartSec=10
 
-ExecStartPre=-/usr/bin/podman stop -t 10 wopr-support-plane
-ExecStartPre=-/usr/bin/podman rm wopr-support-plane
+ExecStartPre=-/usr/bin/podman stop -t 10 wopr-support-client
+ExecStartPre=-/usr/bin/podman rm wopr-support-client
 
 ExecStart=/usr/bin/podman run --rm \\
-    --name wopr-support-plane \\
+    --name wopr-support-client \\
     --network ${WOPR_NETWORK} \\
-    -e DATABASE_URL=postgresql://support_plane:${sp_pass}@wopr-postgresql:5432/support_plane \\
+    -e WOPR_MODE=beacon \\
     -e SUPPORT_GW_HOST=0.0.0.0 \\
-    -e SUPPORT_GW_PORT=8443 \\
+    -e SUPPORT_GW_PORT=8444 \\
     -e LOG_LEVEL=INFO \\
-    -p 127.0.0.1:8602:8443 \\
-    localhost/wopr-support-plane:latest
+    -p 127.0.0.1:8444:8444 \\
+    localhost/wopr-support-client:latest
 
-ExecStop=/usr/bin/podman stop -t 10 wopr-support-plane
+ExecStop=/usr/bin/podman stop -t 10 wopr-support-client
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable wopr-support-plane
-    systemctl start wopr-support-plane || wopr_log "WARN" "Support Plane service start deferred"
+    systemctl enable wopr-support-client
+    systemctl start wopr-support-client || wopr_log "WARN" "Support Client service start deferred"
 
-    # Configure Caddy route
-    wopr_caddy_add_route "support.${domain}" "http://127.0.0.1:8602"
+    # Configure Caddy route for beacon owner status page only
+    wopr_caddy_add_route "support.${domain}" "http://127.0.0.1:8444"
 
-    wopr_setting_set "support_plane_installed" "true"
-    wopr_setting_set "support_plane_url" "https://support.${domain}"
+    wopr_setting_set "support_client_installed" "true"
+    wopr_setting_set "support_client_url" "https://support.${domain}"
 
-    wopr_log "OK" "Support Plane deployed successfully"
+    wopr_log "OK" "Support Client deployed successfully"
 }
 
 #=================================================
