@@ -1,0 +1,252 @@
+<!-- WOPR Beacon Theme Loader
+     Injected into themed apps to apply user's theme preferences.
+     This script runs early to prevent flash of unstyled content.
+
+     The APP_ID placeholder is replaced by Caddy based on the subdomain.
+-->
+<script data-wopr-theme-loader>
+(function() {
+  'use strict';
+
+  // App ID is injected by Caddy based on subdomain
+  var APP_ID = '{{APP_ID}}';
+  var CACHE_KEY = 'wopr-theme-cache-' + APP_ID;
+  var CSS_CACHE_KEY = 'wopr-theme-css-' + APP_ID;
+  var CACHE_TTL = 300000; // 5 minutes
+  var BASE_API = '/api/v1/themes';
+  var APP_CSS_API = BASE_API + '/apps/' + APP_ID + '/css';
+  var THEME_JSON_API = BASE_API + '/json';
+
+  // Apply CSS variables to document root
+  function applyThemeVars(theme) {
+    if (!theme || !theme.preview) return;
+
+    var root = document.documentElement;
+    var preview = theme.preview;
+    var custom = theme.custom_colors || {};
+
+    // Apply all preview colors
+    var colorMap = {
+      'primary': '--theme-primary',
+      'primary_hover': '--theme-primary-hover',
+      'accent': '--theme-accent',
+      'accent_hover': '--theme-accent-hover',
+      'bg': '--theme-bg',
+      'surface': '--theme-surface',
+      'surface_hover': '--theme-surface-hover',
+      'elevated': '--theme-elevated',
+      'border': '--theme-border',
+      'border_subtle': '--theme-border-subtle',
+      'text': '--theme-text',
+      'text_muted': '--theme-text-muted',
+      'text_on_primary': '--theme-text-on-primary'
+    };
+
+    for (var key in colorMap) {
+      if (preview[key]) {
+        root.style.setProperty(colorMap[key], preview[key]);
+      }
+    }
+
+    // Generate subtle variants
+    if (preview.primary) {
+      root.style.setProperty('--theme-primary-subtle', preview.primary + '20');
+    }
+
+    // Apply custom overrides
+    for (var varName in custom) {
+      if (custom.hasOwnProperty(varName)) {
+        root.style.setProperty(varName, custom[varName]);
+      }
+    }
+
+    // Mark as themed
+    root.setAttribute('data-wopr-themed', 'true');
+    root.setAttribute('data-wopr-preset', theme.preset || 'reactor');
+  }
+
+  // Inject CSS stylesheet
+  function injectCSS(css) {
+    if (!css) return;
+
+    var existing = document.getElementById('wopr-app-theme-css');
+    if (existing) {
+      existing.textContent = css;
+      return;
+    }
+
+    var style = document.createElement('style');
+    style.id = 'wopr-app-theme-css';
+    style.setAttribute('data-wopr-app', APP_ID);
+    style.textContent = css;
+
+    // Insert after the defaults but before other styles
+    var defaults = document.querySelector('[data-wopr-theme-defaults]');
+    if (defaults && defaults.nextSibling) {
+      defaults.parentNode.insertBefore(style, defaults.nextSibling);
+    } else {
+      document.head.appendChild(style);
+    }
+  }
+
+  // Check cache validity
+  function getCached(key) {
+    try {
+      var cached = localStorage.getItem(key);
+      if (cached) {
+        var data = JSON.parse(cached);
+        if (data.timestamp && Date.now() - data.timestamp < CACHE_TTL) {
+          return data.value;
+        }
+      }
+    } catch (e) {
+      // localStorage not available or corrupted
+    }
+    return null;
+  }
+
+  // Set cache with timestamp
+  function setCache(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        value: value,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      // Ignore cache errors
+    }
+  }
+
+  // Load theme variables (fast path)
+  function loadThemeVars() {
+    var cached = getCached(CACHE_KEY);
+    if (cached) {
+      applyThemeVars(cached);
+      return Promise.resolve(cached);
+    }
+
+    return fetch(THEME_JSON_API, { credentials: 'include' })
+      .then(function(res) { return res.json(); })
+      .then(function(theme) {
+        applyThemeVars(theme);
+        setCache(CACHE_KEY, theme);
+        return theme;
+      })
+      .catch(function() {
+        // Theme API not available, use defaults
+        return null;
+      });
+  }
+
+  // Load app-specific CSS (can be slower)
+  function loadAppCSS() {
+    if (APP_ID === '{{APP_ID}}' || !APP_ID) {
+      // APP_ID not replaced, skip app-specific CSS
+      return;
+    }
+
+    var cached = getCached(CSS_CACHE_KEY);
+    if (cached) {
+      injectCSS(cached);
+      return;
+    }
+
+    fetch(APP_CSS_API, { credentials: 'include' })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.themed && data.css) {
+          injectCSS(data.css);
+          setCache(CSS_CACHE_KEY, data.css);
+
+          // Also load the override CSS file if specified
+          if (data.override_file) {
+            loadOverrideFile(data.override_file);
+          }
+        }
+      })
+      .catch(function() {
+        // App CSS API not available
+      });
+  }
+
+  // Load static override CSS file
+  function loadOverrideFile(filename) {
+    var cssUrl = '/wopr-themes/apps/' + filename;
+
+    // Check if already loaded
+    if (document.querySelector('link[href="' + cssUrl + '"]')) {
+      return;
+    }
+
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = cssUrl;
+    link.setAttribute('data-wopr-override', APP_ID);
+    document.head.appendChild(link);
+  }
+
+  // Run immediately - theme vars first (sync), then app CSS (async)
+  loadThemeVars();
+
+  // Load app-specific CSS after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadAppCSS);
+  } else {
+    loadAppCSS();
+  }
+
+  // Listen for theme updates from dashboard
+  window.addEventListener('storage', function(e) {
+    if (e.key === CACHE_KEY || e.key === CSS_CACHE_KEY) {
+      // Theme was updated in another tab, reload
+      location.reload();
+    }
+  });
+
+  // Expose API for manual refresh
+  window.WOPR = window.WOPR || {};
+  window.WOPR.refreshTheme = function() {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CSS_CACHE_KEY);
+    loadThemeVars().then(loadAppCSS);
+  };
+})();
+</script>
+<style data-wopr-theme-defaults>
+/* WOPR Theme Defaults - prevents flash of unstyled content */
+:root {
+  /* Primary brand colors */
+  --theme-primary: #00d4aa;
+  --theme-primary-hover: #00f0c0;
+  --theme-primary-subtle: #00d4aa20;
+
+  /* Accent colors */
+  --theme-accent: #ff9b3f;
+  --theme-accent-hover: #ffb366;
+
+  /* Background layers */
+  --theme-bg: #0a0a0a;
+  --theme-surface: #1a1a1a;
+  --theme-surface-hover: #252525;
+  --theme-elevated: #2a2a2a;
+
+  /* Borders */
+  --theme-border: #333333;
+  --theme-border-subtle: #2a2a2a;
+
+  /* Text */
+  --theme-text: #e0e0e0;
+  --theme-text-muted: #888888;
+  --theme-text-on-primary: #000000;
+
+  /* Status colors */
+  --theme-success: #22c55e;
+  --theme-success-subtle: #22c55e20;
+  --theme-warning: #f59e0b;
+  --theme-warning-subtle: #f59e0b20;
+  --theme-error: #ef4444;
+  --theme-error-subtle: #ef444420;
+  --theme-info: #3b82f6;
+  --theme-info-subtle: #3b82f620;
+}
+</style>

@@ -1,0 +1,84 @@
+# WOPR Intent Resolver Caddy Configuration
+# =========================================
+#
+# Routes /go/* requests to the intent resolver API.
+# Users navigate via intent URLs, never raw app URLs.
+#
+# Examples:
+#   /go/drive → Resolves to dashboard drive section
+#   /go/photos → Resolves to dashboard photos section
+#   /go/shop → Resolves to dashboard commerce section
+#
+# The resolver:
+#   1. Checks Authentik authentication
+#   2. Identifies user's Beacon(s)
+#   3. Checks if capability exists
+#   4. Redirects to appropriate dashboard section
+#
+# Usage in main Caddyfile:
+#   import snippets/intent-resolver.caddy
+#
+#   {$DOMAIN} {
+#       import intent_resolver
+#       # ... other routes
+#   }
+
+# Intent resolver routing
+(intent_resolver) {
+	# All /go/* requests go to the dashboard API
+	handle /go/* {
+		# Forward auth headers from Authentik
+		reverse_proxy dashboard-api:8000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Pass through Authentik headers
+			header_up X-Authentik-UID {header.X-Authentik-UID}
+			header_up X-Authentik-Username {header.X-Authentik-Username}
+			header_up X-Authentik-Email {header.X-Authentik-Email}
+			header_up X-Authentik-Groups {header.X-Authentik-Groups}
+		}
+	}
+
+	# API endpoints for intent resolution
+	handle /api/v1/intents* {
+		reverse_proxy dashboard-api:8000
+	}
+
+	handle /api/v1/resolve/* {
+		reverse_proxy dashboard-api:8000
+	}
+
+	handle /api/v1/beacon/*/capabilities {
+		reverse_proxy dashboard-api:8000
+	}
+}
+
+# Intent resolver with Authentik forward auth
+# Use this when Authentik is handling auth at the Caddy level
+(intent_resolver_with_auth) {
+	# Protect /go/* with Authentik
+	handle /go/* {
+		# Forward auth to Authentik
+		forward_auth authentik:9000 {
+			uri /outpost.goauthentik.io/auth/caddy
+
+			# Copy auth headers to upstream
+			copy_headers X-Authentik-UID
+			copy_headers X-Authentik-Username
+			copy_headers X-Authentik-Email
+			copy_headers X-Authentik-Groups
+		}
+
+		# Then proxy to resolver
+		reverse_proxy dashboard-api:8000
+	}
+}
+
+# Public intent info endpoint (no auth required)
+(intent_info_public) {
+	handle /api/v1/intents {
+		reverse_proxy dashboard-api:8000
+	}
+}

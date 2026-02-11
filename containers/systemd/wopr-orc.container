@@ -1,0 +1,63 @@
+# WOPR Orchestrator Container (Quadlet)
+# ======================================
+#
+# Install: cp wopr-orc.container /etc/containers/systemd/
+# Enable:  systemctl daemon-reload && systemctl start wopr-orc
+#
+# This is a Podman Quadlet file - systemd-native container management
+
+[Unit]
+Description=WOPR Orchestrator (Control Plane API)
+Documentation=https://wopr.systems/docs/orchestrator
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Container]
+ContainerName=wopr-orc
+Image=ghcr.io/woprsystems/control-plane:latest
+AutoUpdate=registry
+
+# Environment
+EnvironmentFile=/etc/wopr/orchestrator.env
+Environment=LOG_LEVEL=INFO
+Environment=LOG_FORMAT=json
+
+# Network
+PublishPort=127.0.0.1:8001:8001
+
+# Volumes
+Volume=wopr-jobs:/var/lib/wopr/jobs:Z
+Volume=wopr-docs:/var/lib/wopr/documents:Z
+Volume=wopr-logs:/var/log/wopr:Z
+
+# Health check
+HealthCmd=curl -sf http://localhost:8001/api/health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=10s
+
+# Resource limits (adjust based on expected load)
+# Memory=2G
+# CPUQuota=200%
+
+# Security
+NoNewPrivileges=true
+ReadOnly=false
+SeccompProfile=unconfined
+
+# Logging
+LogDriver=journald
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+# Notify systemd when healthy
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target
