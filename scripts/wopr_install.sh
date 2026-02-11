@@ -290,6 +290,20 @@ step_deploy_infrastructure() {
     done
 
     wopr_log "OK" "Infrastructure modules deployed"
+
+    # Deploy PostgreSQL replication if enabled
+    if [ -f "${SCRIPT_DIR}/modules/postgres_replication.sh" ]; then
+        local mesh_enabled=$(wopr_bootstrap_get "mesh_replication.enabled" 2>/dev/null || echo "false")
+        if [ "$mesh_enabled" = "true" ]; then
+            wopr_log "INFO" "Deploying PostgreSQL mesh replication"
+            source "${SCRIPT_DIR}/modules/postgres_replication.sh"
+            if wopr_deploy_postgres_replication; then
+                wopr_log "OK" "PostgreSQL mesh replication configured"
+            else
+                wopr_log "WARN" "PostgreSQL replication setup failed (non-fatal)"
+            fi
+        fi
+    fi
 }
 
 #=================================================
