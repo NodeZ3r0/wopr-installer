@@ -38,3 +38,4 @@ secrets/
 Thumbs.db
 .vscode/
 .idea/
+.env
