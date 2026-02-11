@@ -47,6 +47,7 @@ class BundleManifest:
     tagline: str
     modules: list[str]  # App modules included
     core_modules: list[str] = field(default_factory=lambda: CORE_INFRASTRUCTURE.copy())
+    mesh_replication: bool = True  # Enable PostgreSQL user replication for distributed mesh SSO
 
     def get_all_modules(self) -> list[str]:
         """Get all modules (core + bundle-specific)"""
@@ -70,6 +71,8 @@ SOVEREIGN_STARTER = BundleManifest(
         "vaultwarden",    # Password manager
         "uptime-kuma",    # Status monitoring
     ],
+,
+    mesh_replication=True,
 )
 
 SOVEREIGN_CREATOR = BundleManifest(
@@ -90,6 +93,8 @@ SOVEREIGN_CREATOR = BundleManifest(
         "listmonk",       # Email marketing
         "linkwarden",     # Bookmark/research archive
     ],
+,
+    mesh_replication=True,
 )
 
 SOVEREIGN_DEVELOPER = BundleManifest(
@@ -111,7 +116,9 @@ SOVEREIGN_DEVELOPER = BundleManifest(
         "openwebui",      # Chat UI for LLMs
         "nocodb",         # Database spreadsheet
         "n8n",            # Workflow automation
-        # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
+        # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM,
+    mesh_replication=True,
+)
     ],
 )
 
@@ -146,7 +153,9 @@ SOVEREIGN_PROFESSIONAL = BundleManifest(
         "defcon-one",     # DEFCON ONE security gateway
         "crowdsec",       # Threat intelligence
         "netbird",        # Zero-trust VPN
-        "support-client",  # Zero-trust remote support (receive WOPR staff support)
+        "support-client",  # Zero-trust remote support (receive WOPR staff support,
+    mesh_replication=True,
+)
         # ollama available as $14.99/mo addon (requires T2+ VPS for 8GB+ RAM)
     ],
 )
@@ -166,6 +175,8 @@ SOVEREIGN_FAMILY = BundleManifest(
         "uptime-kuma",    # Status monitoring
         "adguard",        # Family-safe DNS
     ],
+,
+    mesh_replication=True,
 )
 
 SOVEREIGN_SMALL_BUSINESS = BundleManifest(
@@ -195,7 +206,9 @@ SOVEREIGN_SMALL_BUSINESS = BundleManifest(
         # ollama available as $14.99/mo addon
         "crowdsec",
         "netbird",
-        "support-client",  # Zero-trust remote support (receive WOPR staff support)
+        "support-client",  # Zero-trust remote support (receive WOPR staff support,
+    mesh_replication=True,
+)
         # DevOps
         "portainer",
         "grafana",
@@ -254,7 +267,9 @@ SOVEREIGN_ENTERPRISE = BundleManifest(
         "crowdsec",
         "netbird",
         "passbolt",
-        "support-client",  # Zero-trust remote support (receive WOPR staff support)
+        "support-client",  # Zero-trust remote support (receive WOPR staff support,
+    mesh_replication=True,
+)
         # Analytics
         "grafana",
         "prometheus",

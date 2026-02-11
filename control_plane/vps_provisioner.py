@@ -159,6 +159,16 @@ class VPSProvisioner:
             "storage_gb": storage_tier.storage_gb,
             "ram_mb": storage_tier.ram_mb,
             "max_users": storage_tier.max_users,
+            "mesh_replication": {
+                "enabled": True,
+                "lighthouse_postgres_host": "159.203.138.7",
+                "lighthouse_postgres_port": 5434,
+                "replication_password": "W0prR3pl1c4t10n2026!",
+                "mesh_peers": [
+                    {"hostname": "nodez3r0", "ip": "159.203.138.7", "postgres_port": 5434},
+                    {"hostname": "wopr", "ip": "157.180.78.176", "postgres_port": 5434},
+                ],
+            },
         }
 
         bootstrap_json = json.dumps(bootstrap, indent=2)
