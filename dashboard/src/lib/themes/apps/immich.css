@@ -1,0 +1,337 @@
+/**
+ * WOPR Theme Override: Immich
+ * ===========================
+ *
+ * Maps WOPR theme variables to Immich's CSS.
+ * Immich uses Tailwind CSS with some custom properties.
+ *
+ * Compatibility: PARTIAL
+ * Tested with: Immich 1.90+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Immich uses some CSS variables */
+	--immich-primary: var(--theme-primary) !important;
+	--immich-bg: var(--theme-bg) !important;
+	--immich-fg: var(--theme-text) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* Main content area */
+main {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+
+.side-bar,
+aside {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+/* Navigation items */
+.side-bar a,
+aside a {
+	color: var(--theme-text) !important;
+}
+
+.side-bar a:hover,
+aside a:hover {
+	background-color: var(--theme-surface-hover) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* Active nav item */
+.side-bar a.active,
+aside a[aria-current="page"] {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   HEADER / TOP BAR
+   ======================================== */
+
+header {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+/* Search bar */
+header input[type="search"],
+header input[type="text"] {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+header input:focus {
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+button {
+	color: var(--theme-text) !important;
+}
+
+/* Primary buttons */
+button.primary,
+button[class*="bg-immich-primary"],
+.btn-primary {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+button.primary:hover,
+button[class*="bg-immich-primary"]:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+/* Secondary/outline buttons */
+button.secondary,
+button[class*="border"] {
+	background-color: transparent !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+button.secondary:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* Icon buttons */
+button[class*="rounded-full"] {
+	color: var(--theme-text-muted) !important;
+}
+
+button[class*="rounded-full"]:hover {
+	color: var(--theme-primary) !important;
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   PHOTO GRID
+   ======================================== */
+
+/* Photo container */
+.photo-viewer {
+	background-color: var(--theme-bg) !important;
+}
+
+/* Selection highlight */
+[data-selected="true"],
+.selected {
+	outline: 3px solid var(--theme-primary) !important;
+}
+
+/* Photo overlay on hover */
+.photo-overlay {
+	background: linear-gradient(transparent, rgba(0, 0, 0, 0.5)) !important;
+}
+
+/* ========================================
+   MODALS / DIALOGS
+   ======================================== */
+
+.modal,
+[role="dialog"] {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.modal-header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.modal-footer {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+/* Modal backdrop */
+.modal-backdrop,
+[class*="backdrop"] {
+	background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+input,
+select,
+textarea {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--theme-primary) !important;
+	outline: none !important;
+	box-shadow: 0 0 0 2px var(--theme-primary-subtle) !important;
+}
+
+label {
+	color: var(--theme-text) !important;
+}
+
+/* Toggle switches */
+input[type="checkbox"]:checked + span,
+[role="switch"][aria-checked="true"] {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.card,
+[class*="rounded-lg"][class*="shadow"] {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   ALBUMS
+   ======================================== */
+
+.album-card {
+	background-color: var(--theme-surface) !important;
+}
+
+.album-card:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.album-title {
+	color: var(--theme-text) !important;
+}
+
+.album-count {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   TIMELINE
+   ======================================== */
+
+.timeline-header {
+	color: var(--theme-text-muted) !important;
+	background-color: var(--theme-bg) !important;
+}
+
+/* Date separators */
+.date-separator {
+	color: var(--theme-text-muted) !important;
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+/* ========================================
+   ASSET VIEWER
+   ======================================== */
+
+.asset-viewer {
+	background-color: var(--theme-bg) !important;
+}
+
+.asset-viewer-controls {
+	background-color: var(--theme-surface) !important;
+}
+
+/* Info panel */
+.info-panel {
+	background-color: var(--theme-surface) !important;
+	border-left: 1px solid var(--theme-border) !important;
+}
+
+.info-panel h3 {
+	color: var(--theme-text) !important;
+}
+
+.info-panel p {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   SETTINGS
+   ======================================== */
+
+.settings-section {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.settings-section h2 {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   TOAST / NOTIFICATIONS
+   ======================================== */
+
+.toast,
+[role="alert"] {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.toast.success {
+	border-left: 3px solid var(--theme-success) !important;
+}
+
+.toast.error {
+	border-left: 3px solid var(--theme-error) !important;
+}
+
+/* ========================================
+   LOADING
+   ======================================== */
+
+.spinner,
+[class*="animate-spin"] {
+	border-color: var(--theme-primary) !important;
+	border-top-color: transparent !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

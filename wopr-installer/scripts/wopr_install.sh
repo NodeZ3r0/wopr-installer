@@ -549,8 +549,25 @@ EOF
 #=================================================
 
 step_finalize() {
-    wopr_progress 12 "$TOTAL_STEPS" "Finalizing installation..."
-    report_status "complete" "Installation complete"
+    wopr_progress 12 "$TOTAL_STEPS" "Running post-install verification..."
+    
+    # Source and run post-install verification
+    source "${SCRIPT_DIR}/wopr_post_install_verify.sh"
+    if run_post_install_verification; then
+        wopr_log "OK" "Post-install verification passed"
+        wopr_setting_set "verification_passed" "true"
+    else
+        wopr_log "WARN" "Post-install verification had failures"
+        wopr_setting_set "verification_passed" "false"
+    fi
+    
+    # Send completion status based on verification result
+    local verify_status=$(wopr_setting_get "verification_passed" 2>/dev/null || echo "true")
+    if [ "$verify_status" = "true" ]; then
+        report_status "complete" "Installation complete - all services verified"
+    else
+        report_status "complete_with_warnings" "Installation complete - some services need attention"
+    fi
 
     wopr_setting_set "install_complete" "true"
     wopr_setting_set "install_timestamp" "$(date -Iseconds)"

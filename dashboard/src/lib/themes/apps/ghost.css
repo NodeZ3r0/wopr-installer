@@ -1,0 +1,310 @@
+/**
+ * WOPR Theme Override: Ghost
+ * ==========================
+ *
+ * Maps WOPR theme variables to Ghost Admin CSS.
+ * Ghost uses custom CSS with some variable support.
+ *
+ * Compatibility: PARTIAL
+ * Tested with: Ghost 5.x
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Ghost color variables */
+	--green: var(--theme-primary) !important;
+	--green-d1: var(--theme-primary-hover) !important;
+	--blue: var(--theme-info) !important;
+	--purple: var(--theme-accent) !important;
+	--red: var(--theme-error) !important;
+	--yellow: var(--theme-warning) !important;
+
+	/* Background */
+	--white: var(--theme-bg) !important;
+	--whitegrey: var(--theme-surface) !important;
+	--lightgrey: var(--theme-surface-hover) !important;
+
+	/* Text */
+	--darkgrey: var(--theme-text) !important;
+	--midgrey: var(--theme-text-muted) !important;
+	--middarkgrey: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   NAVIGATION
+   ======================================== */
+
+.gh-nav {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+.gh-nav-list a {
+	color: var(--theme-text-muted) !important;
+}
+
+.gh-nav-list a:hover {
+	color: var(--theme-text) !important;
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.gh-nav-list a.active {
+	color: var(--theme-text) !important;
+	background-color: var(--theme-primary-subtle) !important;
+	border-left: 3px solid var(--theme-primary) !important;
+}
+
+.gh-nav-bottom {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   MAIN CONTENT AREA
+   ======================================== */
+
+.gh-main {
+	background-color: var(--theme-bg) !important;
+}
+
+.gh-canvas {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.gh-btn {
+	border: 1px solid var(--theme-border) !important;
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.gh-btn:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.gh-btn-primary,
+.gh-btn-green,
+.gh-btn.gh-btn-primary {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.gh-btn-primary:hover,
+.gh-btn-green:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.gh-btn-black {
+	background-color: var(--theme-elevated) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.gh-btn-red {
+	background-color: var(--theme-error) !important;
+	border-color: var(--theme-error) !important;
+}
+
+.gh-btn-outline {
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+/* Publish button */
+.gh-publishmenu-trigger {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+/* ========================================
+   CARDS & POSTS
+   ======================================== */
+
+.gh-list-row,
+.gh-posts-list-item {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.gh-list-row:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.gh-content-entry-title {
+	color: var(--theme-text) !important;
+}
+
+.gh-content-entry-meta {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+textarea,
+select,
+.gh-input {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+input:focus,
+textarea:focus,
+.gh-input:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 2px var(--theme-primary-subtle) !important;
+}
+
+label {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   EDITOR
+   ======================================== */
+
+.gh-editor-title {
+	color: var(--theme-text) !important;
+}
+
+.koenig-editor__editor {
+	color: var(--theme-text) !important;
+}
+
+.kg-prose {
+	color: var(--theme-text) !important;
+}
+
+.kg-prose a {
+	color: var(--theme-primary) !important;
+}
+
+/* Editor toolbar */
+.koenig-toolbar {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   MODAL / DIALOG
+   ======================================== */
+
+.modal-content,
+.gh-modal {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.modal-header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.modal-footer {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+.modal-backdrop,
+.epm-backdrop {
+	background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ========================================
+   NOTIFICATIONS
+   ======================================== */
+
+.gh-notification {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.gh-notification-green {
+	border-left: 3px solid var(--theme-success) !important;
+}
+
+.gh-notification-red {
+	border-left: 3px solid var(--theme-error) !important;
+}
+
+/* ========================================
+   DASHBOARD STATS
+   ======================================== */
+
+.gh-dashboard-stats {
+	background-color: var(--theme-surface) !important;
+}
+
+.gh-dashboard-box {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.gh-dashboard-box h3 {
+	color: var(--theme-text) !important;
+}
+
+.gh-dashboard-value {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   MEMBER / SUBSCRIBER CARDS
+   ======================================== */
+
+.gh-member-card {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

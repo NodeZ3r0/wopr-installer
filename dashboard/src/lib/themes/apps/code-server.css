@@ -1,0 +1,110 @@
+/**
+ * WOPR Theme Override: VS Code Server (code-server)
+ * ==================================================
+ *
+ * Maps WOPR theme variables to code-server's outer shell.
+ * VS Code itself has its own theming system - this only
+ * styles the wrapper/login page.
+ *
+ * Compatibility: MINIMAL
+ * Note: VS Code's internal theming is handled by VS Code itself
+ */
+
+/* ========================================
+   LOGIN PAGE
+   ======================================== */
+
+body.login {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.login-form {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.login-form h1 {
+	color: var(--theme-text) !important;
+}
+
+.login-form input {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.login-form input:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 2px var(--theme-primary-subtle) !important;
+}
+
+.login-form button {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.login-form button:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.login-form .error {
+	color: var(--theme-error) !important;
+}
+
+/* ========================================
+   LOADING PAGE
+   ======================================== */
+
+.loading {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.loading .spinner {
+	border-color: var(--theme-primary) !important;
+	border-top-color: transparent !important;
+}
+
+/* ========================================
+   ERROR PAGE
+   ======================================== */
+
+.error-page {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.error-page h1 {
+	color: var(--theme-error) !important;
+}
+
+.error-page a {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   NOTE: VS Code Internal Theming
+   ======================================== */
+
+/*
+ * VS Code's editor, sidebar, and activity bar use their own
+ * theming system (settings.json or UI preferences).
+ *
+ * To sync WOPR theme with VS Code:
+ * 1. Install a dark theme in VS Code (e.g., "One Dark Pro")
+ * 2. Use VS Code settings to customize workbench colors:
+ *
+ * {
+ *   "workbench.colorCustomizations": {
+ *     "activityBar.background": "#1a1a1a",
+ *     "sideBar.background": "#1a1a1a",
+ *     "editor.background": "#0a0a0a",
+ *     "activityBarBadge.background": "#00d4aa",
+ *     "button.background": "#00d4aa"
+ *   }
+ * }
+ *
+ * Future: WOPR could inject these settings via code-server's
+ * machine settings or a startup extension.
+ */

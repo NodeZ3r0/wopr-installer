@@ -1,0 +1,91 @@
+{
+  "$schema": "https://wopr.systems/schemas/wopr-manifest.v1.schema.json",
+  "manifest_version": "1.0",
+  "installer_version": "1.5.0",
+
+  "metadata": {
+    "name": "WOPR Sovereign Suite Installer",
+    "description": "One-click deployable personal cloud on user-owned VPS",
+    "license": "AGPL-3.0",
+    "homepage": "https://wopr.systems",
+    "repository": "https://github.com/wopr-foundation/wopr-installer"
+  },
+
+  "requirements": {
+    "os": ["debian-12", "ubuntu-22.04", "ubuntu-24.04"],
+    "architectures": ["amd64", "arm64"],
+    "min_resources": {
+      "cpu": 2,
+      "ram_gb": 4,
+      "disk_gb": 40
+    }
+  },
+
+  "core_stack": {
+    "components": [
+      {"name": "podman", "version": ">=4.0", "required": true},
+      {"name": "caddy", "version": ">=2.7", "required": true},
+      {"name": "authentik", "version": ">=2024.1", "required": true},
+      {"name": "postgresql", "version": ">=15", "required": true},
+      {"name": "redis", "version": ">=7", "required": true},
+      {"name": "nebula", "version": ">=1.8", "required": true}
+    ]
+  },
+
+  "bundles": {
+    "personal": {
+      "name": "Personal Sovereign Suite",
+      "description": "Protect personal data, escape Big Tech",
+      "resource_tier": "low",
+      "modules": ["file_storage", "documents", "passwords", "rss"]
+    },
+    "creator": {
+      "name": "Creator Sovereign Suite",
+      "description": "Personal cloud + monetization",
+      "resource_tier": "medium",
+      "modules": ["file_storage", "documents", "passwords", "ecommerce", "blogging"]
+    },
+    "developer": {
+      "name": "Developer Sovereign Suite",
+      "description": "Code ownership + AI assistance",
+      "resource_tier": "medium",
+      "modules": ["file_storage", "documents", "passwords", "ci_cd", "developer_git", "reactor_ai"]
+    },
+    "professional": {
+      "name": "Professional Sovereign Suite",
+      "description": "All-in-one sovereign work environment",
+      "resource_tier": "high",
+      "modules": [
+        "file_storage", "documents", "passwords", "ecommerce", "blogging",
+        "ci_cd", "developer_git", "reactor_ai", "chat", "video_conferencing",
+        "office", "wiki", "project_management"
+      ]
+    }
+  },
+
+  "resource_tiers": {
+    "low": {"cpu": 2, "ram_gb": 4, "disk_gb": 40},
+    "medium": {"cpu": 4, "ram_gb": 8, "disk_gb": 80},
+    "high": {"cpu": 8, "ram_gb": 16, "disk_gb": 200},
+    "very_high": {"cpu": 16, "ram_gb": 32, "disk_gb": 500}
+  },
+
+  "install_flow": [
+    "detect_system_resources",
+    "validate_cpu_ram_disk",
+    "install_core_stack",
+    "select_bundle",
+    "enable_bundle_modules",
+    "prompt_optional_modules",
+    "require_human_confirmation",
+    "deploy_modules",
+    "configure_authentik",
+    "configure_caddy",
+    "configure_postgresql",
+    "configure_redis",
+    "schedule_backups",
+    "register_update_agent",
+    "log_to_defcon_one",
+    "finalize_installation"
+  ]
+}

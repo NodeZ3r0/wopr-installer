@@ -1,0 +1,445 @@
+/**
+ * WOPR Theme Override: Forgejo
+ * ============================
+ *
+ * Maps WOPR theme variables to Forgejo's CSS.
+ * Forgejo (Gitea fork) uses Fomantic UI with CSS variable support.
+ *
+ * Compatibility: FULL
+ * Tested with: Forgejo 7.x
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Forgejo/Gitea color variables */
+	--color-primary: var(--theme-primary) !important;
+	--color-primary-dark-1: var(--theme-primary-hover) !important;
+	--color-primary-light-1: var(--theme-primary-subtle) !important;
+	--color-primary-alpha-10: var(--theme-primary-subtle) !important;
+
+	/* Background colors */
+	--color-body: var(--theme-bg) !important;
+	--color-box-body: var(--theme-surface) !important;
+	--color-box-header: var(--theme-elevated) !important;
+
+	/* Text colors */
+	--color-text: var(--theme-text) !important;
+	--color-text-light: var(--theme-text-muted) !important;
+	--color-text-light-2: var(--theme-text-muted) !important;
+
+	/* Border colors */
+	--color-secondary: var(--theme-border) !important;
+	--color-secondary-dark-1: var(--theme-border) !important;
+
+	/* Status colors */
+	--color-green: var(--theme-success) !important;
+	--color-yellow: var(--theme-warning) !important;
+	--color-red: var(--theme-error) !important;
+	--color-blue: var(--theme-info) !important;
+
+	/* Accent */
+	--color-orange: var(--theme-accent) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.page-content {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   NAVBAR
+   ======================================== */
+
+.ui.secondary.menu.navbar,
+.ui.top.menu {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.ui.menu .item {
+	color: var(--theme-text) !important;
+}
+
+.ui.menu .item:hover {
+	background-color: var(--theme-surface-hover) !important;
+	color: var(--theme-primary) !important;
+}
+
+.ui.menu .active.item {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* Logo */
+.ui.menu .item img.ui.logo {
+	filter: drop-shadow(0 0 1px var(--theme-primary));
+}
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+
+.repo-button-row {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.ui.button {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.ui.button:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.ui.primary.button {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+.ui.primary.button:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.ui.green.button {
+	background-color: var(--theme-success) !important;
+}
+
+.ui.red.button {
+	background-color: var(--theme-error) !important;
+}
+
+.ui.orange.button {
+	background-color: var(--theme-accent) !important;
+}
+
+.ui.basic.button {
+	background-color: transparent !important;
+	color: var(--theme-text) !important;
+}
+
+.ui.basic.primary.button {
+	color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   REPOSITORY
+   ======================================== */
+
+.repository {
+	background-color: var(--theme-bg) !important;
+}
+
+.repository .repo-header {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+/* File browser */
+#repo-files-table {
+	background-color: var(--theme-surface) !important;
+}
+
+#repo-files-table tr {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+#repo-files-table tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.repo-file-cell {
+	color: var(--theme-text) !important;
+}
+
+/* File content */
+.file-view {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.code-view {
+	background-color: var(--theme-surface) !important;
+}
+
+.lines-num,
+.lines-code {
+	background-color: var(--theme-surface) !important;
+}
+
+/* ========================================
+   CODE / DIFF
+   ======================================== */
+
+.diff-file-box {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.diff-file-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.code-diff {
+	background-color: var(--theme-surface) !important;
+}
+
+/* Line highlighting */
+.line-num {
+	color: var(--theme-text-muted) !important;
+}
+
+.added-code {
+	background-color: var(--theme-success-subtle) !important;
+}
+
+.removed-code {
+	background-color: var(--theme-error-subtle) !important;
+}
+
+/* ========================================
+   ISSUES & PULL REQUESTS
+   ======================================== */
+
+.issue.list > .item {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.issue.list > .item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.issue-title {
+	color: var(--theme-text) !important;
+}
+
+.issue-title:hover {
+	color: var(--theme-primary) !important;
+}
+
+/* Labels */
+.ui.label {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SEGMENTS / CARDS
+   ======================================== */
+
+.ui.segment,
+.ui.segments {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.ui.attached.segment {
+	border-color: var(--theme-border) !important;
+}
+
+.ui.attached.header {
+	background-color: var(--theme-elevated) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.ui.input input,
+.ui.form input,
+.ui.form textarea,
+.ui.form select {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.ui.input input:focus,
+.ui.form input:focus,
+.ui.form textarea:focus {
+	border-color: var(--theme-primary) !important;
+}
+
+.ui.form .field > label {
+	color: var(--theme-text) !important;
+}
+
+/* Checkbox */
+.ui.checkbox input:checked ~ label::before {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   DROPDOWN
+   ======================================== */
+
+.ui.dropdown .menu {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+}
+
+.ui.dropdown .menu > .item {
+	color: var(--theme-text) !important;
+}
+
+.ui.dropdown .menu > .item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.ui.dropdown .menu > .active.item {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+
+.ui.secondary.pointing.menu .item {
+	color: var(--theme-text-muted) !important;
+}
+
+.ui.secondary.pointing.menu .item:hover {
+	color: var(--theme-text) !important;
+}
+
+.ui.secondary.pointing.menu .active.item {
+	color: var(--theme-primary) !important;
+	border-bottom-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.ui.table {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.ui.table thead th {
+	background-color: var(--theme-elevated) !important;
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.ui.table tr {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.ui.table tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   MESSAGES / ALERTS
+   ======================================== */
+
+.ui.message {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.ui.positive.message,
+.ui.success.message {
+	background-color: var(--theme-success-subtle) !important;
+	border-color: var(--theme-success) !important;
+}
+
+.ui.negative.message,
+.ui.error.message {
+	background-color: var(--theme-error-subtle) !important;
+	border-color: var(--theme-error) !important;
+}
+
+.ui.warning.message {
+	background-color: var(--theme-warning-subtle) !important;
+	border-color: var(--theme-warning) !important;
+}
+
+.ui.info.message {
+	background-color: var(--theme-info-subtle) !important;
+	border-color: var(--theme-info) !important;
+}
+
+/* ========================================
+   MODAL
+   ======================================== */
+
+.ui.modal {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.ui.modal > .header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.ui.modal > .content {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.ui.modal > .actions {
+	background-color: var(--theme-elevated) !important;
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

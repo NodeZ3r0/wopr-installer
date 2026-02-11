@@ -88,7 +88,7 @@ wopr_build_dashboard() {
 }
 
 wopr_generate_placeholder_dashboard() {
-    # Create a minimal placeholder dashboard
+    # Create a dashboard that fetches REAL service status from the API
     cat > "$DASHBOARD_DIR/index.html" <<'EOF'
 <!DOCTYPE html>
 <html lang="en">
@@ -127,7 +127,7 @@ wopr_generate_placeholder_dashboard() {
         main {
             flex: 1;
             padding: 2rem;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             width: 100%;
         }
@@ -143,7 +143,9 @@ wopr_generate_placeholder_dashboard() {
             border: 1px solid #333;
             border-radius: 8px;
             padding: 1.5rem;
+            transition: border-color 0.2s;
         }
+        .card:hover { border-color: #00ff88; }
         .card h3 {
             display: flex;
             justify-content: space-between;
@@ -154,36 +156,56 @@ wopr_generate_placeholder_dashboard() {
             font-size: 0.75rem;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
-            background: #00ff88;
-            color: #000;
+            background: #333;
+            color: #888;
         }
-        .badge.warning { background: #ff9800; }
-        .badge.error { background: #f44336; color: #fff; }
-        .card p { color: #888; font-size: 0.9rem; }
+        .badge.running { background: #00ff88; color: #000; }
+        .badge.stopped { background: #f44336; color: #fff; }
+        .badge.starting { background: #ff9800; color: #000; }
+        .badge.checking { background: #555; color: #fff; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .card p { color: #888; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .card .error { color: #f44336; font-size: 0.8rem; margin-top: 0.5rem; }
         .btn {
             display: inline-block;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
             padding: 0.5rem 1rem;
             background: #00ff88;
             color: #000;
             text-decoration: none;
             border-radius: 4px;
             font-weight: 500;
+            transition: background 0.2s;
         }
         .btn:hover { background: #00cc6a; }
+        .btn.disabled { background: #333; color: #666; pointer-events: none; }
         .status { margin-top: 2rem; }
+        .status h2 { margin-bottom: 1rem; }
         .status-item {
             display: flex;
             justify-content: space-between;
             padding: 0.75rem 0;
             border-bottom: 1px solid #333;
         }
+        .status-item .value { color: #00ff88; }
+        .status-item .value.error { color: #f44336; }
         footer {
             text-align: center;
             padding: 1rem;
             color: #666;
             border-top: 1px solid #333;
         }
+        .refresh-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #888;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .refresh-btn:hover { border-color: #00ff88; color: #00ff88; }
+        .loading { text-align: center; padding: 2rem; color: #888; }
     </style>
 </head>
 <body>
@@ -193,56 +215,110 @@ wopr_generate_placeholder_dashboard() {
             <a href="/">Dashboard</a>
             <a href="/modules">Modules</a>
             <a href="/settings">Settings</a>
+            <button class="refresh-btn" onclick="loadModules()">Refresh</button>
         </nav>
     </header>
     <main>
         <h1>Welcome to WOPR</h1>
-        <p class="subtitle">Your Sovereign Suite is ready</p>
+        <p class="subtitle" id="subtitle">Checking service status...</p>
 
-        <div class="grid">
-            <div class="card">
-                <h3>Files <span class="badge">Running</span></h3>
-                <p>Nextcloud - File storage and sync</p>
-                <a href="/files" class="btn">Open</a>
-            </div>
-            <div class="card">
-                <h3>Passwords <span class="badge">Running</span></h3>
-                <p>Vaultwarden - Password manager</p>
-                <a href="/vault" class="btn">Open</a>
-            </div>
-            <div class="card">
-                <h3>News <span class="badge">Running</span></h3>
-                <p>FreshRSS - Feed reader</p>
-                <a href="/rss" class="btn">Open</a>
-            </div>
-            <div class="card">
-                <h3>Identity <span class="badge">Running</span></h3>
-                <p>Authentik - Single Sign-On</p>
-                <a href="/auth" class="btn">Open</a>
-            </div>
+        <div class="grid" id="modules-grid">
+            <div class="loading">Loading services...</div>
         </div>
 
         <div class="status">
             <h2>System Status</h2>
             <div class="status-item">
                 <span>Domain</span>
-                <span id="domain">Loading...</span>
+                <span id="domain" class="value">Loading...</span>
             </div>
             <div class="status-item">
-                <span>SSL Certificate</span>
-                <span>Valid</span>
+                <span>Services Running</span>
+                <span id="services-running" class="value">-/-</span>
             </div>
             <div class="status-item">
-                <span>Last Backup</span>
-                <span>Today</span>
+                <span>Overall Health</span>
+                <span id="health-status" class="value">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span>Last Check</span>
+                <span id="last-check" class="value">-</span>
             </div>
         </div>
     </main>
     <footer>
-        WOPR Sovereign Suite &copy; 2024
+        WOPR Sovereign Suite &copy; 2026
     </footer>
     <script>
-        document.getElementById('domain').textContent = window.location.hostname.replace('dashboard.', '');
+        const domain = window.location.hostname.replace('dashboard.', '');
+        document.getElementById('domain').textContent = domain;
+
+        async function loadModules() {
+            const grid = document.getElementById('modules-grid');
+            grid.innerHTML = '<div class="loading">Checking services...</div>';
+
+            try {
+                const response = await fetch('/api/modules');
+                if (!response.ok) throw new Error('API unavailable');
+                const modules = await response.json();
+
+                let running = 0;
+                let total = modules.length;
+                let html = '';
+
+                modules.forEach(mod => {
+                    const isRunning = mod.status === 'running';
+                    if (isRunning) running++;
+
+                    const badgeClass = isRunning ? 'running' : 'stopped';
+                    const badgeText = isRunning ? 'Running' : 'Stopped';
+                    const btnClass = isRunning ? '' : 'disabled';
+                    const errorHtml = mod.error ? `<div class="error">${mod.error}</div>` : '';
+
+                    html += `
+                        <div class="card">
+                            <h3>${mod.name} <span class="badge ${badgeClass}">${badgeText}</span></h3>
+                            <p>${mod.description}</p>
+                            ${errorHtml}
+                            <a href="${mod.url}" class="btn ${btnClass}" target="_blank">Open</a>
+                        </div>
+                    `;
+                });
+
+                grid.innerHTML = html || '<div class="loading">No services found</div>';
+
+                // Update status
+                document.getElementById('services-running').textContent = `${running}/${total}`;
+                const healthPct = total > 0 ? Math.round((running / total) * 100) : 0;
+                const healthEl = document.getElementById('health-status');
+                healthEl.textContent = `${healthPct}% Healthy`;
+                healthEl.className = 'value' + (healthPct < 50 ? ' error' : '');
+
+                document.getElementById('subtitle').textContent =
+                    running === total ? 'Your Sovereign Suite is fully operational' :
+                    running > 0 ? `${running} of ${total} services running` : 'Services offline';
+
+                document.getElementById('last-check').textContent = new Date().toLocaleTimeString();
+
+            } catch (err) {
+                console.error('Failed to load modules:', err);
+                grid.innerHTML = `
+                    <div class="loading">
+                        Failed to load service status.<br>
+                        <small style="color:#f44336">${err.message}</small><br>
+                        <button class="refresh-btn" style="margin-top:1rem" onclick="loadModules()">Retry</button>
+                    </div>
+                `;
+                document.getElementById('health-status').textContent = 'Unknown';
+                document.getElementById('health-status').className = 'value error';
+            }
+        }
+
+        // Load on page load
+        loadModules();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadModules, 30000);
     </script>
 </body>
 </html>
@@ -258,17 +334,18 @@ wopr_deploy_dashboard_api() {
     local api_script="/opt/wopr/dashboard_api.py"
     mkdir -p /opt/wopr
 
-    # Create lightweight dashboard API
+    # Create lightweight dashboard API with REAL health checks
     cat > "$api_script" <<'APIEOF'
 #!/usr/bin/env python3
 """
 WOPR Dashboard API - Local Instance
-Provides status and control endpoints for the dashboard UI
+Provides REAL status checks for the dashboard UI - NO LIES!
 """
 
 import json
 import subprocess
 import os
+import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -286,38 +363,118 @@ def save_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f, indent=2)
 
+def get_systemd_status(service_name):
+    """Check if a systemd service is running."""
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', service_name],
+            capture_output=True, text=True, timeout=5
+        )
+        status = result.stdout.strip()
+        return status == 'active', status
+    except Exception as e:
+        return False, str(e)
+
 def get_container_status(name):
+    """Check podman container status."""
     try:
         result = subprocess.run(
             ['podman', 'inspect', '--format', '{{.State.Status}}', name],
-            capture_output=True, text=True
+            capture_output=True, text=True, timeout=5
         )
-        return result.stdout.strip() if result.returncode == 0 else 'stopped'
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return 'not_found'
     except:
         return 'unknown'
 
+def check_port_open(port, host='127.0.0.1', timeout=2):
+    """Check if a port is listening."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except:
+        return False
+
 def get_modules():
+    """Get REAL status of ALL WOPR services."""
     settings = load_settings()
     domain = settings.get('domain', 'localhost')
 
-    modules = []
+    # All WOPR services with their details
+    # Format: (systemd_service, display_name, subdomain, description, check_port)
     module_defs = [
-        ('wopr-nextcloud', 'Nextcloud', 'files', 'File storage and sync'),
-        ('wopr-vaultwarden', 'Vaultwarden', 'vault', 'Password manager'),
-        ('wopr-freshrss', 'FreshRSS', 'rss', 'RSS feed reader'),
-        ('wopr-authentik-server', 'Authentik', 'auth', 'Identity provider'),
+        ('wopr-postgresql', 'PostgreSQL', None, 'Database server', 5432),
+        ('wopr-redis', 'Redis', None, 'Cache server', 6379),
+        ('wopr-authentik-server', 'Authentik', 'auth', 'Identity & SSO', 9000),
+        ('wopr-authentik-worker', 'Authentik Worker', None, 'Background jobs', None),
+        ('wopr-n8n', 'n8n', 'auto', 'Workflow automation', 5678),
+        ('wopr-nextcloud', 'Nextcloud', 'files', 'File storage & sync', 80),
+        ('wopr-vaultwarden', 'Vaultwarden', 'vault', 'Password manager', 8080),
+        ('wopr-collabora', 'Collabora', 'office', 'Document editing', 9980),
+        ('wopr-code-server', 'Code Server', 'code', 'VS Code in browser', 8443),
+        ('wopr-portainer', 'Portainer', 'containers', 'Container management', 9443),
+        ('wopr-openwebui', 'Open WebUI', 'ai', 'AI chat interface', 3000),
+        ('wopr-forgejo', 'Forgejo', 'git', 'Git hosting', 3001),
+        ('wopr-woodpecker', 'Woodpecker', 'ci', 'CI/CD pipelines', 8000),
+        ('wopr-nocodb', 'NocoDB', 'db', 'Database UI', 8081),
+        ('wopr-freshrss', 'FreshRSS', 'rss', 'RSS feed reader', 8082),
+        ('wopr-reactor', 'Reactor', 'reactor', 'AI agent platform', 8083),
     ]
 
-    for container, name, subdomain, desc in module_defs:
-        status = get_container_status(container)
-        modules.append({
-            'id': container.replace('wopr-', ''),
+    modules = []
+
+    for service, name, subdomain, desc, port in module_defs:
+        # Check systemd service status
+        is_active, status_text = get_systemd_status(service)
+
+        # Also check container if systemd says active
+        container_status = get_container_status(service)
+
+        # Determine actual running state
+        if is_active and container_status == 'running':
+            status = 'running'
+            error = None
+        elif container_status == 'running':
+            status = 'running'
+            error = None
+        elif status_text == 'activating':
+            status = 'starting'
+            error = 'Service is starting up...'
+        elif container_status == 'exited':
+            status = 'stopped'
+            error = 'Container exited'
+        elif container_status == 'not_found':
+            status = 'stopped'
+            error = 'Not deployed'
+        else:
+            status = 'stopped'
+            error = f'Service: {status_text}, Container: {container_status}'
+
+        # Optional port check for running services
+        if status == 'running' and port:
+            if not check_port_open(port):
+                error = f'Port {port} not responding'
+
+        module = {
+            'id': service.replace('wopr-', ''),
             'name': name,
             'description': desc,
-            'status': 'running' if status == 'running' else 'stopped',
-            'url': f'https://{subdomain}.{domain}',
-            'category': 'installed'
-        })
+            'status': status,
+            'error': error,
+            'category': 'installed' if status == 'running' else 'unavailable'
+        }
+
+        # Add URL if service has a subdomain
+        if subdomain:
+            module['url'] = f'https://{subdomain}.{domain}'
+        else:
+            module['url'] = None
+
+        modules.append(module)
 
     return modules
 
@@ -326,6 +483,7 @@ class DashboardAPIHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Cache-Control', 'no-cache')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -334,18 +492,36 @@ class DashboardAPIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/status':
             settings = load_settings()
+            modules = get_modules()
+            running = sum(1 for m in modules if m['status'] == 'running')
+            total = len(modules)
+            health_pct = round((running / total) * 100) if total > 0 else 0
+
             self._send_json({
-                'status': 'healthy',
+                'status': 'healthy' if health_pct >= 80 else 'degraded' if health_pct >= 50 else 'critical',
                 'domain': settings.get('domain'),
                 'bundle': settings.get('bundle', 'personal'),
                 'instance_id': settings.get('instance_id'),
+                'services_running': running,
+                'services_total': total,
+                'health_percent': health_pct,
             })
 
         elif path == '/api/modules':
             self._send_json(get_modules())
 
+        elif path == '/api/health':
+            # Quick health check for monitoring
+            modules = get_modules()
+            running = sum(1 for m in modules if m['status'] == 'running')
+            total = len(modules)
+            self._send_json({
+                'healthy': running >= (total * 0.8),
+                'running': running,
+                'total': total,
+            })
+
         elif path == '/api/trials':
-            # Trials would come from control plane in production
             self._send_json([])
 
         elif path == '/api/billing':
@@ -368,12 +544,12 @@ class DashboardAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):
-        pass  # Suppress logging
+        pass  # Suppress request logging
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8090))
     server = HTTPServer(('127.0.0.1', port), DashboardAPIHandler)
-    print(f'Dashboard API running on port {port}')
+    print(f'WOPR Dashboard API running on port {port}')
     server.serve_forever()
 APIEOF
 

@@ -1,0 +1,430 @@
+/**
+ * WOPR Theme Override: Woodpecker CI
+ * ===================================
+ *
+ * Maps WOPR theme variables to Woodpecker CI's CSS.
+ * Woodpecker uses Vue.js with custom styling.
+ *
+ * Compatibility: PARTIAL
+ * Tested with: Woodpecker 2.0+
+ */
+
+/* ========================================
+   ROOT OVERRIDES
+   ======================================== */
+
+:root {
+	/* Woodpecker CSS Variables */
+	--color-primary: var(--theme-primary) !important;
+	--color-secondary: var(--theme-accent) !important;
+
+	/* Backgrounds */
+	--color-background: var(--theme-bg) !important;
+	--color-surface: var(--theme-surface) !important;
+
+	/* Text */
+	--color-text: var(--theme-text) !important;
+	--color-text-secondary: var(--theme-text-muted) !important;
+
+	/* Status colors */
+	--color-success: var(--theme-success) !important;
+	--color-warning: var(--theme-warning) !important;
+	--color-error: var(--theme-error) !important;
+}
+
+/* ========================================
+   BODY & LAYOUT
+   ======================================== */
+
+body {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+#app {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   NAVBAR
+   ======================================== */
+
+.navbar,
+header {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.navbar a {
+	color: var(--theme-text) !important;
+}
+
+.navbar a:hover {
+	color: var(--theme-primary) !important;
+}
+
+.navbar a.active,
+.navbar a.router-link-active {
+	color: var(--theme-primary) !important;
+}
+
+/* Logo */
+.navbar .logo {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+
+.sidebar,
+aside {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+.sidebar a {
+	color: var(--theme-text) !important;
+}
+
+.sidebar a:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.sidebar a.active {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+	border-left: 3px solid var(--theme-primary) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.btn,
+button {
+	border: 1px solid var(--theme-border) !important;
+}
+
+.btn-primary {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.btn-primary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.btn-secondary,
+.btn-outline {
+	background-color: transparent !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.btn-secondary:hover,
+.btn-outline:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.btn-success {
+	background-color: var(--theme-success) !important;
+}
+
+.btn-danger {
+	background-color: var(--theme-error) !important;
+}
+
+/* ========================================
+   CARDS / PANELS
+   ======================================== */
+
+.card,
+.panel {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.card-header,
+.panel-header {
+	background-color: var(--theme-elevated) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.card-body,
+.panel-body {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   PIPELINE LIST
+   ======================================== */
+
+.pipeline-list {
+	background-color: var(--theme-bg) !important;
+}
+
+.pipeline-item {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.pipeline-item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.pipeline-name {
+	color: var(--theme-text) !important;
+}
+
+.pipeline-info {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BUILD STATUS
+   ======================================== */
+
+.status-success,
+.build-success {
+	color: var(--theme-success) !important;
+}
+
+.status-running,
+.build-running {
+	color: var(--theme-info) !important;
+}
+
+.status-pending,
+.build-pending {
+	color: var(--theme-warning) !important;
+}
+
+.status-failure,
+.status-error,
+.build-failure {
+	color: var(--theme-error) !important;
+}
+
+/* Status badges */
+.badge-success {
+	background-color: var(--theme-success) !important;
+}
+
+.badge-running {
+	background-color: var(--theme-info) !important;
+}
+
+.badge-pending {
+	background-color: var(--theme-warning) !important;
+}
+
+.badge-failure,
+.badge-error {
+	background-color: var(--theme-error) !important;
+}
+
+/* ========================================
+   BUILD DETAILS
+   ======================================== */
+
+.build-header {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.build-title {
+	color: var(--theme-text) !important;
+}
+
+.build-meta {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Steps */
+.step {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.step:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.step-name {
+	color: var(--theme-text) !important;
+}
+
+.step-duration {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   LOG OUTPUT
+   ======================================== */
+
+.log,
+.logs,
+pre {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.log-line {
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+.log-line-number {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+input,
+select,
+textarea {
+	background-color: var(--theme-bg) !important;
+	border: 1px solid var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 2px var(--theme-primary-subtle) !important;
+}
+
+label {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+table {
+	background-color: var(--theme-surface) !important;
+}
+
+thead th {
+	background-color: var(--theme-elevated) !important;
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+tbody td {
+	color: var(--theme-text) !important;
+	border-bottom: 1px solid var(--theme-border-subtle) !important;
+}
+
+tbody tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   MODALS
+   ======================================== */
+
+.modal {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.modal-header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.modal-title {
+	color: var(--theme-text) !important;
+}
+
+.modal-body {
+	color: var(--theme-text) !important;
+}
+
+.modal-footer {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+.modal-backdrop {
+	background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ========================================
+   REPO LIST
+   ======================================== */
+
+.repo-list {
+	background-color: var(--theme-bg) !important;
+}
+
+.repo-item {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.repo-item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.repo-name {
+	color: var(--theme-text) !important;
+}
+
+.repo-name a {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   SETTINGS
+   ======================================== */
+
+.settings-section {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.settings-section h2,
+.settings-section h3 {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

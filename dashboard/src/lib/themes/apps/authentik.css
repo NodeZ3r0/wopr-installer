@@ -1,0 +1,403 @@
+/**
+ * WOPR Theme Override: Authentik
+ * ===============================
+ *
+ * Maps WOPR theme variables to Authentik's PatternFly-based CSS.
+ * Authentik uses PatternFly 4, which has CSS variable support.
+ *
+ * Compatibility: FULL
+ * Tested with: Authentik 2024.1+
+ */
+
+/* ========================================
+   PATTERNFLY CSS VARIABLE OVERRIDES
+   ======================================== */
+
+:root {
+	/* Primary colors */
+	--pf-global--primary-color--100: var(--theme-primary) !important;
+	--pf-global--primary-color--200: var(--theme-primary-hover) !important;
+	--pf-global--link--Color: var(--theme-primary) !important;
+	--pf-global--link--Color--hover: var(--theme-primary-hover) !important;
+
+	/* Background colors */
+	--pf-global--BackgroundColor--100: var(--theme-bg) !important;
+	--pf-global--BackgroundColor--200: var(--theme-surface) !important;
+	--pf-global--BackgroundColor--dark-100: var(--theme-surface) !important;
+	--pf-global--BackgroundColor--dark-200: var(--theme-elevated) !important;
+
+	/* Text colors */
+	--pf-global--Color--100: var(--theme-text) !important;
+	--pf-global--Color--200: var(--theme-text-muted) !important;
+	--pf-global--Color--light-100: var(--theme-text) !important;
+	--pf-global--Color--light-200: var(--theme-text-muted) !important;
+
+	/* Border colors */
+	--pf-global--BorderColor--100: var(--theme-border) !important;
+	--pf-global--BorderColor--200: var(--theme-border) !important;
+
+	/* Status colors */
+	--pf-global--success-color--100: var(--theme-success) !important;
+	--pf-global--warning-color--100: var(--theme-warning) !important;
+	--pf-global--danger-color--100: var(--theme-error) !important;
+	--pf-global--info-color--100: var(--theme-info) !important;
+
+	/* Authentik-specific variables */
+	--ak-accent: var(--theme-primary) !important;
+	--ak-dark-background: var(--theme-bg) !important;
+	--ak-dark-foreground: var(--theme-text) !important;
+}
+
+/* ========================================
+   PAGE LAYOUT
+   ======================================== */
+
+body,
+.pf-c-page {
+	background-color: var(--theme-bg) !important;
+	color: var(--theme-text) !important;
+}
+
+.pf-c-page__main {
+	background-color: var(--theme-bg) !important;
+}
+
+.pf-c-page__main-section {
+	background-color: var(--theme-bg) !important;
+}
+
+/* ========================================
+   HEADER / MASTHEAD
+   ======================================== */
+
+.pf-c-page__header,
+.pf-c-masthead {
+	background-color: var(--theme-surface) !important;
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-page__header-brand,
+.pf-c-masthead__brand {
+	color: var(--theme-primary) !important;
+}
+
+.ak-brand {
+	filter: drop-shadow(0 0 1px var(--theme-primary));
+}
+
+/* Header navigation */
+.pf-c-page__header-tools,
+.pf-c-masthead__content {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   SIDEBAR / NAVIGATION
+   ======================================== */
+
+.pf-c-page__sidebar,
+.pf-c-nav {
+	background-color: var(--theme-surface) !important;
+	border-right: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-nav__link {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-nav__link:hover {
+	background-color: var(--theme-surface-hover) !important;
+	color: var(--theme-primary) !important;
+}
+
+.pf-c-nav__link.pf-m-current,
+.pf-c-nav__item.pf-m-current > .pf-c-nav__link {
+	background-color: var(--theme-primary-subtle) !important;
+	color: var(--theme-primary) !important;
+	border-left: 3px solid var(--theme-primary) !important;
+}
+
+.pf-c-nav__section-title {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.pf-c-button.pf-m-primary {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.pf-c-button.pf-m-primary:hover {
+	background-color: var(--theme-primary-hover) !important;
+}
+
+.pf-c-button.pf-m-secondary {
+	border-color: var(--theme-primary) !important;
+	color: var(--theme-primary) !important;
+}
+
+.pf-c-button.pf-m-secondary:hover {
+	background-color: var(--theme-primary-subtle) !important;
+}
+
+.pf-c-button.pf-m-tertiary {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-button.pf-m-danger {
+	background-color: var(--theme-error) !important;
+}
+
+.pf-c-button.pf-m-link {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.pf-c-card {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-card__header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-card__title {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-card__body {
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   FORMS
+   ======================================== */
+
+.pf-c-form-control {
+	background-color: var(--theme-surface) !important;
+	border-color: var(--theme-border) !important;
+	color: var(--theme-text) !important;
+}
+
+.pf-c-form-control:focus {
+	border-color: var(--theme-primary) !important;
+	box-shadow: 0 0 0 1px var(--theme-primary) !important;
+}
+
+.pf-c-form__label {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-form__helper-text {
+	color: var(--theme-text-muted) !important;
+}
+
+/* Checkbox/Radio */
+.pf-c-check__input:checked,
+.pf-c-radio__input:checked {
+	background-color: var(--theme-primary) !important;
+	border-color: var(--theme-primary) !important;
+}
+
+/* Switch */
+.pf-c-switch__toggle::before {
+	background-color: var(--theme-border) !important;
+}
+
+.pf-c-switch__input:checked ~ .pf-c-switch__toggle::before {
+	background-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.pf-c-table {
+	background-color: var(--theme-surface) !important;
+	color: var(--theme-text) !important;
+}
+
+.pf-c-table tr {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-table tbody tr:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+.pf-c-table th {
+	background-color: var(--theme-elevated) !important;
+	color: var(--theme-text) !important;
+}
+
+/* ========================================
+   MODALS / DIALOGS
+   ======================================== */
+
+.pf-c-modal-box {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-modal-box__header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-modal-box__title {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-modal-box__body {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-modal-box__footer {
+	border-top: 1px solid var(--theme-border) !important;
+}
+
+/* Backdrop */
+.pf-c-backdrop {
+	background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ========================================
+   ALERTS
+   ======================================== */
+
+.pf-c-alert.pf-m-success {
+	border-left-color: var(--theme-success) !important;
+}
+
+.pf-c-alert.pf-m-warning {
+	border-left-color: var(--theme-warning) !important;
+}
+
+.pf-c-alert.pf-m-danger {
+	border-left-color: var(--theme-error) !important;
+}
+
+.pf-c-alert.pf-m-info {
+	border-left-color: var(--theme-info) !important;
+}
+
+/* ========================================
+   DROPDOWN / SELECT
+   ======================================== */
+
+.pf-c-dropdown__menu,
+.pf-c-select__menu {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-dropdown__menu-item,
+.pf-c-select__menu-item {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-dropdown__menu-item:hover,
+.pf-c-select__menu-item:hover {
+	background-color: var(--theme-surface-hover) !important;
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+
+.pf-c-tabs__link {
+	color: var(--theme-text-muted) !important;
+}
+
+.pf-c-tabs__link:hover {
+	color: var(--theme-primary) !important;
+}
+
+.pf-c-tabs__item.pf-m-current .pf-c-tabs__link {
+	color: var(--theme-primary) !important;
+	border-bottom-color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   LOGIN PAGE
+   ======================================== */
+
+.pf-c-login {
+	background-color: var(--theme-bg) !important;
+}
+
+.pf-c-login__main {
+	background-color: var(--theme-surface) !important;
+	border: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-login__header {
+	color: var(--theme-text) !important;
+}
+
+.pf-c-login__main-header {
+	border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.pf-c-login__main-footer-links a {
+	color: var(--theme-primary) !important;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+	color: var(--theme-primary) !important;
+}
+
+a:hover {
+	color: var(--theme-primary-hover) !important;
+}
+
+/* ========================================
+   BADGES / LABELS
+   ======================================== */
+
+.pf-c-badge {
+	background-color: var(--theme-primary) !important;
+	color: var(--theme-text-on-primary) !important;
+}
+
+.pf-c-label.pf-m-green {
+	background-color: var(--theme-success-subtle) !important;
+	color: var(--theme-success) !important;
+}
+
+.pf-c-label.pf-m-red {
+	background-color: var(--theme-error-subtle) !important;
+	color: var(--theme-error) !important;
+}
+
+/* ========================================
+   SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--theme-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--theme-border);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--theme-text-muted);
+}

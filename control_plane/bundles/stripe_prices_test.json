@@ -59,10 +59,15 @@
       "product_id": "prod_TrXi0jsUZi5dzf",
       "name": "Enterprise Sovereign Suite",
       "prices": {
-        "tier_1": "price_1StodN2ZMY5KYPjWMgGRjIrY",
-        "tier_2": "price_1StodO2ZMY5KYPjW0LWChnNX",
+        "tier_1": "price_1Sz2FV2ZMY5KYPjWPWvvRZ1k",
+        "tier_2": "price_1Sz2Fd2ZMY5KYPjW9dozIDje",
         "tier_3": "price_1StodP2ZMY5KYPjW3AmwEF5i"
       }
+    },
+    "small_business": {
+      "tier_1": "price_1Sz2Za2ZMY5KYPjWxcbHrza2",
+      "tier_2": "price_1Sz2Za2ZMY5KYPjW0POTfojo",
+      "tier_3": "price_1Sz2Za2ZMY5KYPjWfRbpZnjG"
     }
   },
   "micro": {
@@ -218,6 +223,21 @@
         "tier_2": "price_1Stof42ZMY5KYPjWWD3zaBd7",
         "tier_3": "price_1Stof52ZMY5KYPjWJQqQs1HQ"
       }
+    },
+    "defcon_one": {
+      "tier_1": "price_1Sz2XE2ZMY5KYPjWvBz23yhu",
+      "tier_2": "price_1Sz2XE2ZMY5KYPjWPHjg9CVw",
+      "tier_3": "price_1Sz2XE2ZMY5KYPjWxyYRKqmn"
+    },
+    "reactor_ai": {
+      "tier_1": "price_1Sz2XE2ZMY5KYPjWZdR6KEpd",
+      "tier_2": "price_1Sz2XE2ZMY5KYPjW8vVPjnNI",
+      "tier_3": "price_1Sz2XF2ZMY5KYPjWbVXZQklT"
+    },
+    "ollama_addon": {
+      "tier_1": "CUSTOM_PRICING",
+      "tier_2": "price_1Sz2Zb2ZMY5KYPjWOPCTAPjt",
+      "tier_3": "price_1Sz2Zb2ZMY5KYPjWLo2fvUf1"
     }
   }
 }

@@ -1,0 +1,81 @@
+/* WOPR Beacon Theme Token System
+ * ================================
+ * Two-tier token architecture:
+ * 1. Primitive tokens: Raw color values (gray-50, gray-900, etc.)
+ * 2. Semantic tokens: Purpose-based references (--theme-bg, --theme-primary)
+ *
+ * Theme switching works by updating semantic tokens via JavaScript.
+ */
+
+:root {
+	/* ======================
+	   PRIMITIVE TOKENS
+	   Raw color palette
+	   ====================== */
+
+	/* Neutral Grays */
+	--gray-50: #fafafa;
+	--gray-100: #f4f4f5;
+	--gray-200: #e4e4e7;
+	--gray-300: #d4d4d8;
+	--gray-400: #a1a1aa;
+	--gray-500: #71717a;
+	--gray-600: #52525b;
+	--gray-700: #3f3f46;
+	--gray-800: #27272a;
+	--gray-900: #18181b;
+	--gray-950: #09090b;
+
+	/* ======================
+	   SEMANTIC TOKENS
+	   Theme-aware references
+	   ====================== */
+
+	/* Background layers */
+	--theme-bg: #0a0a0a;
+	--theme-surface: #1a1a1a;
+	--theme-surface-hover: #252525;
+	--theme-elevated: #2a2a2a;
+
+	/* Borders */
+	--theme-border: #333333;
+	--theme-border-subtle: #262626;
+
+	/* Text */
+	--theme-text: #e0e0e0;
+	--theme-text-muted: #888888;
+	--theme-text-on-primary: #000000;
+
+	/* Primary brand color (main accent) */
+	--theme-primary: #00d4aa;
+	--theme-primary-hover: #00f0c0;
+	--theme-primary-subtle: rgba(0, 212, 170, 0.15);
+
+	/* Secondary accent color */
+	--theme-accent: #ff9b3f;
+	--theme-accent-hover: #ffb366;
+	--theme-accent-subtle: rgba(255, 155, 63, 0.15);
+
+	/* Semantic status colors */
+	--theme-success: #22c55e;
+	--theme-success-subtle: rgba(34, 197, 94, 0.15);
+	--theme-warning: #f59e0b;
+	--theme-warning-subtle: rgba(245, 158, 11, 0.15);
+	--theme-error: #ef4444;
+	--theme-error-subtle: rgba(239, 68, 68, 0.15);
+	--theme-info: #3b82f6;
+	--theme-info-subtle: rgba(59, 130, 246, 0.15);
+
+	/* Component tokens */
+	--theme-radius: 8px;
+	--theme-radius-sm: 4px;
+	--theme-radius-lg: 12px;
+	--theme-radius-full: 9999px;
+
+	--theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+	--theme-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+
+	/* Animation */
+	--theme-transition: 0.2s ease;
+	--theme-transition-fast: 0.1s ease;
+}
