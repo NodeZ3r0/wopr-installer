@@ -952,3 +952,19 @@ wopr_init() {
 
 # Auto-init when sourced
 wopr_init
+
+# =============================================================================
+# Bootstrap.json Helpers
+# =============================================================================
+
+wopr_bootstrap_get() {
+    local key="$1"
+    local bootstrap_file="/etc/wopr/bootstrap.json"
+    
+    if [ ! -f "$bootstrap_file" ]; then
+        return 1
+    fi
+    
+    # Use jq to extract value
+    jq -r ".${key}" "$bootstrap_file" 2>/dev/null
+}
